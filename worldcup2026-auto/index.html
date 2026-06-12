@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pronostics IA — Coupe du Monde 2026</title>
+<meta name="description" content="Pronostics IA de la Coupe du Monde 2026, mis à jour chaque jour avec les vrais scores et la dynamique des équipes.">
+<style>
+  :root{
+    --bg:#0b1018; --card:#0f1625; --card2:#0d1421; --line:#1a2540;
+    --gold:#f0c040; --txt:#bcc5d8; --mut:#5a6880; --dim:#3a4560;
+    --win:#2e7d32; --winbg:#173a1c; --draw:#b8860b; --drawbg:#3a2e10;
+    --rate:#c0392b; --ratebg:#3a1a18; --real:#1e3a5a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);
+    font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:680px;margin:0 auto;padding:0 14px 40px}
+  header{position:sticky;top:0;z-index:50;background:linear-gradient(180deg,#0f1625,#0b1018);
+    border-bottom:1px solid var(--line);padding:16px 14px 12px;margin:0 -14px 14px}
+  .hrow{display:flex;align-items:center;gap:10px;max-width:680px;margin:0 auto}
+  h1{font-size:15px;font-weight:800;color:#fff;margin:0;letter-spacing:.3px}
+  .sub{font-size:9px;color:var(--dim);letter-spacing:1.4px;margin:2px 0 0}
+  .stats{margin-left:auto;text-align:right}
+  .stats .big{font-size:19px;font-weight:800;color:var(--gold);line-height:1}
+  .stats .lbl{font-size:8px;color:var(--dim);letter-spacing:1px}
+  .maj{font-size:10px;color:var(--mut);text-align:center;margin:8px 0 0;max-width:680px;margin-left:auto;margin-right:auto}
+  .scorebar{display:flex;gap:6px;max-width:680px;margin:10px auto 0}
+  .pill{flex:1;text-align:center;padding:6px 4px;border-radius:8px;background:var(--card);border:1px solid var(--line)}
+  .pill .v{font-size:15px;font-weight:800}
+  .pill .t{font-size:8px;color:var(--mut);letter-spacing:.5px;text-transform:uppercase}
+  .pill.exact .v{color:#5fd47a}.pill.bon .v{color:var(--gold)}.pill.rate .v{color:#e0746a}.pill.j .v{color:#7aa8d8}
+  nav{display:flex;gap:6px;margin:14px 0}
+  nav button{flex:1;padding:8px 4px;border:none;border-radius:9px;background:var(--card);
+    color:var(--dim);font-weight:700;font-size:11px;cursor:pointer;letter-spacing:.3px;transition:.15s;font-family:inherit}
+  nav button.on{background:var(--gold);color:#0b1018}
+  .grpsel{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}
+  .grpsel button{padding:5px 10px;border:none;border-radius:7px;background:var(--card);color:var(--dim);
+    font-weight:700;font-size:12px;cursor:pointer;font-family:inherit}
+  .card{background:var(--card2);border:1px solid var(--line);border-radius:11px;overflow:hidden;margin-bottom:14px}
+  .match{display:flex;align-items:center;gap:6px;padding:9px 11px;border-bottom:1px solid #111a2b}
+  .match:last-child{border-bottom:none}
+  .match .dt{font-size:9px;color:var(--dim);width:48px;flex-shrink:0;text-align:right}
+  .match .tm{flex:1;font-size:11.5px;color:#c8d0e0;font-weight:500;display:flex;align-items:center;gap:4px;min-width:0}
+  .match .tm.r{justify-content:flex-end;text-align:right}
+  .match .tm.l{justify-content:flex-start}
+  .match .tm span.n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sc{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:62px}
+  .sc .score{font-size:14px;font-weight:800;color:#fff;letter-spacing:1px}
+  .sc .score.prono{color:var(--gold)}
+  .sc .tag{font-size:8px;padding:1px 6px;border-radius:20px;font-weight:700;letter-spacing:.3px;white-space:nowrap}
+  .tag.exact{background:var(--winbg);color:#5fd47a}.tag.bon{background:var(--drawbg);color:var(--gold)}
+  .tag.rate{background:var(--ratebg);color:#e0746a}.tag.avenir{background:#162133;color:var(--mut)}
+  .badge{font-size:8px}
+  .dyn{font-size:9px;color:#4f7fb8;padding:3px 11px 8px 67px;background:#0b1220;border-bottom:1px solid #111a2b}
+  table{width:100%;border-collapse:collapse;font-size:11px}
+  th{background:#16213a;color:#8a97ad;font-weight:700;padding:6px 4px;text-align:center;font-size:9px;letter-spacing:.5px}
+  td{padding:7px 4px;text-align:center;border-bottom:1px solid #111a2b}
+  td.team{text-align:left;font-weight:600;color:#c8d0e0;padding-left:8px}
+  tr.q1 td,tr.q2 td{background:rgba(46,125,50,.10)}
+  tr.q3 td{background:rgba(240,192,64,.07)}
+  .grphead{padding:9px 12px;font-weight:800;font-size:13px;color:#fff;letter-spacing:.5px}
+  .grphead small{font-weight:500;font-size:9px;color:rgba(255,255,255,.7);letter-spacing:0}
+  .momrow{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid #111a2b}
+  .momrow:last-child{border-bottom:none}
+  .momrow .tn{flex:1;font-size:12px;font-weight:600;color:#c8d0e0;display:flex;gap:5px;align-items:center}
+  .momrow .res{font-size:9px;color:var(--mut)}
+  .momrow .mv{font-size:13px;font-weight:800;min-width:48px;text-align:right}
+  .momrow .ar{font-size:10px;font-weight:700;min-width:78px;text-align:right}
+  .up{color:#5fd47a}.down{color:#e0746a}.neu{color:var(--mut)}
+  .legend{font-size:9px;color:var(--mut);line-height:1.7;padding:10px 4px;text-align:center}
+  footer{text-align:center;font-size:9px;color:#1f2940;padding:20px 0 0}
+  footer a{color:var(--dim);text-decoration:none}
+  .empty{text-align:center;padding:40px 20px;color:var(--dim)}
+</style>
+</head>
+<body>
+<header>
+  <div class="hrow">
+    <span style="font-size:24px">⚽</span>
+    <div>
+      <h1>Pronostics IA — Coupe du Monde 2026</h1>
+      <div class="sub" id="sub">MISE À JOUR QUOTIDIENNE · SCORES & DYNAMIQUE</div>
+    </div>
+    <div class="stats"><div class="big" id="pct">—</div><div class="lbl">FIABILITÉ</div></div>
+  </div>
+  <div class="scorebar" id="scorebar"></div>
+  <div class="maj" id="maj"></div>
+</header>
+
+<div class="wrap">
+  <nav id="nav">
+    <button data-v="matches" class="on">🏟 Matchs</button>
+    <button data-v="standings">📊 Classements</button>
+    <button data-v="momentum">🔥 Dynamique</button>
+  </nav>
+  <div id="grpsel" class="grpsel"></div>
+  <div id="content"></div>
+  <footer>
+    Coupe du Monde 2026 · 11 juin – 19 juillet · USA / Canada / Mexique<br>
+    Pronostics générés par modèle IA · Scores réels via API-Football · Mise à jour automatique quotidienne
+  </footer>
+</div>
+
+<script>
+const DATA = {"maj": "12/06/2026 à 21:42", "stats": {"joue": 2, "exact": 2, "bon": 0, "rate": 0, "total": 72}, "matches": [{"id": 1, "grp": "A", "date": "11 juin", "home": "Mexique", "away": "Afrique du Sud", "fh": "🇲🇽", "fa": "🇿🇦", "host_h": true, "host_a": false, "prono": [2, 0], "prono_initial": [2, 0], "reel": [2, 0], "statut": "exact", "mom_h": 0.44, "mom_a": -0.44}, {"id": 2, "grp": "A", "date": "11 juin", "home": "Corée du Sud", "away": "Tchéquie", "fh": "🇰🇷", "fa": "🇨🇿", "host_h": false, "host_a": false, "prono": [2, 1], "prono_initial": [2, 1], "reel": [2, 1], "statut": "exact", "mom_h": 0.37, "mom_a": -0.37}, {"id": 3, "grp": "A", "date": "18 juin", "home": "Tchéquie", "away": "Afrique du Sud", "fh": "🇨🇿", "fa": "🇿🇦", "host_h": false, "host_a": false, "prono": [2, 1], "prono_initial": [1, 1], "reel": null, "statut": "avenir", "mom_h": -0.37, "mom_a": -0.44}, {"id": 4, "grp": "A", "date": "18 juin", "home": "Mexique", "away": "Corée du Sud", "fh": "🇲🇽", "fa": "🇰🇷", "host_h": true, "host_a": false, "prono": [1, 0], "prono_initial": [1, 0], "reel": null, "statut": "avenir", "mom_h": 0.44, "mom_a": 0.37}, {"id": 5, "grp": "A", "date": "24 juin", "home": "Tchéquie", "away": "Mexique", "fh": "🇨🇿", "fa": "🇲🇽", "host_h": false, "host_a": true, "prono": [1, 3], "prono_initial": [0, 2], "reel": null, "statut": "avenir", "mom_h": -0.37, "mom_a": 0.44}, {"id": 6, "grp": "A", "date": "24 juin", "home": "Afrique du Sud", "away": "Corée du Sud", "fh": "🇿🇦", "fa": "🇰🇷", "host_h": false, "host_a": false, "prono": [1, 3], "prono_initial": [0, 2], "reel": null, "statut": "avenir", "mom_h": -0.44, "mom_a": 0.37}, {"id": 7, "grp": "B", "date": "12 juin", "home": "Canada", "away": "Bosnie-Herzégovine", "fh": "🇨🇦", "fa": "🇧🇦", "host_h": true, "host_a": false, "prono": [2, 1], "prono_initial": [2, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 8, "grp": "B", "date": "13 juin", "home": "Qatar", "away": "Suisse", "fh": "🇶🇦", "fa": "🇨🇭", "host_h": false, "host_a": false, "prono": [0, 2], "prono_initial": [0, 2], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 9, "grp": "B", "date": "18 juin", "home": "Suisse", "away": "Bosnie-Herzégovine", "fh": "🇨🇭", "fa": "🇧🇦", "host_h": false, "host_a": false, "prono": [2, 0], "prono_initial": [2, 0], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 10, "grp": "B", "date": "18 juin", "home": "Canada", "away": "Qatar", "fh": "🇨🇦", "fa": "🇶🇦", "host_h": true, "host_a": false, "prono": [2, 0], "prono_initial": [2, 0], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 11, "grp": "B", "date": "24 juin", "home": "Suisse", "away": "Canada", "fh": "🇨🇭", "fa": "🇨🇦", "host_h": false, "host_a": true, "prono": [1, 2], "prono_initial": [1, 2], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 12, "grp": "B", "date": "24 juin", "home": "Bosnie-Herzégovine", "away": "Qatar", "fh": "🇧🇦", "fa": "🇶🇦", "host_h": false, "host_a": false, "prono": [1, 1], "prono_initial": [1, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 13, "grp": "C", "date": "13 juin", "home": "Brésil", "away": "Maroc", "fh": "🇧🇷", "fa": "🇲🇦", "host_h": false, "host_a": false, "prono": [1, 0], "prono_initial": [1, 0], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 14, "grp": "C", "date": "13 juin", "home": "Haïti", "away": "Écosse", "fh": "🇭🇹", "fa": "🏴", "host_h": false, "host_a": false, "prono": [0, 1], "prono_initial": [0, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 15, "grp": "C", "date": "19 juin", "home": "Écosse", "away": "Maroc", "fh": "🏴", "fa": "🇲🇦", "host_h": false, "host_a": false, "prono": [0, 2], "prono_initial": [0, 2], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 16, "grp": "C", "date": "19 juin", "home": "Brésil", "away": "Haïti", "fh": "🇧🇷", "fa": "🇭🇹", "host_h": false, "host_a": false, "prono": [3, 0], "prono_initial": [3, 0], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 17, "grp": "C", "date": "24 juin", "home": "Écosse", "away": "Brésil", "fh": "🏴", "fa": "🇧🇷", "host_h": false, "host_a": false, "prono": [1, 3], "prono_initial": [1, 3], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 18, "grp": "C", "date": "24 juin", "home": "Maroc", "away": "Haïti", "fh": "🇲🇦", "fa": "🇭🇹", "host_h": false, "host_a": false, "prono": [3, 1], "prono_initial": [3, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 19, "grp": "D", "date": "12 juin", "home": "États-Unis", "away": "Paraguay", "fh": "🇺🇸", "fa": "🇵🇾", "host_h": true, "host_a": false, "prono": [2, 0], "prono_initial": [2, 0], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 20, "grp": "D", "date": "13 juin", "home": "Australie", "away": "Turquie", "fh": "🇦🇺", "fa": "🇹🇷", "host_h": false, "host_a": false, "prono": [0, 1], "prono_initial": [0, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 21, "grp": "D", "date": "19 juin", "home": "États-Unis", "away": "Australie", "fh": "🇺🇸", "fa": "🇦🇺", "host_h": true, "host_a": false, "prono": [2, 1], "prono_initial": [2, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 22, "grp": "D", "date": "19 juin", "home": "Turquie", "away": "Paraguay", "fh": "🇹🇷", "fa": "🇵🇾", "host_h": false, "host_a": false, "prono": [2, 1], "prono_initial": [2, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 23, "grp": "D", "date": "25 juin", "home": "Turquie", "away": "États-Unis", "fh": "🇹🇷", "fa": "🇺🇸", "host_h": false, "host_a": true, "prono": [0, 1], "prono_initial": [0, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 24, "grp": "D", "date": "25 juin", "home": "Paraguay", "away": "Australie", "fh": "🇵🇾", "fa": "🇦🇺", "host_h": false, "host_a": false, "prono": [0, 1], "prono_initial": [0, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 25, "grp": "E", "date": "14 juin", "home": "Allemagne", "away": "Curaçao", "fh": "🇩🇪", "fa": "🇨🇼", "host_h": false, "host_a": false, "prono": [4, 0], "prono_initial": [4, 0], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 26, "grp": "E", "date": "14 juin", "home": "Côte d'Ivoire", "away": "Équateur", "fh": "🇨🇮", "fa": "🇪🇨", "host_h": false, "host_a": false, "prono": [1, 0], "prono_initial": [1, 0], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 27, "grp": "E", "date": "20 juin", "home": "Allemagne", "away": "Côte d'Ivoire", "fh": "🇩🇪", "fa": "🇨🇮", "host_h": false, "host_a": false, "prono": [1, 0], "prono_initial": [1, 0], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 28, "grp": "E", "date": "20 juin", "home": "Équateur", "away": "Curaçao", "fh": "🇪🇨", "fa": "🇨🇼", "host_h": false, "host_a": false, "prono": [2, 0], "prono_initial": [2, 0], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 29, "grp": "E", "date": "25 juin", "home": "Équateur", "away": "Allemagne", "fh": "🇪🇨", "fa": "🇩🇪", "host_h": false, "host_a": false, "prono": [0, 1], "prono_initial": [0, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 30, "grp": "E", "date": "25 juin", "home": "Curaçao", "away": "Côte d'Ivoire", "fh": "🇨🇼", "fa": "🇨🇮", "host_h": false, "host_a": false, "prono": [1, 3], "prono_initial": [1, 3], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 31, "grp": "F", "date": "14 juin", "home": "Pays-Bas", "away": "Japon", "fh": "🇳🇱", "fa": "🇯🇵", "host_h": false, "host_a": false, "prono": [1, 1], "prono_initial": [1, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 32, "grp": "F", "date": "14 juin", "home": "Suède", "away": "Tunisie", "fh": "🇸🇪", "fa": "🇹🇳", "host_h": false, "host_a": false, "prono": [1, 0], "prono_initial": [1, 0], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 33, "grp": "F", "date": "20 juin", "home": "Pays-Bas", "away": "Suède", "fh": "🇳🇱", "fa": "🇸🇪", "host_h": false, "host_a": false, "prono": [2, 1], "prono_initial": [2, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 34, "grp": "F", "date": "20 juin", "home": "Tunisie", "away": "Japon", "fh": "🇹🇳", "fa": "🇯🇵", "host_h": false, "host_a": false, "prono": [0, 1], "prono_initial": [0, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 35, "grp": "F", "date": "25 juin", "home": "Japon", "away": "Suède", "fh": "🇯🇵", "fa": "🇸🇪", "host_h": false, "host_a": false, "prono": [1, 0], "prono_initial": [1, 0], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 36, "grp": "F", "date": "25 juin", "home": "Tunisie", "away": "Pays-Bas", "fh": "🇹🇳", "fa": "🇳🇱", "host_h": false, "host_a": false, "prono": [1, 1], "prono_initial": [1, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 37, "grp": "G", "date": "15 juin", "home": "Belgique", "away": "Égypte", "fh": "🇧🇪", "fa": "🇪🇬", "host_h": false, "host_a": false, "prono": [1, 1], "prono_initial": [1, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 38, "grp": "G", "date": "15 juin", "home": "Iran", "away": "Nouvelle-Zélande", "fh": "🇮🇷", "fa": "🇳🇿", "host_h": false, "host_a": false, "prono": [2, 1], "prono_initial": [2, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 39, "grp": "G", "date": "21 juin", "home": "Belgique", "away": "Iran", "fh": "🇧🇪", "fa": "🇮🇷", "host_h": false, "host_a": false, "prono": [1, 0], "prono_initial": [1, 0], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 40, "grp": "G", "date": "21 juin", "home": "Nouvelle-Zélande", "away": "Égypte", "fh": "🇳🇿", "fa": "🇪🇬", "host_h": false, "host_a": false, "prono": [1, 2], "prono_initial": [1, 2], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 41, "grp": "G", "date": "26 juin", "home": "Égypte", "away": "Iran", "fh": "🇪🇬", "fa": "🇮🇷", "host_h": false, "host_a": false, "prono": [1, 1], "prono_initial": [1, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 42, "grp": "G", "date": "26 juin", "home": "Nouvelle-Zélande", "away": "Belgique", "fh": "🇳🇿", "fa": "🇧🇪", "host_h": false, "host_a": false, "prono": [0, 2], "prono_initial": [0, 2], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 43, "grp": "H", "date": "15 juin", "home": "Espagne", "away": "Cap-Vert", "fh": "🇪🇸", "fa": "🇨🇻", "host_h": false, "host_a": false, "prono": [4, 1], "prono_initial": [4, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 44, "grp": "H", "date": "15 juin", "home": "Arabie Saoudite", "away": "Uruguay", "fh": "🇸🇦", "fa": "🇺🇾", "host_h": false, "host_a": false, "prono": [1, 2], "prono_initial": [1, 2], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 45, "grp": "H", "date": "21 juin", "home": "Espagne", "away": "Arabie Saoudite", "fh": "🇪🇸", "fa": "🇸🇦", "host_h": false, "host_a": false, "prono": [4, 0], "prono_initial": [4, 0], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 46, "grp": "H", "date": "21 juin", "home": "Uruguay", "away": "Cap-Vert", "fh": "🇺🇾", "fa": "🇨🇻", "host_h": false, "host_a": false, "prono": [1, 0], "prono_initial": [1, 0], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 47, "grp": "H", "date": "26 juin", "home": "Cap-Vert", "away": "Arabie Saoudite", "fh": "🇨🇻", "fa": "🇸🇦", "host_h": false, "host_a": false, "prono": [2, 1], "prono_initial": [2, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 48, "grp": "H", "date": "26 juin", "home": "Uruguay", "away": "Espagne", "fh": "🇺🇾", "fa": "🇪🇸", "host_h": false, "host_a": false, "prono": [0, 2], "prono_initial": [0, 2], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 49, "grp": "I", "date": "16 juin", "home": "France", "away": "Sénégal", "fh": "🇫🇷", "fa": "🇸🇳", "host_h": false, "host_a": false, "prono": [2, 1], "prono_initial": [2, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 50, "grp": "I", "date": "16 juin", "home": "Irak", "away": "Norvège", "fh": "🇮🇶", "fa": "🇳🇴", "host_h": false, "host_a": false, "prono": [1, 1], "prono_initial": [1, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 51, "grp": "I", "date": "22 juin", "home": "France", "away": "Irak", "fh": "🇫🇷", "fa": "🇮🇶", "host_h": false, "host_a": false, "prono": [3, 0], "prono_initial": [3, 0], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 52, "grp": "I", "date": "22 juin", "home": "Norvège", "away": "Sénégal", "fh": "🇳🇴", "fa": "🇸🇳", "host_h": false, "host_a": false, "prono": [1, 0], "prono_initial": [1, 0], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 53, "grp": "I", "date": "26 juin", "home": "Norvège", "away": "France", "fh": "🇳🇴", "fa": "🇫🇷", "host_h": false, "host_a": false, "prono": [0, 1], "prono_initial": [0, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 54, "grp": "I", "date": "26 juin", "home": "Sénégal", "away": "Irak", "fh": "🇸🇳", "fa": "🇮🇶", "host_h": false, "host_a": false, "prono": [2, 1], "prono_initial": [2, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 55, "grp": "J", "date": "16 juin", "home": "Argentine", "away": "Algérie", "fh": "🇦🇷", "fa": "🇩🇿", "host_h": false, "host_a": false, "prono": [3, 0], "prono_initial": [3, 0], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 56, "grp": "J", "date": "16 juin", "home": "Autriche", "away": "Jordanie", "fh": "🇦🇹", "fa": "🇯🇴", "host_h": false, "host_a": false, "prono": [1, 0], "prono_initial": [1, 0], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 57, "grp": "J", "date": "22 juin", "home": "Argentine", "away": "Autriche", "fh": "🇦🇷", "fa": "🇦🇹", "host_h": false, "host_a": false, "prono": [4, 1], "prono_initial": [4, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 58, "grp": "J", "date": "22 juin", "home": "Jordanie", "away": "Algérie", "fh": "🇯🇴", "fa": "🇩🇿", "host_h": false, "host_a": false, "prono": [0, 1], "prono_initial": [0, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 59, "grp": "J", "date": "27 juin", "home": "Algérie", "away": "Autriche", "fh": "🇩🇿", "fa": "🇦🇹", "host_h": false, "host_a": false, "prono": [1, 1], "prono_initial": [1, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 60, "grp": "J", "date": "27 juin", "home": "Jordanie", "away": "Argentine", "fh": "🇯🇴", "fa": "🇦🇷", "host_h": false, "host_a": false, "prono": [0, 3], "prono_initial": [0, 3], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 61, "grp": "K", "date": "17 juin", "home": "Portugal", "away": "RD Congo", "fh": "🇵🇹", "fa": "🇨🇩", "host_h": false, "host_a": false, "prono": [2, 0], "prono_initial": [2, 0], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 62, "grp": "K", "date": "17 juin", "home": "Ouzbékistan", "away": "Colombie", "fh": "🇺🇿", "fa": "🇨🇴", "host_h": false, "host_a": false, "prono": [0, 2], "prono_initial": [0, 2], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 63, "grp": "K", "date": "23 juin", "home": "Portugal", "away": "Ouzbékistan", "fh": "🇵🇹", "fa": "🇺🇿", "host_h": false, "host_a": false, "prono": [3, 1], "prono_initial": [3, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 64, "grp": "K", "date": "23 juin", "home": "Colombie", "away": "RD Congo", "fh": "🇨🇴", "fa": "🇨🇩", "host_h": false, "host_a": false, "prono": [2, 1], "prono_initial": [2, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 65, "grp": "K", "date": "27 juin", "home": "Colombie", "away": "Portugal", "fh": "🇨🇴", "fa": "🇵🇹", "host_h": false, "host_a": false, "prono": [1, 2], "prono_initial": [1, 2], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 66, "grp": "K", "date": "27 juin", "home": "RD Congo", "away": "Ouzbékistan", "fh": "🇨🇩", "fa": "🇺🇿", "host_h": false, "host_a": false, "prono": [2, 1], "prono_initial": [2, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 67, "grp": "L", "date": "17 juin", "home": "Angleterre", "away": "Croatie", "fh": "🏴", "fa": "🇭🇷", "host_h": false, "host_a": false, "prono": [2, 1], "prono_initial": [2, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 68, "grp": "L", "date": "17 juin", "home": "Ghana", "away": "Panama", "fh": "🇬🇭", "fa": "🇵🇦", "host_h": false, "host_a": false, "prono": [2, 1], "prono_initial": [2, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 69, "grp": "L", "date": "23 juin", "home": "Angleterre", "away": "Ghana", "fh": "🏴", "fa": "🇬🇭", "host_h": false, "host_a": false, "prono": [4, 1], "prono_initial": [4, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 70, "grp": "L", "date": "23 juin", "home": "Panama", "away": "Croatie", "fh": "🇵🇦", "fa": "🇭🇷", "host_h": false, "host_a": false, "prono": [1, 1], "prono_initial": [1, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 71, "grp": "L", "date": "27 juin", "home": "Panama", "away": "Angleterre", "fh": "🇵🇦", "fa": "🏴", "host_h": false, "host_a": false, "prono": [1, 1], "prono_initial": [1, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}, {"id": 72, "grp": "L", "date": "27 juin", "home": "Croatie", "away": "Ghana", "fh": "🇭🇷", "fa": "🇬🇭", "host_h": false, "host_a": false, "prono": [1, 1], "prono_initial": [1, 1], "reel": null, "statut": "avenir", "mom_h": 0.0, "mom_a": 0.0}], "standings": {"A": [{"team": "Mexique", "flag": "🇲🇽", "host": true, "reels": 1, "Pts": 9, "J": 3, "G": 3, "N": 0, "P": 0, "BP": 6, "BC": 1}, {"team": "Corée du Sud", "flag": "🇰🇷", "host": false, "reels": 1, "Pts": 6, "J": 3, "G": 2, "N": 0, "P": 1, "BP": 5, "BC": 3}, {"team": "Tchéquie", "flag": "🇨🇿", "host": false, "reels": 1, "Pts": 3, "J": 3, "G": 1, "N": 0, "P": 2, "BP": 4, "BC": 6}, {"team": "Afrique du Sud", "flag": "🇿🇦", "host": false, "reels": 1, "Pts": 0, "J": 3, "G": 0, "N": 0, "P": 3, "BP": 2, "BC": 7}], "B": [{"team": "Canada", "flag": "🇨🇦", "host": true, "reels": 0, "Pts": 9, "J": 3, "G": 3, "N": 0, "P": 0, "BP": 6, "BC": 2}, {"team": "Suisse", "flag": "🇨🇭", "host": false, "reels": 0, "Pts": 6, "J": 3, "G": 2, "N": 0, "P": 1, "BP": 5, "BC": 2}, {"team": "Bosnie-Herzégovine", "flag": "🇧🇦", "host": false, "reels": 0, "Pts": 1, "J": 3, "G": 0, "N": 1, "P": 2, "BP": 2, "BC": 5}, {"team": "Qatar", "flag": "🇶🇦", "host": false, "reels": 0, "Pts": 1, "J": 3, "G": 0, "N": 1, "P": 2, "BP": 1, "BC": 5}], "C": [{"team": "Brésil", "flag": "🇧🇷", "host": false, "reels": 0, "Pts": 9, "J": 3, "G": 3, "N": 0, "P": 0, "BP": 7, "BC": 1}, {"team": "Maroc", "flag": "🇲🇦", "host": false, "reels": 0, "Pts": 6, "J": 3, "G": 2, "N": 0, "P": 1, "BP": 5, "BC": 2}, {"team": "Écosse", "flag": "🏴", "host": false, "reels": 0, "Pts": 3, "J": 3, "G": 1, "N": 0, "P": 2, "BP": 2, "BC": 5}, {"team": "Haïti", "flag": "🇭🇹", "host": false, "reels": 0, "Pts": 0, "J": 3, "G": 0, "N": 0, "P": 3, "BP": 1, "BC": 7}], "D": [{"team": "États-Unis", "flag": "🇺🇸", "host": true, "reels": 0, "Pts": 9, "J": 3, "G": 3, "N": 0, "P": 0, "BP": 5, "BC": 1}, {"team": "Turquie", "flag": "🇹🇷", "host": false, "reels": 0, "Pts": 6, "J": 3, "G": 2, "N": 0, "P": 1, "BP": 3, "BC": 2}, {"team": "Australie", "flag": "🇦🇺", "host": false, "reels": 0, "Pts": 3, "J": 3, "G": 1, "N": 0, "P": 2, "BP": 2, "BC": 3}, {"team": "Paraguay", "flag": "🇵🇾", "host": false, "reels": 0, "Pts": 0, "J": 3, "G": 0, "N": 0, "P": 3, "BP": 1, "BC": 5}], "E": [{"team": "Allemagne", "flag": "🇩🇪", "host": false, "reels": 0, "Pts": 9, "J": 3, "G": 3, "N": 0, "P": 0, "BP": 6, "BC": 0}, {"team": "Côte d'Ivoire", "flag": "🇨🇮", "host": false, "reels": 0, "Pts": 6, "J": 3, "G": 2, "N": 0, "P": 1, "BP": 4, "BC": 2}, {"team": "Équateur", "flag": "🇪🇨", "host": false, "reels": 0, "Pts": 3, "J": 3, "G": 1, "N": 0, "P": 2, "BP": 2, "BC": 2}, {"team": "Curaçao", "flag": "🇨🇼", "host": false, "reels": 0, "Pts": 0, "J": 3, "G": 0, "N": 0, "P": 3, "BP": 1, "BC": 9}], "F": [{"team": "Japon", "flag": "🇯🇵", "host": false, "reels": 0, "Pts": 7, "J": 3, "G": 2, "N": 1, "P": 0, "BP": 3, "BC": 1}, {"team": "Pays-Bas", "flag": "🇳🇱", "host": false, "reels": 0, "Pts": 5, "J": 3, "G": 1, "N": 2, "P": 0, "BP": 4, "BC": 3}, {"team": "Suède", "flag": "🇸🇪", "host": false, "reels": 0, "Pts": 3, "J": 3, "G": 1, "N": 0, "P": 2, "BP": 2, "BC": 3}, {"team": "Tunisie", "flag": "🇹🇳", "host": false, "reels": 0, "Pts": 1, "J": 3, "G": 0, "N": 1, "P": 2, "BP": 1, "BC": 3}], "G": [{"team": "Belgique", "flag": "🇧🇪", "host": false, "reels": 0, "Pts": 7, "J": 3, "G": 2, "N": 1, "P": 0, "BP": 4, "BC": 1}, {"team": "Égypte", "flag": "🇪🇬", "host": false, "reels": 0, "Pts": 5, "J": 3, "G": 1, "N": 2, "P": 0, "BP": 4, "BC": 3}, {"team": "Iran", "flag": "🇮🇷", "host": false, "reels": 0, "Pts": 4, "J": 3, "G": 1, "N": 1, "P": 1, "BP": 3, "BC": 3}, {"team": "Nouvelle-Zélande", "flag": "🇳🇿", "host": false, "reels": 0, "Pts": 0, "J": 3, "G": 0, "N": 0, "P": 3, "BP": 2, "BC": 6}], "H": [{"team": "Espagne", "flag": "🇪🇸", "host": false, "reels": 0, "Pts": 9, "J": 3, "G": 3, "N": 0, "P": 0, "BP": 10, "BC": 1}, {"team": "Uruguay", "flag": "🇺🇾", "host": false, "reels": 0, "Pts": 6, "J": 3, "G": 2, "N": 0, "P": 1, "BP": 3, "BC": 3}, {"team": "Cap-Vert", "flag": "🇨🇻", "host": false, "reels": 0, "Pts": 3, "J": 3, "G": 1, "N": 0, "P": 2, "BP": 3, "BC": 6}, {"team": "Arabie Saoudite", "flag": "🇸🇦", "host": false, "reels": 0, "Pts": 0, "J": 3, "G": 0, "N": 0, "P": 3, "BP": 2, "BC": 8}], "I": [{"team": "France", "flag": "🇫🇷", "host": false, "reels": 0, "Pts": 9, "J": 3, "G": 3, "N": 0, "P": 0, "BP": 6, "BC": 1}, {"team": "Norvège", "flag": "🇳🇴", "host": false, "reels": 0, "Pts": 4, "J": 3, "G": 1, "N": 1, "P": 1, "BP": 2, "BC": 2}, {"team": "Sénégal", "flag": "🇸🇳", "host": false, "reels": 0, "Pts": 3, "J": 3, "G": 1, "N": 0, "P": 2, "BP": 3, "BC": 4}, {"team": "Irak", "flag": "🇮🇶", "host": false, "reels": 0, "Pts": 1, "J": 3, "G": 0, "N": 1, "P": 2, "BP": 2, "BC": 6}], "J": [{"team": "Argentine", "flag": "🇦🇷", "host": false, "reels": 0, "Pts": 9, "J": 3, "G": 3, "N": 0, "P": 0, "BP": 10, "BC": 1}, {"team": "Autriche", "flag": "🇦🇹", "host": false, "reels": 0, "Pts": 4, "J": 3, "G": 1, "N": 1, "P": 1, "BP": 3, "BC": 5}, {"team": "Algérie", "flag": "🇩🇿", "host": false, "reels": 0, "Pts": 4, "J": 3, "G": 1, "N": 1, "P": 1, "BP": 2, "BC": 4}, {"team": "Jordanie", "flag": "🇯🇴", "host": false, "reels": 0, "Pts": 0, "J": 3, "G": 0, "N": 0, "P": 3, "BP": 0, "BC": 5}], "K": [{"team": "Portugal", "flag": "🇵🇹", "host": false, "reels": 0, "Pts": 9, "J": 3, "G": 3, "N": 0, "P": 0, "BP": 7, "BC": 2}, {"team": "Colombie", "flag": "🇨🇴", "host": false, "reels": 0, "Pts": 6, "J": 3, "G": 2, "N": 0, "P": 1, "BP": 5, "BC": 3}, {"team": "RD Congo", "flag": "🇨🇩", "host": false, "reels": 0, "Pts": 3, "J": 3, "G": 1, "N": 0, "P": 2, "BP": 3, "BC": 5}, {"team": "Ouzbékistan", "flag": "🇺🇿", "host": false, "reels": 0, "Pts": 0, "J": 3, "G": 0, "N": 0, "P": 3, "BP": 2, "BC": 7}], "L": [{"team": "Angleterre", "flag": "🏴", "host": false, "reels": 0, "Pts": 7, "J": 3, "G": 2, "N": 1, "P": 0, "BP": 7, "BC": 3}, {"team": "Ghana", "flag": "🇬🇭", "host": false, "reels": 0, "Pts": 4, "J": 3, "G": 1, "N": 1, "P": 1, "BP": 4, "BC": 6}, {"team": "Croatie", "flag": "🇭🇷", "host": false, "reels": 0, "Pts": 2, "J": 3, "G": 0, "N": 2, "P": 1, "BP": 3, "BC": 4}, {"team": "Panama", "flag": "🇵🇦", "host": false, "reels": 0, "Pts": 2, "J": 3, "G": 0, "N": 2, "P": 1, "BP": 3, "BC": 4}]}, "momentum": [{"team": "Mexique", "flag": "🇲🇽", "mom": 0.44, "detail": "V 2-0"}, {"team": "Corée du Sud", "flag": "🇰🇷", "mom": 0.37, "detail": "V 2-1"}, {"team": "Tchéquie", "flag": "🇨🇿", "mom": -0.37, "detail": "D 1-2"}, {"team": "Afrique du Sud", "flag": "🇿🇦", "mom": -0.44, "detail": "D 0-2"}]};
+
+const TAG_LABEL = {exact:"✓ Exact", bon:"~ Bon", rate:"✗ Raté", avenir:"À venir"};
+let view = "matches";
+let activeGrp = "A";
+
+function el(html){const t=document.createElement("template");t.innerHTML=html.trim();return t.content.firstChild;}
+
+function renderHeader(){
+  const s=DATA.stats;
+  const graded=s.exact+s.bon+s.rate;
+  const pct=graded?Math.round((s.exact+s.bon)/graded*100):0;
+  document.getElementById("pct").textContent=graded?pct+"%":"—";
+  document.getElementById("maj").textContent="Dernière mise à jour : "+DATA.maj+" — "+s.joue+"/"+s.total+" matchs joués";
+  document.getElementById("scorebar").innerHTML=`
+    <div class="pill j"><div class="v">${s.joue}</div><div class="t">Joués</div></div>
+    <div class="pill exact"><div class="v">${s.exact}</div><div class="t">Exacts</div></div>
+    <div class="pill bon"><div class="v">${s.bon}</div><div class="t">Bons</div></div>
+    <div class="pill rate"><div class="v">${s.rate}</div><div class="t">Ratés</div></div>`;
+}
+
+function renderGrpSel(show){
+  const c=document.getElementById("grpsel");
+  if(!show){c.style.display="none";return;}
+  c.style.display="flex";
+  const grps="ABCDEFGHIJKL".split("");
+  c.innerHTML=grps.map(g=>`<button data-g="${g}" style="${g===activeGrp?'background:var(--gold);color:#0b1018':''}">${g}</button>`).join("");
+  c.querySelectorAll("button").forEach(b=>b.onclick=()=>{activeGrp=b.dataset.g;render();});
+}
+
+function matchRow(m){
+  const host_h=m.host_h?'<span class="badge">🏟</span>':'';
+  const host_a=m.host_a?'<span class="badge">🏟</span>':'';
+  let scoreHtml, tagHtml;
+  if(m.reel){
+    scoreHtml=`<div class="score">${m.reel[0]} – ${m.reel[1]}</div>`;
+    tagHtml=`<div class="tag ${m.statut}">${TAG_LABEL[m.statut]}</div>`;
+  }else{
+    scoreHtml=`<div class="score prono">${m.prono[0]} – ${m.prono[1]}</div>`;
+    tagHtml=`<div class="tag avenir">Pronostic</div>`;
+  }
+  let dyn="";
+  if(!m.reel){
+    const notes=[];
+    if(m.mom_h>=0.2)notes.push(`${m.home} en confiance (+${m.mom_h})`);
+    else if(m.mom_h<=-0.2)notes.push(`${m.home} en difficulté (${m.mom_h})`);
+    if(m.mom_a>=0.2)notes.push(`${m.away} en confiance (+${m.mom_a})`);
+    else if(m.mom_a<=-0.2)notes.push(`${m.away} en difficulté (${m.mom_a})`);
+    if(notes.length)dyn=`<div class="dyn">${notes.join(" · ")}</div>`;
+  }
+  return `<div class="match">
+    <span class="dt">${m.date}</span>
+    <span class="tm r"><span class="n">${m.home} ${host_h} ${m.fh}</span></span>
+    <div class="sc">${scoreHtml}${tagHtml}</div>
+    <span class="tm l"><span class="n">${m.fa} ${host_a} ${m.away}</span></span>
+  </div>${dyn}`;
+}
+
+function render(){
+  document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("on",b.dataset.v===view));
+  const c=document.getElementById("content");
+
+  if(view==="matches"){
+    renderGrpSel(true);
+    const ms=DATA.matches.filter(m=>m.grp===activeGrp);
+    c.innerHTML=`<div class="card">${ms.map(matchRow).join("")}</div>`;
+  }
+  else if(view==="standings"){
+    renderGrpSel(false);
+    let html="";
+    "ABCDEFGHIJKL".split("").forEach(g=>{
+      const rows=DATA.standings[g]||[];
+      const nbReels=rows.reduce((mx,r)=>Math.max(mx,r.reels),0);
+      html+=`<div class="card">
+        <div class="grphead">Groupe ${g} <small>(${nbReels} match(s) réel(s))</small></div>
+        <table>
+          <tr><th>#</th><th style="text-align:left;padding-left:8px">Équipe</th><th>Pts</th><th>J</th><th>G</th><th>N</th><th>P</th><th>Diff</th></tr>
+          ${rows.map((r,i)=>{
+            const cls=i<2?"q"+(i+1):(i===2?"q3":"");
+            const diff=r.BP-r.BC;
+            return `<tr class="${cls}"><td>${i+1}</td>
+              <td class="team">${r.flag} ${r.team}${r.host?' 🏟':''}</td>
+              <td><b>${r.Pts}</b></td><td>${r.J}</td><td>${r.G}</td><td>${r.N}</td><td>${r.P}</td>
+              <td>${diff>=0?'+':''}${diff}</td></tr>`;
+          }).join("")}
+        </table></div>`;
+    });
+    c.innerHTML=html+`<div class="legend">Vert = qualifié direct (1er-2e) · Jaune = 3e · Résultats réels pour les matchs joués, pronostics ajustés pour les matchs à venir</div>`;
+  }
+  else if(view==="momentum"){
+    renderGrpSel(false);
+    if(!DATA.momentum.length){
+      c.innerHTML=`<div class="empty">Aucun match joué pour l'instant.<br>La dynamique apparaîtra dès les premiers résultats.</div>`;
+      return;
+    }
+    c.innerHTML=`<div class="card">${DATA.momentum.map(m=>{
+      const cls=m.mom>=0.2?"up":(m.mom<=-0.2?"down":"neu");
+      const lbl=m.mom>=0.2?"En hausse ↑":(m.mom<=-0.2?"En baisse ↓":"Neutre →");
+      return `<div class="momrow">
+        <span class="tn">${m.flag} ${m.team} <span class="res">${m.detail}</span></span>
+        <span class="mv ${cls}">${m.mom>=0?'+':''}${m.mom}</span>
+        <span class="ar ${cls}">${lbl}</span>
+      </div>`;
+    }).join("")}</div>
+    <div class="legend">Le momentum ajuste la force d'une équipe pour ses prochains matchs.<br>Calculé à partir des vrais résultats : victoire/défaite, écart de buts, exploit ou contre-performance.</div>`;
+  }
+}
+
+document.querySelectorAll("#nav button").forEach(b=>b.onclick=()=>{view=b.dataset.v;render();});
+renderHeader();
+render();
+</script>
+</body>
+</html>
