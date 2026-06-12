@@ -1,0 +1,55 @@
+name: Mise à jour quotidienne des pronostics
+
+on:
+  schedule:
+    # Tous les jours à 08:00 UTC (10h Paris en été). Cron en UTC.
+    - cron: "0 8 * * *"
+  workflow_dispatch:        # permet de lancer manuellement depuis l'onglet Actions
+  push:
+    branches: [ main ]      # régénère aussi à chaque push sur main
+
+permissions:
+  contents: write           # pour committer results_manual.json mis à jour
+  pages: write              # pour déployer sur GitHub Pages
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Générer la page (fetch scores + pronostics)
+        env:
+          FOOTBALLDATA_KEY: ${{ secrets.FOOTBALLDATA_KEY }}
+        run: python update.py
+
+      - name: Committer les résultats récupérés (si modifiés)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/results_manual.json index.html
+          git diff --staged --quiet || git commit -m "MAJ auto $(date -u +%Y-%m-%d)"
+          git push || echo "Rien à pousser"
+
+      - name: Configurer Pages
+        uses: actions/configure-pages@v5
+
+      - name: Préparer l'artefact (page = racine du dépôt)
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "."
+
+      - name: Déployer sur GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
