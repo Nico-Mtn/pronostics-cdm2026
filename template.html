@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pronostics IA — Coupe du Monde 2026</title>
+<meta name="description" content="Pronostics IA de la Coupe du Monde 2026, mis à jour chaque jour avec les vrais scores et la dynamique des équipes.">
+<style>
+  :root{
+    --bg:#0b1018; --card:#0f1625; --card2:#0d1421; --line:#1a2540;
+    --gold:#f0c040; --txt:#bcc5d8; --mut:#5a6880; --dim:#3a4560;
+    --win:#2e7d32; --winbg:#173a1c; --draw:#b8860b; --drawbg:#3a2e10;
+    --rate:#c0392b; --ratebg:#3a1a18; --real:#1e3a5a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);
+    font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:680px;margin:0 auto;padding:0 14px 40px}
+  header{position:sticky;top:0;z-index:50;background:linear-gradient(180deg,#0f1625,#0b1018);
+    border-bottom:1px solid var(--line);padding:16px 14px 12px;margin:0 -14px 14px}
+  .hrow{display:flex;align-items:center;gap:10px;max-width:680px;margin:0 auto}
+  h1{font-size:15px;font-weight:800;color:#fff;margin:0;letter-spacing:.3px}
+  .sub{font-size:9px;color:var(--dim);letter-spacing:1.4px;margin:2px 0 0}
+  .stats{margin-left:auto;text-align:right}
+  .stats .big{font-size:19px;font-weight:800;color:var(--gold);line-height:1}
+  .stats .lbl{font-size:8px;color:var(--dim);letter-spacing:1px}
+  .maj{font-size:10px;color:var(--mut);text-align:center;margin:8px 0 0;max-width:680px;margin-left:auto;margin-right:auto}
+  .scorebar{display:flex;gap:6px;max-width:680px;margin:10px auto 0}
+  .pill{flex:1;text-align:center;padding:6px 4px;border-radius:8px;background:var(--card);border:1px solid var(--line)}
+  .pill .v{font-size:15px;font-weight:800}
+  .pill .t{font-size:8px;color:var(--mut);letter-spacing:.5px;text-transform:uppercase}
+  .pill.exact .v{color:#5fd47a}.pill.bon .v{color:var(--gold)}.pill.rate .v{color:#e0746a}.pill.j .v{color:#7aa8d8}
+  nav{display:flex;gap:6px;margin:14px 0}
+  nav button{flex:1;padding:8px 4px;border:none;border-radius:9px;background:var(--card);
+    color:var(--dim);font-weight:700;font-size:11px;cursor:pointer;letter-spacing:.3px;transition:.15s;font-family:inherit}
+  nav button.on{background:var(--gold);color:#0b1018}
+  .grpsel{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}
+  .grpsel button{padding:5px 10px;border:none;border-radius:7px;background:var(--card);color:var(--dim);
+    font-weight:700;font-size:12px;cursor:pointer;font-family:inherit}
+  .card{background:var(--card2);border:1px solid var(--line);border-radius:11px;overflow:hidden;margin-bottom:14px}
+  .match{display:flex;align-items:center;gap:6px;padding:9px 11px;border-bottom:1px solid #111a2b}
+  .match:last-child{border-bottom:none}
+  .match .dt{font-size:9px;color:var(--dim);width:48px;flex-shrink:0;text-align:right}
+  .match .tm{flex:1;font-size:11.5px;color:#c8d0e0;font-weight:500;display:flex;align-items:center;gap:4px;min-width:0}
+  .match .tm.r{justify-content:flex-end;text-align:right}
+  .match .tm.l{justify-content:flex-start}
+  .match .tm span.n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sc{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:62px}
+  .sc .score{font-size:14px;font-weight:800;color:#fff;letter-spacing:1px}
+  .sc .score.prono{color:var(--gold)}
+  .sc .tag{font-size:8px;padding:1px 6px;border-radius:20px;font-weight:700;letter-spacing:.3px;white-space:nowrap}
+  .tag.exact{background:var(--winbg);color:#5fd47a}.tag.bon{background:var(--drawbg);color:var(--gold)}
+  .tag.rate{background:var(--ratebg);color:#e0746a}.tag.avenir{background:#162133;color:var(--mut)}
+  .badge{font-size:8px}
+  .dyn{font-size:9px;color:#4f7fb8;padding:3px 11px 8px 67px;background:#0b1220;border-bottom:1px solid #111a2b}
+  table{width:100%;border-collapse:collapse;font-size:11px}
+  th{background:#16213a;color:#8a97ad;font-weight:700;padding:6px 4px;text-align:center;font-size:9px;letter-spacing:.5px}
+  td{padding:7px 4px;text-align:center;border-bottom:1px solid #111a2b}
+  td.team{text-align:left;font-weight:600;color:#c8d0e0;padding-left:8px}
+  tr.q1 td,tr.q2 td{background:rgba(46,125,50,.10)}
+  tr.q3 td{background:rgba(240,192,64,.07)}
+  .grphead{padding:9px 12px;font-weight:800;font-size:13px;color:#fff;letter-spacing:.5px}
+  .grphead small{font-weight:500;font-size:9px;color:rgba(255,255,255,.7);letter-spacing:0}
+  .momrow{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid #111a2b}
+  .momrow:last-child{border-bottom:none}
+  .momrow .tn{flex:1;font-size:12px;font-weight:600;color:#c8d0e0;display:flex;gap:5px;align-items:center}
+  .momrow .res{font-size:9px;color:var(--mut)}
+  .momrow .mv{font-size:13px;font-weight:800;min-width:48px;text-align:right}
+  .momrow .ar{font-size:10px;font-weight:700;min-width:78px;text-align:right}
+  .up{color:#5fd47a}.down{color:#e0746a}.neu{color:var(--mut)}
+  .legend{font-size:9px;color:var(--mut);line-height:1.7;padding:10px 4px;text-align:center}
+  footer{text-align:center;font-size:9px;color:#1f2940;padding:20px 0 0}
+  footer a{color:var(--dim);text-decoration:none}
+  .empty{text-align:center;padding:40px 20px;color:var(--dim)}
+</style>
+</head>
+<body>
+<header>
+  <div class="hrow">
+    <span style="font-size:24px">⚽</span>
+    <div>
+      <h1>Pronostics IA — Coupe du Monde 2026</h1>
+      <div class="sub" id="sub">MISE À JOUR QUOTIDIENNE · SCORES & DYNAMIQUE</div>
+    </div>
+    <div class="stats"><div class="big" id="pct">—</div><div class="lbl">FIABILITÉ</div></div>
+  </div>
+  <div class="scorebar" id="scorebar"></div>
+  <div class="maj" id="maj"></div>
+</header>
+
+<div class="wrap">
+  <nav id="nav">
+    <button data-v="matches" class="on">🏟 Matchs</button>
+    <button data-v="standings">📊 Classements</button>
+    <button data-v="momentum">🔥 Dynamique</button>
+  </nav>
+  <div id="grpsel" class="grpsel"></div>
+  <div id="content"></div>
+  <footer>
+    Coupe du Monde 2026 · 11 juin – 19 juillet · USA / Canada / Mexique<br>
+    Pronostics générés par modèle IA · Scores réels via API-Football · Mise à jour automatique quotidienne
+  </footer>
+</div>
+
+<script>
+const DATA = /*__DATA__*/null;
+
+const TAG_LABEL = {exact:"✓ Exact", bon:"~ Bon", rate:"✗ Raté", avenir:"À venir"};
+let view = "matches";
+let activeGrp = "A";
+
+function el(html){const t=document.createElement("template");t.innerHTML=html.trim();return t.content.firstChild;}
+
+function renderHeader(){
+  const s=DATA.stats;
+  const graded=s.exact+s.bon+s.rate;
+  const pct=graded?Math.round((s.exact+s.bon)/graded*100):0;
+  document.getElementById("pct").textContent=graded?pct+"%":"—";
+  document.getElementById("maj").textContent="Dernière mise à jour : "+DATA.maj+" — "+s.joue+"/"+s.total+" matchs joués";
+  document.getElementById("scorebar").innerHTML=`
+    <div class="pill j"><div class="v">${s.joue}</div><div class="t">Joués</div></div>
+    <div class="pill exact"><div class="v">${s.exact}</div><div class="t">Exacts</div></div>
+    <div class="pill bon"><div class="v">${s.bon}</div><div class="t">Bons</div></div>
+    <div class="pill rate"><div class="v">${s.rate}</div><div class="t">Ratés</div></div>`;
+}
+
+function renderGrpSel(show){
+  const c=document.getElementById("grpsel");
+  if(!show){c.style.display="none";return;}
+  c.style.display="flex";
+  const grps="ABCDEFGHIJKL".split("");
+  c.innerHTML=grps.map(g=>`<button data-g="${g}" style="${g===activeGrp?'background:var(--gold);color:#0b1018':''}">${g}</button>`).join("");
+  c.querySelectorAll("button").forEach(b=>b.onclick=()=>{activeGrp=b.dataset.g;render();});
+}
+
+function matchRow(m){
+  const host_h=m.host_h?'<span class="badge">🏟</span>':'';
+  const host_a=m.host_a?'<span class="badge">🏟</span>':'';
+  let scoreHtml, tagHtml;
+  if(m.reel){
+    scoreHtml=`<div class="score">${m.reel[0]} – ${m.reel[1]}</div>`;
+    tagHtml=`<div class="tag ${m.statut}">${TAG_LABEL[m.statut]}</div>`;
+  }else{
+    scoreHtml=`<div class="score prono">${m.prono[0]} – ${m.prono[1]}</div>`;
+    tagHtml=`<div class="tag avenir">Pronostic</div>`;
+  }
+  let dyn="";
+  if(!m.reel){
+    const notes=[];
+    if(m.mom_h>=0.2)notes.push(`${m.home} en confiance (+${m.mom_h})`);
+    else if(m.mom_h<=-0.2)notes.push(`${m.home} en difficulté (${m.mom_h})`);
+    if(m.mom_a>=0.2)notes.push(`${m.away} en confiance (+${m.mom_a})`);
+    else if(m.mom_a<=-0.2)notes.push(`${m.away} en difficulté (${m.mom_a})`);
+    if(notes.length)dyn=`<div class="dyn">${notes.join(" · ")}</div>`;
+  }
+  return `<div class="match">
+    <span class="dt">${m.date}</span>
+    <span class="tm r"><span class="n">${m.home} ${host_h} ${m.fh}</span></span>
+    <div class="sc">${scoreHtml}${tagHtml}</div>
+    <span class="tm l"><span class="n">${m.fa} ${host_a} ${m.away}</span></span>
+  </div>${dyn}`;
+}
+
+function render(){
+  document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("on",b.dataset.v===view));
+  const c=document.getElementById("content");
+
+  if(view==="matches"){
+    renderGrpSel(true);
+    const ms=DATA.matches.filter(m=>m.grp===activeGrp);
+    c.innerHTML=`<div class="card">${ms.map(matchRow).join("")}</div>`;
+  }
+  else if(view==="standings"){
+    renderGrpSel(false);
+    let html="";
+    "ABCDEFGHIJKL".split("").forEach(g=>{
+      const rows=DATA.standings[g]||[];
+      const nbReels=rows.reduce((mx,r)=>Math.max(mx,r.reels),0);
+      html+=`<div class="card">
+        <div class="grphead">Groupe ${g} <small>(${nbReels} match(s) réel(s))</small></div>
+        <table>
+          <tr><th>#</th><th style="text-align:left;padding-left:8px">Équipe</th><th>Pts</th><th>J</th><th>G</th><th>N</th><th>P</th><th>Diff</th></tr>
+          ${rows.map((r,i)=>{
+            const cls=i<2?"q"+(i+1):(i===2?"q3":"");
+            const diff=r.BP-r.BC;
+            return `<tr class="${cls}"><td>${i+1}</td>
+              <td class="team">${r.flag} ${r.team}${r.host?' 🏟':''}</td>
+              <td><b>${r.Pts}</b></td><td>${r.J}</td><td>${r.G}</td><td>${r.N}</td><td>${r.P}</td>
+              <td>${diff>=0?'+':''}${diff}</td></tr>`;
+          }).join("")}
+        </table></div>`;
+    });
+    c.innerHTML=html+`<div class="legend">Vert = qualifié direct (1er-2e) · Jaune = 3e · Résultats réels pour les matchs joués, pronostics ajustés pour les matchs à venir</div>`;
+  }
+  else if(view==="momentum"){
+    renderGrpSel(false);
+    if(!DATA.momentum.length){
+      c.innerHTML=`<div class="empty">Aucun match joué pour l'instant.<br>La dynamique apparaîtra dès les premiers résultats.</div>`;
+      return;
+    }
+    c.innerHTML=`<div class="card">${DATA.momentum.map(m=>{
+      const cls=m.mom>=0.2?"up":(m.mom<=-0.2?"down":"neu");
+      const lbl=m.mom>=0.2?"En hausse ↑":(m.mom<=-0.2?"En baisse ↓":"Neutre →");
+      return `<div class="momrow">
+        <span class="tn">${m.flag} ${m.team} <span class="res">${m.detail}</span></span>
+        <span class="mv ${cls}">${m.mom>=0?'+':''}${m.mom}</span>
+        <span class="ar ${cls}">${lbl}</span>
+      </div>`;
+    }).join("")}</div>
+    <div class="legend">Le momentum ajuste la force d'une équipe pour ses prochains matchs.<br>Calculé à partir des vrais résultats : victoire/défaite, écart de buts, exploit ou contre-performance.</div>`;
+  }
+}
+
+document.querySelectorAll("#nav button").forEach(b=>b.onclick=()=>{view=b.dataset.v;render();});
+renderHeader();
+render();
+</script>
+</body>
+</html>
