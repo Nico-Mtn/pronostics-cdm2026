@@ -149,6 +149,23 @@ DATE_FR = {"06-11":"11 juin","06-12":"12 juin","06-13":"13 juin","06-14":"14 jui
            "06-21":"21 juin","06-22":"22 juin","06-23":"23 juin","06-24":"24 juin","06-25":"25 juin",
            "06-26":"26 juin","06-27":"27 juin"}
 
+# Horaires par défaut (heure de Paris) si l'API ne fournit pas encore l'utcDate.
+# Créneaux types de la phase de groupes ; affinés automatiquement dès que l'API renvoie l'heure réelle.
+DEFAULT_TIME = {}  # match_id -> "HH:MM" (Paris) — laissé vide : on affiche la date seule à défaut
+
+def paris_from_utc(utc_str):
+    """Convertit un utcDate ISO (ex '2026-06-11T19:00:00Z') en (date_iso, 'HH:MM') heure de Paris.
+    Paris = UTC+2 en été (juin/juillet). Retourne (None,None) si parsing impossible."""
+    if not utc_str: return (None, None)
+    try:
+        s=utc_str.replace("Z","+00:00")
+        dt=datetime.datetime.fromisoformat(s)
+        # été : UTC+2
+        dt_paris=dt + datetime.timedelta(hours=2)
+        return (dt_paris.strftime("%Y-%m-%d"), dt_paris.strftime("%H:%M"))
+    except Exception:
+        return (None, None)
+
 # ─── MOTEUR DE PRONOSTIC ─────────────────────────────────────────────────────
 def style_bonus(s1,s2):
     if s1=="bloc_bas" and s2=="pressing": return (0.3,-0.3)
@@ -190,12 +207,14 @@ def compute(home,away,momentum=None):
 
 import math
 def confidence_pct(diff):
-    """Convertit l'écart de force en indice de confiance (%) via une courbe logistique.
-    diff ~0 -> proche de 50% (issue ouverte) ; diff élevé -> tend vers 90%+."""
-    p = 1.0 / (1.0 + math.exp(-0.95*abs(diff)))   # 0.5 .. ~1.0
-    # remappe [0.5..1.0] vers [50%..95%] pour rester réaliste (le foot garde sa part d'aléa)
-    pct = 50 + (p-0.5)/0.5 * 45
-    return int(round(min(95, max(50, pct))))
+    """Indice de confiance (%) = certitude du pronostic, selon l'ampleur de l'écart de force.
+    Échelle étendue (option 2) : match très indécis ~25-30%, favori net jusqu'à ~92%.
+    Un écart quasi nul (issue ouverte) descend volontairement bas pour refléter l'incertitude."""
+    a = abs(diff)
+    p = 1.0 / (1.0 + math.exp(-1.15*a))   # 0.5 (a=0) .. ~1.0
+    # remappe [0.5..1.0] vers [28%..92%] : l'indécision tombe sous le seuil rouge
+    pct = 28 + (p-0.5)/0.5 * 64
+    return int(round(min(92, max(22, pct))))
 
 def style_analysis(home, away):
     """Retourne (libellé court 'Style1 vs Style2', note tactique) pour l'affichage."""
@@ -307,26 +326,29 @@ def fetch_from_api():
         return None
 
     results={}
+    datetimes={}
     for fx in payload.get("matches", []):
-        status=fx.get("status","")
-        if status not in ("FINISHED","AWARDED"):   # match terminé uniquement
-            continue
         hn=map_team((fx.get("homeTeam") or {}).get("name"), (fx.get("homeTeam") or {}).get("tla"))
         an=map_team((fx.get("awayTeam") or {}).get("name"), (fx.get("awayTeam") or {}).get("tla"))
+        if hn is None or an is None: continue
+        key=frozenset((hn,an))
+        if key not in MATCH_BY_TEAMS: continue
+        mid,our_home,our_away=MATCH_BY_TEAMS[key]
+        # horaire officiel (utcDate) si présent, quel que soit le statut
+        utc=fx.get("utcDate")
+        if utc: datetimes[str(mid)]=utc
+        status=fx.get("status","")
+        if status not in ("FINISHED","AWARDED"):   # score : match terminé uniquement
+            continue
         full=(fx.get("score") or {}).get("fullTime") or {}
         gh=full.get("home"); ga=full.get("away")
-        if hn is None or an is None or gh is None or ga is None:
-            continue
-        key=frozenset((hn,an))
-        if key not in MATCH_BY_TEAMS:
-            continue
-        mid,our_home,our_away=MATCH_BY_TEAMS[key]
+        if gh is None or ga is None: continue
         # réorienter le score selon notre ordre (home/away de GROUP_MATCHES)
         if hn==our_home:
             results[str(mid)]={"h":int(gh),"a":int(ga)}
         else:
             results[str(mid)]={"h":int(ga),"a":int(gh)}
-    return results
+    return results, datetimes
 
 def fetch_scorers():
     """Récupère les meilleurs buteurs du tournoi (endpoint /scorers, dispo en gratuit).
@@ -352,17 +374,22 @@ def fetch_scorers():
     return by_team
 
 def load_results():
-    """API en priorité, repli sur data/results_manual.json."""
-    api=fetch_from_api()
-    if api is not None and len(api)>0:
-        print(f"[OK] {len(api)} résultat(s) récupéré(s) via football-data.org")
-        # on fusionne avec le manuel (le manuel sert de filet/historique)
-        manual=load_manual()
-        merged=dict(manual); merged.update(api)
-        save_manual(merged)
-        return merged
-    print("[INFO] API indisponible ou vide → repli sur results_manual.json")
-    return load_manual()
+    """API en priorité, repli sur data/results_manual.json.
+    Retourne (results, datetimes)."""
+    out=fetch_from_api()
+    if out is not None:
+        api, datetimes = out
+        if len(api)>0 or len(datetimes)>0:
+            if len(api)>0:
+                print(f"[OK] {len(api)} résultat(s) récupéré(s) via football-data.org")
+            if len(datetimes)>0:
+                print(f"[OK] {len(datetimes)} horaire(s) officiel(s) récupéré(s)")
+            manual=load_manual()
+            merged=dict(manual); merged.update(api)
+            save_manual(merged, datetimes)
+            return merged, load_datetimes(datetimes)
+    print("[INFO] API indisponible ou vide → repli sur les données locales")
+    return load_manual(), load_datetimes({})
 
 def load_manual():
     p=os.path.join(ROOT,"data","results_manual.json")
@@ -371,21 +398,39 @@ def load_manual():
             return json.load(f).get("resultats",{})
     return {}
 
-def save_manual(results):
+def load_datetimes(fresh):
+    """Fusionne les horaires fraîchement récupérés avec ceux déjà stockés."""
+    stored={}
+    p=os.path.join(ROOT,"data","results_manual.json")
+    if os.path.exists(p):
+        with open(p,"r",encoding="utf-8") as f:
+            stored=json.load(f).get("horaires",{})
+    merged=dict(stored); merged.update(fresh or {})
+    return merged
+
+def save_manual(results, datetimes=None):
     p=os.path.join(ROOT,"data","results_manual.json")
     os.makedirs(os.path.dirname(p),exist_ok=True)
+    prev_h={}
+    if os.path.exists(p):
+        with open(p,"r",encoding="utf-8") as f:
+            prev_h=json.load(f).get("horaires",{})
+    horaires=dict(prev_h); horaires.update(datetimes or {})
     with open(p,"w",encoding="utf-8") as f:
-        json.dump({"derniere_maj":datetime.date.today().isoformat(),"resultats":results},f,ensure_ascii=False,indent=2)
+        json.dump({"derniere_maj":datetime.date.today().isoformat(),
+                   "resultats":results,"horaires":horaires},f,ensure_ascii=False,indent=2)
 
 # ─── CONSTRUCTION DES DONNÉES DE LA PAGE ─────────────────────────────────────
-def build_payload(results, scorers_by_team=None):
+def build_payload(results, scorers_by_team=None, datetimes=None):
     from collections import defaultdict
     scorers_by_team = scorers_by_team or {}
+    datetimes = datetimes or {}
     results={str(k):v for k,v in results.items()}
     momentum,detail=compute_momentum(results)
     rint={int(k):v for k,v in results.items()}
+    today_iso = datetime.date.today().isoformat()
 
-    matches=[]; n_exact=n_bon=n_rate=n_joue=0
+    matches=[]; n_exact=n_bon=n_rate=n_joue=0; n_today=0
     for mid,grp,date,home,away in GROUP_MATCHES:
         pih,pia,_=compute(home,away,None)
         pah,paa,diffaj=compute(home,away,momentum)
@@ -400,10 +445,20 @@ def build_payload(results, scorers_by_team=None):
             else: statut="rate"; n_rate+=1
             n_joue+=1
             resume=match_summary(home, away, rh, ra, statut, momentum, scorers_by_team)
-        mmkey="06-"+date.split("-")[2]
+        # date + heure
+        iso_date, heure = paris_from_utc(datetimes.get(str(mid)))
+        if not iso_date:
+            iso_date = date   # date programmée à défaut
+        mmkey="06-"+iso_date.split("-")[2]
+        date_fr = DATE_FR.get(mmkey, iso_date)
+        is_today = (iso_date == today_iso)
+        if is_today: n_today += 1
+        # clé de tri chronologique (date + heure si dispo, sinon 23:59 pour passer après)
+        sort_key = iso_date + "T" + (heure if heure else "23:59")
         style_label, style_note = style_analysis(home, away)
         matches.append({
-            "id":mid,"grp":grp,"date":DATE_FR.get(mmkey,date),
+            "id":mid,"grp":grp,"date":date_fr,"heure":heure or "","iso":iso_date,"sort":sort_key,
+            "today":is_today,
             "home":home,"away":away,
             "ch":FLAG_CODES.get(home,""),"ca":FLAG_CODES.get(away,""),
             "host_h":home in HOST_NATIONS,"host_a":away in HOST_NATIONS,
@@ -437,7 +492,8 @@ def build_payload(results, scorers_by_team=None):
 
     return {
         "maj":datetime.datetime.now().strftime("%d/%m/%Y à %H:%M"),
-        "stats":{"joue":n_joue,"exact":n_exact,"bon":n_bon,"rate":n_rate,"total":72},
+        "today":datetime.date.today().isoformat(),
+        "stats":{"joue":n_joue,"exact":n_exact,"bon":n_bon,"rate":n_rate,"total":72,"today":n_today},
         "matches":matches,"standings":standings,"momentum":mom_list,
     }
 
@@ -448,17 +504,17 @@ def render_html(payload):
     return tpl.replace("/*__DATA__*/null", data_json)
 
 def main():
-    results=load_results()
+    results, datetimes = load_results()
     scorers=fetch_scorers()
     if scorers:
         print(f"[OK] Buteurs récupérés pour {len(scorers)} équipe(s)")
-    payload=build_payload(results, scorers)
+    payload=build_payload(results, scorers, datetimes)
     html=render_html(payload)
     out=os.path.join(ROOT,"index.html")
     with open(out,"w",encoding="utf-8") as f:
         f.write(html)
     s=payload["stats"]
-    print(f"[OK] index.html généré — {s['joue']} joués | {s['exact']} exacts, {s['bon']} bons, {s['rate']} ratés")
+    print(f"[OK] index.html généré — {s['joue']} joués | {s['exact']} exacts, {s['bon']} bons, {s['rate']} ratés | {s['today']} match(s) aujourd'hui")
 
 if __name__=="__main__":
     main()
