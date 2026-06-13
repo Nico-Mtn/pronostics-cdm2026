@@ -2,8 +2,9 @@ name: Mise à jour quotidienne des pronostics
 
 on:
   schedule:
-    # Tous les jours à 08:00 UTC (10h Paris en été). Cron en UTC.
-    - cron: "0 8 * * *"
+    # Cron en UTC. Paris = UTC+2 en été (heure d'été).
+    - cron: "0 4 * * *"      # 06h00 Paris
+    - cron: "0 17 * * *"     # 19h00 Paris
   workflow_dispatch:        # permet de lancer manuellement depuis l'onglet Actions
   push:
     branches: [ main ]      # régénère aussi à chaque push sur main
