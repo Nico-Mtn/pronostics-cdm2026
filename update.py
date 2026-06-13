@@ -45,16 +45,18 @@ TEAM_DATA = {
 STYLE_FR = {"pressing":"Pressing haut","bloc_bas":"Bloc bas","bloc_moyen":"Bloc médian","contre":"Contre-attaque","possession":"Possession"}
 HOST_NATIONS = ["États-Unis","Canada","Mexique"]
 HOST_BONUS = 0.25
-FLAGS = {
-    "Mexique":"🇲🇽","Afrique du Sud":"🇿🇦","Corée du Sud":"🇰🇷","Tchéquie":"🇨🇿","Canada":"🇨🇦",
-    "Bosnie-Herzégovine":"🇧🇦","Qatar":"🇶🇦","Suisse":"🇨🇭","Brésil":"🇧🇷","Maroc":"🇲🇦","Haïti":"🇭🇹",
-    "Écosse":"🏴","États-Unis":"🇺🇸","Paraguay":"🇵🇾","Australie":"🇦🇺","Turquie":"🇹🇷","Allemagne":"🇩🇪",
-    "Curaçao":"🇨🇼","Côte d'Ivoire":"🇨🇮","Équateur":"🇪🇨","Pays-Bas":"🇳🇱","Japon":"🇯🇵","Suède":"🇸🇪",
-    "Tunisie":"🇹🇳","Belgique":"🇧🇪","Égypte":"🇪🇬","Iran":"🇮🇷","Nouvelle-Zélande":"🇳🇿","Espagne":"🇪🇸",
-    "Cap-Vert":"🇨🇻","Arabie Saoudite":"🇸🇦","Uruguay":"🇺🇾","France":"🇫🇷","Sénégal":"🇸🇳","Irak":"🇮🇶",
-    "Norvège":"🇳🇴","Argentine":"🇦🇷","Algérie":"🇩🇿","Autriche":"🇦🇹","Jordanie":"🇯🇴","Portugal":"🇵🇹",
-    "RD Congo":"🇨🇩","Ouzbékistan":"🇺🇿","Colombie":"🇨🇴","Angleterre":"🏴","Croatie":"🇭🇷","Ghana":"🇬🇭","Panama":"🇵🇦",
+# Codes pays ISO 3166 pour flagcdn.com (images fiables, gère Écosse/Angleterre via gb-sct/gb-eng)
+FLAG_CODES = {
+    "Mexique":"mx","Afrique du Sud":"za","Corée du Sud":"kr","Tchéquie":"cz","Canada":"ca",
+    "Bosnie-Herzégovine":"ba","Qatar":"qa","Suisse":"ch","Brésil":"br","Maroc":"ma","Haïti":"ht",
+    "Écosse":"gb-sct","États-Unis":"us","Paraguay":"py","Australie":"au","Turquie":"tr","Allemagne":"de",
+    "Curaçao":"cw","Côte d'Ivoire":"ci","Équateur":"ec","Pays-Bas":"nl","Japon":"jp","Suède":"se",
+    "Tunisie":"tn","Belgique":"be","Égypte":"eg","Iran":"ir","Nouvelle-Zélande":"nz","Espagne":"es",
+    "Cap-Vert":"cv","Arabie Saoudite":"sa","Uruguay":"uy","France":"fr","Sénégal":"sn","Irak":"iq",
+    "Norvège":"no","Argentine":"ar","Algérie":"dz","Autriche":"at","Jordanie":"jo","Portugal":"pt",
+    "RD Congo":"cd","Ouzbékistan":"uz","Colombie":"co","Angleterre":"gb-eng","Croatie":"hr","Ghana":"gh","Panama":"pa",
 }
+
 
 # ─── CORRESPONDANCE NOMS API (anglais) → NOMS FR ─────────────────────────────
 API_NAME_MAP = {
@@ -186,6 +188,81 @@ def compute(home,away,momentum=None):
     if home in high and diff>2: h=min(h+1,4)
     return h,a,diff
 
+import math
+def confidence_pct(diff):
+    """Convertit l'écart de force en indice de confiance (%) via une courbe logistique.
+    diff ~0 -> proche de 50% (issue ouverte) ; diff élevé -> tend vers 90%+."""
+    p = 1.0 / (1.0 + math.exp(-0.95*abs(diff)))   # 0.5 .. ~1.0
+    # remappe [0.5..1.0] vers [50%..95%] pour rester réaliste (le foot garde sa part d'aléa)
+    pct = 50 + (p-0.5)/0.5 * 45
+    return int(round(min(95, max(50, pct))))
+
+def style_analysis(home, away):
+    """Retourne (libellé court 'Style1 vs Style2', note tactique) pour l'affichage."""
+    hs = TEAM_DATA[home][2]; as_ = TEAM_DATA[away][2]
+    label = f"{STYLE_FR[hs]} vs {STYLE_FR[as_]}"
+    notes = {
+        ("bloc_bas","pressing"): "Le bloc bas peut neutraliser le pressing adverse",
+        ("contre","possession"): "Jeu de transition efficace face à une équipe de possession",
+        ("pressing","bloc_bas"): "Pressing confronté à une défense regroupée",
+        ("possession","contre"): "Possession exposée aux contres adverses",
+    }
+    note = notes.get((hs,as_), "")
+    if not note:
+        if hs==as_: note = "Styles similaires, duel équilibré tactiquement"
+        else: note = "Opposition de styles classique"
+    return label, note
+
+def match_summary(home, away, rh, ra, statut, mom_after, scorers_by_team):
+    """Génère un résumé court combinant factuel (A) et analyse du moteur (C).
+    mom_after : dict team->momentum (après ce match). scorers_by_team : dict team->[noms]."""
+    # --- Factuel (A) ---
+    if rh > ra:
+        winner, wscore, lscore = home, rh, ra
+        head = f"{home} s'impose {rh}-{ra} face à {away}."
+    elif ra > rh:
+        winner, wscore, lscore = away, ra, rh
+        head = f"{away} s'impose {ra}-{rh} face à {home}."
+    else:
+        winner = None
+        head = f"{home} et {away} se neutralisent {rh}-{ra}."
+    total = rh + ra
+    if winner is None and total == 0:
+        head += " Un match fermé, sans but."
+    elif total >= 5:
+        head += " Une rencontre spectaculaire et offensive."
+    elif total >= 3:
+        head += " Un match animé."
+
+    # buteurs si disponibles (endpoint scorers, partiel sur plan gratuit)
+    scorer_bits = []
+    for team in (home, away):
+        names = scorers_by_team.get(team, [])
+        if names:
+            scorer_bits.append(f"Côté {team}, on retrouve {', '.join(names[:2])} parmi les buteurs du tournoi.")
+    factual = " ".join(scorer_bits)
+
+    # --- Analyse du moteur (C) ---
+    if statut == "exact":
+        verdict = "Résultat exactement conforme au pronostic IA."
+    elif statut == "bon":
+        verdict = "Le bon vainqueur avait été anticipé, mais pas le score exact."
+    else:
+        verdict = "Résultat à contre-courant du pronostic : le football reste imprévisible."
+
+    # impact dynamique
+    dyn_bits = []
+    for team in (home, away):
+        m = mom_after.get(team, 0.0)
+        if m >= 0.30: dyn_bits.append(f"{team} repart avec une belle dynamique (+{m:.2f})")
+        elif m <= -0.30: dyn_bits.append(f"{team} accuse le coup ({m:.2f})")
+    dyn = (" " + " ; ".join(dyn_bits) + ".") if dyn_bits else ""
+
+    parts = [head]
+    if factual: parts.append(factual)
+    parts.append(verdict + dyn)
+    return " ".join(parts).strip()
+
 def compute_momentum(results):
     from collections import defaultdict
     momentum=defaultdict(float); detail=defaultdict(list)
@@ -251,11 +328,34 @@ def fetch_from_api():
             results[str(mid)]={"h":int(ga),"a":int(gh)}
     return results
 
+def fetch_scorers():
+    """Récupère les meilleurs buteurs du tournoi (endpoint /scorers, dispo en gratuit).
+    Retourne {nom_equipe_FR: [noms_joueurs]}. Vide si indisponible."""
+    if not API_KEY:
+        return {}
+    url=f"{API_BASE}/competitions/{WC_CODE}/scorers?limit=50"
+    req=urllib.request.Request(url, headers={"X-Auth-Token":API_KEY})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            payload=json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        print(f"[INFO] Buteurs indisponibles : {e}", file=sys.stderr)
+        return {}
+    by_team={}
+    for sc in payload.get("scorers", []):
+        player=(sc.get("player") or {}).get("name")
+        team_obj=sc.get("team") or {}
+        team=map_team(team_obj.get("name"), team_obj.get("tla"))
+        goals=sc.get("goals") or 0
+        if player and team and goals:
+            by_team.setdefault(team, []).append(player)
+    return by_team
+
 def load_results():
     """API en priorité, repli sur data/results_manual.json."""
     api=fetch_from_api()
     if api is not None and len(api)>0:
-        print(f"[OK] {len(api)} résultat(s) récupéré(s) via API-Football")
+        print(f"[OK] {len(api)} résultat(s) récupéré(s) via football-data.org")
         # on fusionne avec le manuel (le manuel sert de filet/historique)
         manual=load_manual()
         merged=dict(manual); merged.update(api)
@@ -278,8 +378,9 @@ def save_manual(results):
         json.dump({"derniere_maj":datetime.date.today().isoformat(),"resultats":results},f,ensure_ascii=False,indent=2)
 
 # ─── CONSTRUCTION DES DONNÉES DE LA PAGE ─────────────────────────────────────
-def build_payload(results):
+def build_payload(results, scorers_by_team=None):
     from collections import defaultdict
+    scorers_by_team = scorers_by_team or {}
     results={str(k):v for k,v in results.items()}
     momentum,detail=compute_momentum(results)
     rint={int(k):v for k,v in results.items()}
@@ -289,7 +390,7 @@ def build_payload(results):
         pih,pia,_=compute(home,away,None)
         pah,paa,diffaj=compute(home,away,momentum)
         joue=mid in rint
-        reel=None; statut="avenir"
+        reel=None; statut="avenir"; resume=""
         if joue:
             rh,ra=rint[mid]["h"],rint[mid]["a"]; reel=[rh,ra]
             po=0 if pih>pia else (1 if pih<pia else 2)
@@ -298,13 +399,18 @@ def build_payload(results):
             elif po==ro: statut="bon"; n_bon+=1
             else: statut="rate"; n_rate+=1
             n_joue+=1
+            resume=match_summary(home, away, rh, ra, statut, momentum, scorers_by_team)
         mmkey="06-"+date.split("-")[2]
+        style_label, style_note = style_analysis(home, away)
         matches.append({
             "id":mid,"grp":grp,"date":DATE_FR.get(mmkey,date),
-            "home":home,"away":away,"fh":FLAGS.get(home,"🏳️"),"fa":FLAGS.get(away,"🏳️"),
+            "home":home,"away":away,
+            "ch":FLAG_CODES.get(home,""),"ca":FLAG_CODES.get(away,""),
             "host_h":home in HOST_NATIONS,"host_a":away in HOST_NATIONS,
             "prono":[pah,paa] if not joue else [pih,pia],
-            "prono_initial":[pih,pia],"reel":reel,"statut":statut,
+            "prono_initial":[pih,pia],"reel":reel,"statut":statut,"resume":resume,
+            "confidence":confidence_pct(diffaj if not joue else compute(home,away,None)[2]),
+            "style_label":style_label,"style_note":style_note,
             "mom_h":round(momentum.get(home,0.0),2),"mom_a":round(momentum.get(away,0.0),2),
         })
 
@@ -323,10 +429,10 @@ def build_payload(results):
     standings={}
     for grp,teams in table.items():
         ranked=sorted(teams.items(),key=lambda kv:(kv[1]["Pts"],kv[1]["BP"]-kv[1]["BC"],kv[1]["BP"]),reverse=True)
-        standings[grp]=[{"team":t,"flag":FLAGS.get(t,"🏳️"),"host":t in HOST_NATIONS,
+        standings[grp]=[{"team":t,"code":FLAG_CODES.get(t,""),"host":t in HOST_NATIONS,
                          "reels":table[grp][t]["reels"],**st} for t,st in ranked]
 
-    mom_list=sorted(({"team":t,"flag":FLAGS.get(t,"🏳️"),"mom":round(v,2),"detail":" · ".join(detail.get(t,[]))}
+    mom_list=sorted(({"team":t,"code":FLAG_CODES.get(t,""),"mom":round(v,2),"detail":" · ".join(detail.get(t,[]))}
                      for t,v in momentum.items()), key=lambda x:-x["mom"])
 
     return {
@@ -343,7 +449,10 @@ def render_html(payload):
 
 def main():
     results=load_results()
-    payload=build_payload(results)
+    scorers=fetch_scorers()
+    if scorers:
+        print(f"[OK] Buteurs récupérés pour {len(scorers)} équipe(s)")
+    payload=build_payload(results, scorers)
     html=render_html(payload)
     out=os.path.join(ROOT,"index.html")
     with open(out,"w",encoding="utf-8") as f:
