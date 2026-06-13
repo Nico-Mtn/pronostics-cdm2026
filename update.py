@@ -153,6 +153,32 @@ DATE_FR = {"06-11":"11 juin","06-12":"12 juin","06-13":"13 juin","06-14":"14 jui
 # Créneaux types de la phase de groupes ; affinés automatiquement dès que l'API renvoie l'heure réelle.
 DEFAULT_TIME = {}  # match_id -> "HH:MM" (Paris) — laissé vide : on affiche la date seule à défaut
 
+# Heure de coup d'envoi en UTC (HH décimal) pour chaque match, d'après le calendrier officiel FIFA.
+# Sert au tri chronologique du Live feed MÊME sans appel API. Annonces FIFA en ET (UTC-4 l'été) :
+# créneaux ET 12h/15h/18h/21h -> UTC 16/19/22/01(+1j). Brésil-Haïti à 20h30 ET -> 00h30 UTC(+1j).
+# La date de coup d'envoi réelle (avec passage au lendemain) est gérée par KICKOFF_DATE ci-dessous.
+KICKOFF_UTC = {
+    1:"19:00",2:"02:00", 7:"19:00",19:"01:00", 8:"19:00",13:"22:00",14:"01:00",20:"04:00",
+    25:"17:00",31:"20:00",26:"23:00",32:"02:00", 37:"19:00",43:"16:00",44:"22:00",38:"01:00",
+    49:"19:00",50:"22:00",55:"01:00",56:"04:00", 61:"16:00",67:"19:00",62:"22:00",68:"01:00",
+    3:"19:00",9:"19:00",4:"01:00",10:"22:00", 15:"22:00",21:"19:00",16:"01:00",22:"04:00",
+    27:"20:00",33:"17:00",28:"00:00",34:"04:00", 39:"19:00",45:"16:00",46:"22:00",40:"01:00",
+    51:"21:00",57:"17:00",52:"00:00",58:"03:00", 63:"17:00",69:"20:00",64:"02:00",70:"23:00",
+    5:"01:00",11:"19:00",6:"01:00",12:"19:00", 17:"22:00",23:"01:00",18:"22:00",24:"01:00",
+    29:"01:00",35:"01:00",30:"22:00",36:"22:00", 41:"01:00",47:"01:00",42:"22:00",48:"22:00",
+    53:"01:00",59:"01:00",54:"22:00",60:"22:00", 65:"01:00",71:"01:00",66:"22:00",72:"22:00",
+}
+# Décalage de jour : matchs dont le coup d'envoi UTC tombe le lendemain de la date "programme".
+KICKOFF_NEXTDAY = {2,19,14,20,4,16,22,28,34,40,58,64,70,52,5,6,23,24,29,35,41,47,53,59,65,71,46}
+
+def paris_time_str(hhmm):
+    """'HH:MM' UTC -> 'HH:MM' Paris (UTC+2 été)."""
+    try:
+        h,m=hhmm.split(":"); h=(int(h)+2)%24
+        return f"{h:02d}:{m}"
+    except Exception:
+        return ""
+
 def paris_from_utc(utc_str):
     """Convertit un utcDate ISO (ex '2026-06-11T19:00:00Z') en (date_iso, 'HH:MM') heure de Paris.
     Paris = UTC+2 en été (juin/juillet). Retourne (None,None) si parsing impossible."""
@@ -174,15 +200,8 @@ def style_bonus(s1,s2):
     if s1=="possession" and s2=="contre": return (-0.2,0.3)
     return (0,0)
 
-def compute(home,away,momentum=None):
-    mo=momentum or {}
-    hf0,ht,hs,hsur=TEAM_DATA[home]; af0,at,as_,asur=TEAM_DATA[away]
-    tb={"up":0.4,"down":-0.4,"stable":0}
-    hF=hf0+tb[ht]+mo.get(home,0.0); aF=af0+tb[at]+mo.get(away,0.0)
-    if home in HOST_NATIONS: hF+=HOST_BONUS
-    if away in HOST_NATIONS: aF+=HOST_BONUS
-    sbh,sba=style_bonus(hs,as_); hF+=sbh; aF+=sba
-    diff=hF-aF
+def _score_from_diff(diff, home, away, hs, as_, asur):
+    """Convertit un écart de force en score crédible. Réutilisé par compute() et second_choice()."""
     if   diff>=3.5: h,a=3,0
     elif diff>=2.5: h,a=3,1
     elif diff>=1.8: h,a=2,0
@@ -203,18 +222,62 @@ def compute(home,away,momentum=None):
     if home in low or away in low: h=min(h,2); a=min(a,1)
     high=["Argentine","France","Allemagne","Espagne","Angleterre","Norvège"]
     if home in high and diff>2: h=min(h+1,4)
+    return h,a
+
+def compute(home,away,momentum=None,qualif=None):
+    mo=momentum or {}; qz=qualif or {}
+    hf0,ht,hs,hsur=TEAM_DATA[home]; af0,at,as_,asur=TEAM_DATA[away]
+    tb={"up":0.4,"down":-0.4,"stable":0}
+    hF=hf0+tb[ht]+mo.get(home,0.0); aF=af0+tb[at]+mo.get(away,0.0)
+    if home in HOST_NATIONS: hF+=HOST_BONUS
+    if away in HOST_NATIONS: aF+=HOST_BONUS
+    # Facteur qualification (3e match de poule) : une équipe déjà qualifiée lève le pied (turnover),
+    # une équipe qui joue sa survie est galvanisée, une équipe éliminée est démobilisée.
+    qb={"qualified":-0.35,"alive":0.20,"eliminated":-0.25,None:0.0}
+    hF+=qb.get(qz.get(home),0.0); aF+=qb.get(qz.get(away),0.0)
+    sbh,sba=style_bonus(hs,as_); hF+=sbh; aF+=sba
+    diff=hF-aF
+    h,a=_score_from_diff(diff, home, away, hs, as_, asur)
     return h,a,diff
+
+def second_choice(home, away, diff):
+    """Retourne (h,a,label) du 2e scénario le plus crédible pour un match incertain.
+    Pour un pronostic de victoire serrée -> l'alternative est le nul.
+    Pour un pronostic de nul -> l'alternative est la victoire du favori sur le papier."""
+    hs=TEAM_DATA[home][2]; as_=TEAM_DATA[away][2]; asur=TEAM_DATA[away][3]
+    h1,a1=_score_from_diff(diff, home, away, hs, as_, asur)
+    if h1>a1: o1="home"
+    elif a1>h1: o1="away"
+    else: o1="draw"
+    if o1=="home":
+        h2,a2=_score_from_diff(0.0, home, away, hs, as_, asur); label="Match nul"
+    elif o1=="away":
+        h2,a2=_score_from_diff(0.0, home, away, hs, as_, asur); label="Match nul"
+    else:  # nul -> victoire du favori
+        if diff>=0:
+            h2,a2=_score_from_diff(0.8, home, away, hs, as_, asur); label="Victoire "+home
+        else:
+            h2,a2=_score_from_diff(-0.8, home, away, hs, as_, asur); label="Victoire "+away
+    # garantir une vraie alternative différente du pronostic principal
+    if (h2,a2)==(h1,a1):
+        if o1=="draw":
+            h2,a2=(1,0) if diff>=0 else (0,1)
+        else:
+            h2,a2=(1,1)
+    return h2,a2,label
 
 import math
 def confidence_pct(diff):
     """Indice de confiance (%) = certitude du pronostic, selon l'ampleur de l'écart de force.
-    Échelle étendue (option 2) : match très indécis ~25-30%, favori net jusqu'à ~92%.
-    Un écart quasi nul (issue ouverte) descend volontairement bas pour refléter l'incertitude."""
+    Échelle calibrée (option B) : le modèle, enrichi de la dynamique réelle, du facteur
+    qualification et de l'avantage hôte, est plus tranché. Moyenne cible ~75% sur l'ensemble,
+    tout en gardant un plancher bas (~30%) pour les vrais matchs indécis (seuil rouge actif).
+    Un favori net atteint ~94%."""
     a = abs(diff)
-    p = 1.0 / (1.0 + math.exp(-1.15*a))   # 0.5 (a=0) .. ~1.0
-    # remappe [0.5..1.0] vers [28%..92%] : l'indécision tombe sous le seuil rouge
-    pct = 28 + (p-0.5)/0.5 * 64
-    return int(round(min(92, max(22, pct))))
+    p = 1.0 / (1.0 + math.exp(-1.35*a))   # 0.5 (a=0) .. ~1.0, pente plus marquée
+    # remappe [0.5..1.0] vers [38%..94%] : plancher relevé, sommet relevé
+    pct = 38 + (p-0.5)/0.5 * 56
+    return int(round(min(94, max(30, pct))))
 
 def style_analysis(home, away):
     """Retourne (libellé court 'Style1 vs Style2', note tactique) pour l'affichage."""
@@ -231,6 +294,46 @@ def style_analysis(home, away):
         if hs==as_: note = "Styles similaires, duel équilibré tactiquement"
         else: note = "Opposition de styles classique"
     return label, note
+
+def compute_qualif_states(results):
+    """Détermine, pour chaque équipe, son statut AVANT son 3e match de poule, à partir
+    des résultats réels des journées 1 et 2.
+    Retourne {equipe: 'qualified'|'eliminated'|'alive'|None}.
+    None = on ne sait pas encore (moins de 2 matchs joués dans le groupe).
+    Heuristique 4 équipes / 6 matchs : on évalue les points après 2 journées.
+    - 6 pts (2 victoires) => qualifié quasi certain -> 'qualified'
+    - 0 pt après 2 matchs => quasi éliminé -> 'eliminated'
+    - sinon -> 'alive' (tout se joue à la 3e journée)
+    Le statut n'est appliqué qu'aux équipes ayant DÉJÀ joué 2 matchs."""
+    from collections import defaultdict
+    rint={int(k):v for k,v in results.items()}
+    # regrouper par groupe : points et nb matchs joués par équipe
+    pts=defaultdict(int); played=defaultdict(int); gd=defaultdict(int)
+    by_grp=defaultdict(list)
+    for mid,grp,date,home,away in GROUP_MATCHES:
+        by_grp[grp].append((mid,home,away))
+        if mid in rint:
+            rh,ra=rint[mid]["h"],rint[mid]["a"]
+            played[home]+=1; played[away]+=1
+            gd[home]+=rh-ra; gd[away]+=ra-rh
+            if rh>ra: pts[home]+=3
+            elif ra>rh: pts[away]+=3
+            else: pts[home]+=1; pts[away]+=1
+    states={}
+    for grp, teams_matches in by_grp.items():
+        teams=set()
+        for _,h,a in teams_matches: teams.add(h); teams.add(a)
+        # combien de matchs joués dans le groupe (sur 6) ?
+        for t in teams:
+            if played[t] >= 2:
+                p=pts[t]
+                if p>=6: states[t]="qualified"     # 2 victoires
+                elif p>=4: states[t]="qualified"    # 4 pts après 2 matchs : très bien placé
+                elif p==0: states[t]="eliminated"   # 0 pt : quasi éliminé
+                else: states[t]="alive"             # 1 à 3 pts : tout ouvert
+            else:
+                states[t]=None
+    return states
 
 def match_summary(home, away, rh, ra, statut, mom_after, scorers_by_team):
     """Génère un résumé court combinant factuel (A) et analyse du moteur (C).
@@ -427,13 +530,25 @@ def build_payload(results, scorers_by_team=None, datetimes=None):
     datetimes = datetimes or {}
     results={str(k):v for k,v in results.items()}
     momentum,detail=compute_momentum(results)
+    qualif_states=compute_qualif_states(results)
     rint={int(k):v for k,v in results.items()}
     today_iso = datetime.date.today().isoformat()
+
+    # Identifier les matchs de la 3e journée (derniers 2 matchs de chaque groupe)
+    j3_ids=set()
+    _by_grp=defaultdict(list)
+    for mid,grp,date,home,away in GROUP_MATCHES:
+        _by_grp[grp].append(mid)
+    for grp,ids in _by_grp.items():
+        for mid in ids[-2:]:   # les 2 derniers = 3e journée
+            j3_ids.add(mid)
 
     matches=[]; n_exact=n_bon=n_rate=n_joue=0; n_today=0
     for mid,grp,date,home,away in GROUP_MATCHES:
         pih,pia,_=compute(home,away,None)
-        pah,paa,diffaj=compute(home,away,momentum)
+        # facteur qualification uniquement pour les 3es matchs
+        qz = qualif_states if mid in j3_ids else None
+        pah,paa,diffaj=compute(home,away,momentum,qz)
         joue=mid in rint
         reel=None; statut="avenir"; resume=""
         if joue:
@@ -445,17 +560,51 @@ def build_payload(results, scorers_by_team=None, datetimes=None):
             else: statut="rate"; n_rate+=1
             n_joue+=1
             resume=match_summary(home, away, rh, ra, statut, momentum, scorers_by_team)
-        # date + heure
-        iso_date, heure = paris_from_utc(datetimes.get(str(mid)))
-        if not iso_date:
-            iso_date = date   # date programmée à défaut
+        # === Date + heure + tri, à partir d'un instant UTC unique (cohérent) ===
+        dt_utc = None
+        api_iso = datetimes.get(str(mid))
+        if api_iso:
+            try:
+                dt_utc = datetime.datetime.fromisoformat(api_iso.replace("Z","+00:00"))
+            except Exception:
+                dt_utc = None
+        if dt_utc is None:
+            # fallback : date programmée + heure UTC de la table officielle
+            ku = KICKOFF_UTC.get(mid)
+            try:
+                base_d = datetime.date.fromisoformat(date)
+                if ku:
+                    hh,mm = ku.split(":")
+                    dt_utc = datetime.datetime(base_d.year, base_d.month, base_d.day,
+                                               int(hh), int(mm), tzinfo=datetime.timezone.utc)
+                    if mid in KICKOFF_NEXTDAY:
+                        dt_utc += datetime.timedelta(days=1)
+                else:
+                    # aucune heure connue : minuit UTC, tri en fin de journée
+                    dt_utc = datetime.datetime(base_d.year, base_d.month, base_d.day,
+                                               23, 59, tzinfo=datetime.timezone.utc)
+            except Exception:
+                dt_utc = None
+
+        if dt_utc is not None:
+            dt_paris = dt_utc + datetime.timedelta(hours=2)   # Paris = UTC+2 (été)
+            iso_date = dt_paris.strftime("%Y-%m-%d")
+            heure = dt_paris.strftime("%H:%M") if KICKOFF_UTC.get(mid) or api_iso else ""
+            sort_key = dt_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+        else:
+            iso_date = date; heure=""; sort_key = date + "T23:59:00Z"
+
         mmkey="06-"+iso_date.split("-")[2]
         date_fr = DATE_FR.get(mmkey, iso_date)
         is_today = (iso_date == today_iso)
         if is_today: n_today += 1
-        # clé de tri chronologique (date + heure si dispo, sinon 23:59 pour passer après)
-        sort_key = iso_date + "T" + (heure if heure else "23:59")
         style_label, style_note = style_analysis(home, away)
+        conf = confidence_pct(diffaj if not joue else compute(home,away,None)[2])
+        # Second choix : seulement pour les matchs à venir incertains (confiance < 70%)
+        second = None
+        if not joue and conf < 70:
+            s_h, s_a, s_lbl = second_choice(home, away, diffaj)
+            second = {"score":[s_h,s_a], "label":s_lbl}
         matches.append({
             "id":mid,"grp":grp,"date":date_fr,"heure":heure or "","iso":iso_date,"sort":sort_key,
             "today":is_today,
@@ -464,7 +613,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None):
             "host_h":home in HOST_NATIONS,"host_a":away in HOST_NATIONS,
             "prono":[pah,paa] if not joue else [pih,pia],
             "prono_initial":[pih,pia],"reel":reel,"statut":statut,"resume":resume,
-            "confidence":confidence_pct(diffaj if not joue else compute(home,away,None)[2]),
+            "confidence":conf,"second":second,
             "style_label":style_label,"style_note":style_note,
             "mom_h":round(momentum.get(home,0.0),2),"mom_a":round(momentum.get(away,0.0),2),
         })
