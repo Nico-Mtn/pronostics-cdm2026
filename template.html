@@ -35,7 +35,7 @@
   html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);
     font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;
     transition:background .25s,color .25s}
-  .wrap{max-width:760px;margin:0 auto;padding:0 16px 52px}
+  .wrap{max-width:820px;margin:0 auto;padding:0 18px 52px}
   img.flag{width:24px;height:18px;object-fit:cover;border-radius:3px;flex-shrink:0;
     box-shadow:0 0 0 1px rgba(0,0,0,.08);vertical-align:middle}
   img.flag.sm{width:20px;height:15px}
@@ -64,7 +64,7 @@
     color:var(--mut);font-weight:700;font-size:11px;cursor:pointer;letter-spacing:.3px;transition:.15s;font-family:inherit}
   nav button:hover{border-color:var(--accent2);color:var(--txt2)}
   nav button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
-  .grpsel{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+  .grpsel{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;justify-content:center}
   .grpsel button{width:38px;height:38px;border:2px solid transparent;border-radius:10px;background:var(--card);color:#fff;
     font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;transition:.15s;opacity:.55}
   .grpsel button:hover{opacity:.85}
@@ -87,7 +87,8 @@
   .tm.r{justify-content:flex-end;text-align:right}
   .tm.l{justify-content:flex-start}
   .tm span.n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .host{font-size:11px;flex-shrink:0;cursor:help}
+  .host{flex-shrink:0;cursor:help;display:inline-flex;align-items:center;color:var(--accent2);vertical-align:middle}
+  .host .stadium{display:block}
   .sc{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:70px}
   .sc .score{font-size:16px;font-weight:800;color:var(--txt);letter-spacing:1px}
   .sc .score.prono{color:var(--gold)}
@@ -112,6 +113,15 @@
     padding:10px 12px;font-size:10.5px;line-height:1.55;color:var(--txt2);position:relative}
   .resume-bubble::before{content:"";position:absolute;top:-5px;left:18px;width:9px;height:9px;
     background:var(--real);border-left:1px solid var(--line);border-top:1px solid var(--line);transform:rotate(45deg)}
+  .alt-badge{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin-left:5px;
+    border-radius:50%;background:var(--orange);color:#fff;font-size:10px;font-weight:800;cursor:pointer;
+    border:none;font-family:inherit;line-height:1;vertical-align:middle;flex-shrink:0;transition:.15s}
+  .alt-badge:hover{filter:brightness(1.08);transform:scale(1.12)}
+  .alt-bubble{margin-top:8px;background:var(--drawbg);border:1px solid var(--draw);border-radius:11px;
+    padding:9px 12px;font-size:10.5px;line-height:1.5;color:var(--txt2)}
+  .alt-bubble .at{font-weight:800;color:var(--draw);text-transform:uppercase;letter-spacing:.4px;font-size:9px;margin-bottom:4px;display:flex;align-items:center;gap:5px}
+  .alt-bubble .asc{font-weight:800;color:var(--txt);font-size:13px}
+  .alt-bubble b{color:var(--txt)}
   /* DEPLIANT anciens matchs */
   .accordion{margin-bottom:16px}
   .acc-head{width:100%;display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--card2);
@@ -145,6 +155,52 @@
   footer{text-align:center;font-size:9.5px;color:var(--dim);padding:24px 0 0;line-height:1.7}
   footer a{color:var(--accent2);text-decoration:none;font-weight:700}
   .empty{text-align:center;padding:46px 20px;color:var(--mut)}
+  /* Légende pays-hôte en pied de page */
+  .host-legend{display:flex;align-items:center;justify-content:center;gap:8px;margin:0 auto 4px;
+    font-size:10px;color:var(--mut);background:var(--card2);border:1px solid var(--line);
+    border-radius:10px;padding:8px 14px;max-width:420px}
+  .host-legend .host{color:var(--accent2)}
+  /* Règles de qualification (haut de l'onglet Classements) */
+  .qrules{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:13px 15px;
+    margin-bottom:16px;box-shadow:var(--shadow)}
+  .qrules h3{font-size:11px;font-weight:800;color:var(--txt);margin:0 0 8px;letter-spacing:.4px;text-transform:uppercase}
+  .qrules ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+  .qrules li{font-size:11px;color:var(--txt2);line-height:1.45;display:flex;gap:8px;align-items:flex-start}
+  .qrules .dot{width:11px;height:11px;border-radius:3px;flex-shrink:0;margin-top:2px}
+  .qrules .d1{background:var(--win)}.qrules .d3{background:var(--gold)}
+  .qrules b{color:var(--txt)}
+  /* ===== RESPONSIVE MOBILE ===== */
+  @media (max-width:560px){
+    .wrap{padding:0 11px 44px}
+    header{padding:13px 11px 11px;margin:0 -11px 14px}
+    h1{font-size:13.5px}
+    .sub{font-size:8px;letter-spacing:1px}
+    .pct-box .big{font-size:18px}
+    .scorebar{gap:6px}
+    .pill .v{font-size:15px}
+    nav{gap:5px}
+    nav button{font-size:10px;padding:9px 2px}
+    .grpsel button{width:34px;height:34px;font-size:12px}
+    .match{padding:12px 11px;gap:9px}
+    .conf-circle{width:42px}
+    .ring{width:40px;height:40px}
+    .ring svg{width:40px;height:40px}
+    .ring .pctn{font-size:10px}
+    .match-row1{flex-wrap:wrap}
+    .match-row1 .dt{min-width:54px;font-size:8.5px}
+    .tm{font-size:11.5px}
+    .sc .score{font-size:15px}
+    img.flag{width:21px;height:15px}
+    .grphead{font-size:12px}
+    table{font-size:10px}
+    th{font-size:8px;padding:6px 2px}
+    td{padding:7px 2px}
+    td.team{padding-left:7px;gap:5px}
+  }
+  @media (max-width:380px){
+    .tm span.n{max-width:78px}
+    .b-grp,.b-today{font-size:8px;padding:2px 6px}
+  }
 </style>
 </head>
 <body>
@@ -173,6 +229,7 @@
   </nav>
   <div id="grpsel" class="grpsel"></div>
   <div id="content"></div>
+  <div class="host-legend"><span class="host" id="legend-stadium"></span> <span>Le picto stade signale un <b style="color:var(--txt2)">pays-hote</b> de la competition (Etats-Unis, Canada, Mexique), qui beneficie d'un leger avantage a domicile.</span></div>
   <footer>
     Coupe du Monde 2026 &middot; 11 juin &ndash; 19 juillet &middot; Etats-Unis / Canada / Mexique<br>
     Pronostics generes par modele IA &middot; Scores reels via football-data.org &middot; Mise a jour automatique quotidienne<br>
@@ -255,7 +312,13 @@ function renderGrpSel(show){
     b.onclick=function(){activeGrp=b.dataset.g;render();};});
 }
 
-function hostBadge(){ return '<span class="host" title="Pays-hote de la competition">\uD83C\uDFDF\uFE0F</span>'; }
+var STADIUM_SVG = '<svg class="stadium" viewBox="0 0 20 20" width="15" height="15" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+  + '<ellipse cx="10" cy="11.5" rx="8.2" ry="5" fill="none" stroke="currentColor" stroke-width="1.4"/>'
+  + '<ellipse cx="10" cy="11.5" rx="4" ry="2.2" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".75"/>'
+  + '<path d="M2.1 10.2C2.1 7 5.6 4.6 10 4.6s7.9 2.4 7.9 5.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>'
+  + '<path d="M10 4.6V2.2M7 4.8 6.1 2.6M13 4.8l.9-2.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>'
+  + '</svg>';
+function hostBadge(){ return '<span class="host" title="Pays-hote de la competition">'+STADIUM_SVG+'</span>'; }
 
 function matchCard(m){
   var host_h=m.host_h?hostBadge():'';
@@ -266,7 +329,8 @@ function matchCard(m){
     tagHtml='<div class="tag '+m.statut+'">'+TAG_LABEL[m.statut]+'</div>';
   }else{
     scoreHtml='<div class="score prono">'+m.prono[0]+' \u2013 '+m.prono[1]+'</div>';
-    tagHtml='<div class="tag avenir">Pronostic</div>';
+    var altBtn = m.second ? '<button class="alt-badge" data-alt="alt-'+m.id+'" title="Pronostic incertain : voir le 2e choix">!</button>' : '';
+    tagHtml='<div class="tag avenir">Pronostic'+altBtn+'</div>';
   }
   // date + heure
   var dt='<span class="dt">'+m.date+(m.heure?'<span class="h">'+m.heure+'</span>':'')+'</span>';
@@ -282,6 +346,15 @@ function matchCard(m){
     if(m.mom_a>=0.2)notes.push(m.away+" en confiance (+"+m.mom_a+")");
     else if(m.mom_a<=-0.2)notes.push(m.away+" en difficulte ("+m.mom_a+")");
     if(notes.length)dyn='<div class="dyn">\u21bb '+notes.join(" \u00b7 ")+'</div>';
+  }
+  // bulle second choix (matchs incertains <70%)
+  var altHtml="";
+  if(m.second){
+    var aid="alt-"+m.id;
+    altHtml='<div class="alt-bubble" id="'+aid+'" style="display:none">'
+      +'<div class="at">\u26A0\uFE0F Pronostic incertain \u2014 2e choix</div>'
+      +'<div>Sc\u00e9nario alternatif le plus cr\u00e9dible : <span class="asc">'+m.second.score[0]+' \u2013 '+m.second.score[1]+'</span> &middot; <b>'+m.second.label+'</b></div>'
+      +'</div>';
   }
   // resume
   var resumeHtml="";
@@ -302,9 +375,19 @@ function matchCard(m){
     +   '<div class="meta">'
     +     '<div class="style"><span class="lbl">Style</span>'
     +       '<span class="body"><b>'+m.style_label+'</b><div class="note">'+m.style_note+'</div></span></div>'
-    +     dyn+resumeHtml
+    +     dyn+altHtml+resumeHtml
     +   '</div>'
     + '</div></div>';
+}
+
+function bindAlts(c){
+  Array.prototype.forEach.call(c.querySelectorAll(".alt-badge"),function(btn){
+    btn.onclick=function(){
+      var b=document.getElementById(btn.dataset.alt);
+      if(!b)return;
+      b.style.display = (b.style.display==="none") ? "block" : "none";
+    };
+  });
 }
 
 function bindResumes(c){
@@ -362,17 +445,21 @@ function render(){
       document.getElementById("accbody").style.display=oldOpen?"block":"none";
       ab.classList.toggle("open",oldOpen);
     };
-    bindResumes(c);
+    bindResumes(c); bindAlts(c);
   }
   else if(view==="matches"){
     renderGrpSel(true);
     var ms=DATA.matches.filter(function(m){return m.grp===activeGrp;});
     c.innerHTML='<div class="card">'+ms.map(matchCard).join("")+'</div>';
-    bindResumes(c);
+    bindResumes(c); bindAlts(c);
   }
   else if(view==="standings"){
     renderGrpSel(false);
-    var html="";
+    var html='<div class="qrules"><h3>\uD83C\uDFC6 Comment se qualifier ?</h3><ul>'
+      +'<li><span class="dot d1"></span><span>Les <b>2 premiers de chaque groupe</b> (12 groupes) sont qualifies directement pour les 1/16e de finale, soit <b>24 equipes</b>.</span></li>'
+      +'<li><span class="dot d3"></span><span>Les <b>8 meilleurs 3es</b> (sur 12) completent le tableau : on arrive a <b>32 equipes</b> pour le tour suivant (nouveau format a 48 nations).</span></li>'
+      +'<li><span class="dot" style="background:var(--mut)"></span><span>Departage en cas d\'egalite : points, puis difference de buts, puis buts marques.</span></li>'
+      +'</ul></div>';
     "ABCDEFGHIJKL".split("").forEach(function(g){
       var rows=DATA.standings[g]||[];
       var nbReels=rows.reduce(function(mx,r){return Math.max(mx,r.reels);},0);
@@ -410,6 +497,8 @@ function render(){
 
 Array.prototype.forEach.call(document.querySelectorAll("#nav button"),function(b){
   b.onclick=function(){view=b.dataset.v;render();};});
+var legEl=document.getElementById("legend-stadium");
+if(legEl) legEl.innerHTML=STADIUM_SVG;
 renderHeader();
 render();
 </script>
