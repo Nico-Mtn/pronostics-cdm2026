@@ -532,6 +532,97 @@ def save_manual(results, datetimes=None):
         json.dump({"derniere_maj":datetime.date.today().isoformat(),
                    "resultats":results,"horaires":horaires},f,ensure_ascii=False,indent=2)
 
+# ─── TABLEAU FINAL (PHASES FINALES) ──────────────────────────────────────────
+# Slots "meilleur 3e" : groupes autorisés par match (Annexe C FIFA).
+THIRD_SLOTS = {74:"ABCDF",77:"CDFGH",79:"CEFHI",80:"EHIJK",81:"BEFIJ",82:"AEHIJ",85:"EFGIJ",87:"DEIJL"}
+# 16es de finale : (id, refDom, refExt) ; ref = ('1',G)=vainqueur, ('2',G)=2e, ('3',slot)=meilleur 3e
+KO_R32 = [
+    (73,('2','A'),('2','B')), (74,('1','E'),('3',74)), (75,('1','F'),('2','C')), (76,('1','C'),('2','F')),
+    (77,('1','I'),('3',77)),  (78,('2','E'),('2','I')), (79,('1','A'),('3',79)), (80,('1','L'),('3',80)),
+    (81,('1','D'),('3',81)),  (82,('1','G'),('3',82)),  (83,('2','K'),('2','L')),(84,('1','H'),('2','J')),
+    (85,('1','B'),('3',85)),  (86,('1','J'),('2','H')), (87,('1','K'),('3',87)), (88,('2','D'),('2','G')),
+]
+# Tours suivants : (id, vainqueur_match_a, vainqueur_match_b)
+KO_NEXT = [
+    (89,74,77),(90,73,75),(91,76,78),(92,79,80),(93,83,84),(94,81,82),(95,86,88),(96,85,87),  # 8es
+    (97,89,90),(98,93,94),(99,91,92),(100,95,96),  # quarts
+    (101,97,98),(102,99,100),  # demies
+    (104,101,102),  # finale
+]
+
+def _assign_thirds(standings):
+    """Classe les 12 troisièmes, retient les 8 meilleurs, et les affecte aux slots
+    en respectant les groupes autorisés (résolution par backtracking)."""
+    thirds=[]
+    for g,rows in standings.items():
+        if len(rows)>=3:
+            r=rows[2]; thirds.append((g,r["Pts"],r["BP"]-r["BC"],r["BP"],r["team"]))
+    thirds_sorted=sorted(thirds,key=lambda x:(x[1],x[2],x[3]),reverse=True)
+    qualified=thirds_sorted[:8]
+    qual_groups=[t[0] for t in qualified]
+    team_by_group={t[0]:t[4] for t in qualified}
+    slots=[74,77,79,80,81,82,85,87]; allowed={s:set(THIRD_SLOTS[s]) for s in slots}
+    assignment={}
+    def bt(i,used):
+        if i==len(slots): return True
+        s=slots[i]
+        for g in qual_groups:
+            if g not in used and g in allowed[s]:
+                assignment[s]=g; used.add(g)
+                if bt(i+1,used): return True
+                used.discard(g); assignment.pop(s,None)
+        return False
+    ok=bt(0,set())
+    slot_team={s:(team_by_group.get(assignment.get(s)) if ok else None) for s in slots}
+    return thirds_sorted, qual_groups, slot_team
+
+def _resolve_ref(ref, standings, slot_team):
+    kind,key=ref
+    rows=standings.get(key) if kind in ("1","2") else None
+    if kind=="1": return rows[0]["team"] if rows else None
+    if kind=="2": return rows[1]["team"] if rows and len(rows)>1 else None
+    if kind=="3": return slot_team.get(key)
+    return None
+
+def _ko_match(home, away, momentum):
+    if not home or not away: return {"home":home,"away":away,"sh":None,"sa":None,"winner":None,"tab":False}
+    h,a,diff=compute(home,away,momentum)   # pas de facteur qualification en phase finale
+    if h==a:
+        winner = home if diff>=0 else away; tab=True   # nul -> tirs au but, le favori passe
+    else:
+        winner = home if h>a else away; tab=False
+    return {"home":home,"away":away,"sh":h,"sa":a,"winner":winner,"tab":tab}
+
+KO_NAMES={"r32":"16es de finale","r16":"8es de finale","qf":"Quarts de finale","sf":"Demi-finales","final":"Finale"}
+def build_knockout(standings, momentum):
+    thirds_sorted, qual_groups, slot_team = _assign_thirds(standings)
+    winners={}; rounds=[]
+    r32=[]
+    for mid,ra,rb in KO_R32:
+        home=_resolve_ref(ra,standings,slot_team); away=_resolve_ref(rb,standings,slot_team)
+        res=_ko_match(home,away,momentum); winners[mid]=res["winner"]
+        res["id"]=mid; res["ch"]=FLAG_CODES.get(res["home"],""); res["ca"]=FLAG_CODES.get(res["away"],"")
+        r32.append(res)
+    rounds.append({"key":"r32","name":KO_NAMES["r32"],"matches":r32})
+    def play(idset,key):
+        arr=[]
+        for mid,a,b in KO_NEXT:
+            if mid not in idset: continue
+            home=winners.get(a); away=winners.get(b)
+            res=_ko_match(home,away,momentum); winners[mid]=res["winner"]
+            res["id"]=mid; res["ch"]=FLAG_CODES.get(res["home"],""); res["ca"]=FLAG_CODES.get(res["away"],"")
+            arr.append(res)
+        rounds.append({"key":key,"name":KO_NAMES[key],"matches":arr})
+    play({89,90,91,92,93,94,95,96},"r16")
+    play({97,98,99,100},"qf")
+    play({101,102},"sf")
+    play({104},"final")
+    champion = winners.get(104)
+    thirds_rank=[{"team":t[4],"code":FLAG_CODES.get(t[4],""),"grp":t[0],"Pts":t[1],"GD":t[2],"GF":t[3],
+                  "qualified":t[0] in qual_groups} for t in thirds_sorted]
+    return {"rounds":rounds,"thirds":thirds_rank,"champion":champion,
+            "champion_code":FLAG_CODES.get(champion,"")}
+
 # ─── CONSTRUCTION DES DONNÉES DE LA PAGE ─────────────────────────────────────
 def build_payload(results, scorers_by_team=None, datetimes=None):
     from collections import defaultdict
@@ -661,12 +752,14 @@ def build_payload(results, scorers_by_team=None, datetimes=None):
     mom_list=sorted(({"team":t,"code":FLAG_CODES.get(t,""),"mom":round(v,2),"detail":" · ".join(detail.get(t,[]))}
                      for t,v in momentum.items()), key=lambda x:-x["mom"])
 
+    knockout=build_knockout(standings, momentum)
+
     return {
         "maj":datetime.datetime.now().strftime("%d/%m/%Y à %H:%M"),
         "today":datetime.date.today().isoformat(),
         "version":MODEL_VERSION,
         "stats":{"joue":n_joue,"exact":n_exact,"bon":n_bon,"rate":n_rate,"total":72,"today":n_today},
-        "matches":matches,"standings":standings,"momentum":mom_list,
+        "matches":matches,"standings":standings,"momentum":mom_list,"knockout":knockout,
     }
 
 # ─── GÉNÉRATION HTML ─────────────────────────────────────────────────────────
