@@ -1,0 +1,29 @@
+# PronoBot — notification matinale (résultats de la veille + justesse)
+# ⚠️ À DÉPLACER dans .github/workflows/ APRÈS avoir configuré les secrets
+# (voir NOTIFICATIONS.md). Tant qu'il n'y est pas, il ne s'exécute pas.
+name: Notification matinale PronoBot
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # 06:00 UTC = 08:00 Paris (heure d'été, période du Mondial)
+  workflow_dispatch:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Installer web-push
+        working-directory: notify
+        run: npm install web-push --no-save
+      - name: Envoyer les notifications
+        working-directory: notify
+        env:
+          VAPID_PUBLIC: ${{ secrets.VAPID_PUBLIC }}
+          VAPID_PRIVATE: ${{ secrets.VAPID_PRIVATE }}
+          SUBS_URL: ${{ secrets.SUBS_URL }}
+          LIST_SECRET: ${{ secrets.PUSH_LIST_SECRET }}
+        run: node send.mjs
