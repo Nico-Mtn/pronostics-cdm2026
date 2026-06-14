@@ -460,6 +460,24 @@ def fetch_from_api():
             results[str(mid)]={"h":int(gh),"a":int(ga)}
         else:
             results[str(mid)]={"h":int(ga),"a":int(gh)}
+
+    # ── Dates des matchs à élimination directe (équipes encore "à définir") ──
+    # On ne peut pas mapper par équipes : on s'appuie sur le champ `stage` officiel.
+    # Repli silencieux si les libellés de stage diffèrent (les cartes gardent alors
+    # le bandeau de période du tour). 3e place ignorée (non affichée).
+    KO_STAGE_IDS={
+        "LAST_32":list(range(73,89)), "LAST_16":list(range(89,97)),
+        "QUARTER_FINALS":[97,98,99,100], "SEMI_FINALS":[101,102], "FINAL":[104],
+    }
+    by_stage={}
+    for fx in payload.get("matches", []):
+        st=(fx.get("stage") or "").upper()
+        if st in KO_STAGE_IDS and fx.get("utcDate"):
+            by_stage.setdefault(st,[]).append((fx["utcDate"], fx.get("id") or 0))
+    for st,ids in KO_STAGE_IDS.items():
+        for i,(utc,_id) in enumerate(sorted(by_stage.get(st,[]))):
+            if i<len(ids): datetimes[str(ids[i])]=utc
+
     return results, datetimes
 
 def fetch_scorers():
@@ -624,7 +642,19 @@ def _bracket_orders():
         orders[key]=nxt; cur=nxt
     return orders
 
-def build_knockout(standings, momentum):
+def _ko_date_fr(datetimes, mid):
+    """(date_fr_courte, heure_paris) pour un match KO depuis son utcDate, sinon ('','')."""
+    iso=(datetimes or {}).get(str(mid))
+    if not iso: return ("","")
+    try:
+        dt=datetime.datetime.fromisoformat(iso.replace("Z","+00:00"))+datetime.timedelta(hours=2)
+        mois={1:"janv.",2:"févr.",3:"mars",4:"avr.",5:"mai",6:"juin",7:"juil.",8:"août",
+              9:"sept.",10:"oct.",11:"nov.",12:"déc."}
+        return (f"{dt.day} {mois[dt.month]}", dt.strftime("%H:%M"))
+    except Exception:
+        return ("","")
+
+def build_knockout(standings, momentum, datetimes=None):
     thirds_sorted, qual_groups, slot_team = _assign_thirds(standings)
     winners={}; rounds=[]
     r32=[]
@@ -654,6 +684,9 @@ def build_knockout(standings, momentum):
         if om:
             pos={mid:i for i,mid in enumerate(om)}
             rd["matches"].sort(key=lambda m: pos.get(m["id"], 999))
+        # Date + heure officielles (Paris) par match, si disponibles
+        for m in rd["matches"]:
+            m["date"],m["heure"]=_ko_date_fr(datetimes, m["id"])
     champion = winners.get(104)
     thirds_rank=[{"team":t[4],"code":FLAG_CODES.get(t[4],""),"grp":t[0],"Pts":t[1],"GD":t[2],"GF":t[3],
                   "qualified":t[0] in qual_groups} for t in thirds_sorted]
@@ -790,7 +823,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
     mom_list=sorted(({"team":t,"code":FLAG_CODES.get(t,""),"mom":round(v,2),"detail":" · ".join(detail.get(t,[]))}
                      for t,v in momentum.items()), key=lambda x:-x["mom"])
 
-    knockout=build_knockout(standings, momentum)
+    knockout=build_knockout(standings, momentum, datetimes)
 
     return {
         "maj":datetime.datetime.now().strftime("%d/%m/%Y à %H:%M"),
