@@ -250,29 +250,20 @@ def compute(home,away,momentum=None,qualif=None):
 
 def second_choice(home, away, diff):
     """Retourne (h,a,label) du 2e scénario le plus crédible pour un match incertain.
-    Pour un pronostic de victoire serrée -> l'alternative est le nul.
-    Pour un pronostic de nul -> l'alternative est la victoire du favori sur le papier."""
+    Le SCORE est toujours COHÉRENT avec le libellé :
+      - pronostic de victoire -> alternative = match nul (score nul garanti) ;
+      - pronostic de nul -> alternative = victoire du favori (score décisif garanti)."""
     hs=TEAM_DATA[home][2]; as_=TEAM_DATA[away][2]; asur=TEAM_DATA[away][3]
     h1,a1=_score_from_diff(diff, home, away, hs, as_, asur)
-    if h1>a1: o1="home"
-    elif a1>h1: o1="away"
-    else: o1="draw"
-    if o1=="home":
-        h2,a2=_score_from_diff(0.0, home, away, hs, as_, asur); label="Match nul"
-    elif o1=="away":
-        h2,a2=_score_from_diff(0.0, home, away, hs, as_, asur); label="Match nul"
-    else:  # nul -> victoire du favori
-        if diff>=0:
-            h2,a2=_score_from_diff(0.8, home, away, hs, as_, asur); label="Victoire "+home
-        else:
-            h2,a2=_score_from_diff(-0.8, home, away, hs, as_, asur); label="Victoire "+away
-    # garantir une vraie alternative différente du pronostic principal
-    if (h2,a2)==(h1,a1):
-        if o1=="draw":
-            h2,a2=(1,0) if diff>=0 else (0,1)
-        else:
-            h2,a2=(1,1)
-    return h2,a2,label
+    seed=sum(ord(c) for c in (home+away))
+    if h1!=a1:
+        # Prono = victoire -> alternative = MATCH NUL (toujours un nul réaliste)
+        n=[1,0,2][seed%3]          # 1-1, 0-0 ou 2-2
+        return n, n, "Match nul"
+    # Prono = nul -> alternative = VICTOIRE du favori sur le papier (toujours décisif)
+    if diff>=0:
+        return 2, 1, "Victoire "+home
+    return 1, 2, "Victoire "+away
 
 import math
 def confidence_pct(diff):
