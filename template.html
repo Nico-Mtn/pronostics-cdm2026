@@ -229,6 +229,38 @@
     .tm span.n{max-width:78px}
     .b-grp,.b-today{font-size:8px;padding:2px 6px}
   }
+  /* Sous-onglets (Matchs) */
+  .subtabs{display:flex;gap:7px;margin-bottom:16px}
+  .subtabs .subtab{flex:1;padding:9px 4px;border:1px solid var(--line);border-radius:11px;background:var(--card);
+    color:var(--mut);font-weight:700;font-size:11px;cursor:pointer;font-family:inherit;transition:.15s}
+  .subtabs .subtab:hover{border-color:var(--accent2);color:var(--txt2)}
+  .subtabs .subtab.on{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+  /* Bracket phases finales */
+  .ko-note{font-size:10px;color:var(--txt2);background:var(--drawbg);border:1px solid var(--draw);
+    border-radius:11px;padding:10px 13px;line-height:1.5;margin-bottom:14px}
+  .champion{text-align:center;background:linear-gradient(135deg,var(--goldbg),transparent);border:1px solid var(--gold);
+    border-radius:14px;padding:13px;margin-bottom:16px}
+  .champion .cl{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);font-weight:800}
+  .champion .cn{font-size:18px;font-weight:900;color:var(--txt);margin-top:4px;display:flex;align-items:center;justify-content:center;gap:8px}
+  .bracket{display:flex;flex-direction:column;gap:0}
+  .ko-round{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:11px 13px;box-shadow:var(--shadow)}
+  .ko-rname{font-size:11px;font-weight:800;color:var(--accent2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:9px}
+  .ko-arrow{text-align:center;color:var(--dim);font-size:11px;margin:5px 0}
+  .ko-match{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line2)}
+  .ko-match:last-child{border-bottom:none}
+  .ko-team{flex:1;display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--txt2);min-width:0}
+  .ko-team .kn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ko-team.win{color:var(--txt);font-weight:800}
+  .ko-team.win .kn::after{content:" \2713";color:var(--win);font-size:10px}
+  .ko-team.tbd{color:var(--dim);font-style:italic}
+  .ko-team:last-child{justify-content:flex-end;text-align:right}
+  .ko-sc{flex-shrink:0;font-size:11px;font-weight:800;color:var(--txt);min-width:46px;text-align:center}
+  .ko-sc .tab{font-size:7.5px;color:var(--mut);font-weight:700;letter-spacing:.3px}
+  @media (min-width:640px){
+    .bracket{flex-direction:row;align-items:flex-start;gap:10px;overflow-x:auto;padding-bottom:8px}
+    .ko-round{flex:1;min-width:200px}
+    .ko-arrow{display:none}
+  }
 </style>
 </head>
 <body>
@@ -455,6 +487,41 @@ function openStatDetail(cat){
   document.getElementById("modal-bg").onclick=function(e){if(e.target.id==="modal-bg")close();};
 }
 
+var matchSub="groupes";
+function bindSub(c){
+  Array.prototype.forEach.call(c.querySelectorAll(".subtab"),function(b){
+    b.onclick=function(){matchSub=b.dataset.sub;render();};
+  });
+}
+
+function koTeam(name, code, isWinner){
+  if(!name) return '<span class="ko-team tbd"><span class="kn">\u00e0 venir</span></span>';
+  return '<span class="ko-team'+(isWinner?' win':'')+'">'+flagImg(code,'sm')+' <span class="kn">'+name+'</span></span>';
+}
+function koMatch(m){
+  var sc = (m.sh==null) ? '<span class="ko-sc">\u2013</span>'
+    : '<span class="ko-sc">'+m.sh+'\u2013'+m.sa+(m.tab?' <span class="tab">tab</span>':'')+'</span>';
+  return '<div class="ko-match">'
+    + koTeam(m.home,m.ch,m.winner&&m.winner===m.home)
+    + sc
+    + koTeam(m.away,m.ca,m.winner&&m.winner===m.away)
+    + '</div>';
+}
+function renderBracket(){
+  var ko=DATA.knockout;
+  if(!ko||!ko.rounds){return '<div class="empty">Tableau final indisponible.</div>';}
+  var champ = ko.champion ? ('<div class="champion"><div class="cl">\uD83C\uDFC6 Vainqueur projet\u00e9</div>'
+    + '<div class="cn">'+flagImg(ko.champion_code,'sm')+' <b>'+ko.champion+'</b></div></div>') : '';
+  var note='<div class="ko-note">\u26A0\uFE0F Projection pr\u00e9visionnelle : le tableau se construit \u00e0 partir des classements '
+    + '(r\u00e9els + pronostiqu\u00e9s) et s\u2019actualise au fil de la comp\u00e9tition. Tant que les poules ne sont pas '
+    + 'termin\u00e9es, les qualifi\u00e9s restent une estimation.</div>';
+  var rounds=ko.rounds.map(function(r){
+    return '<div class="ko-round"><div class="ko-rname">'+r.name+'</div>'
+      + r.matches.map(koMatch).join("") + '</div>';
+  }).join('<div class="ko-arrow">\u25BC</div>');
+  return note + champ + '<div class="bracket">'+rounds+'</div>';
+}
+
 function render(){
   Array.prototype.forEach.call(document.querySelectorAll("#nav button"),function(b){
     b.classList.toggle("on",b.dataset.v===view);});
@@ -501,10 +568,20 @@ function render(){
     bindResumes(c); bindAlts(c);
   }
   else if(view==="matches"){
-    renderGrpSel(true);
-    var ms=DATA.matches.filter(function(m){return m.grp===activeGrp;});
-    c.innerHTML='<div class="card">'+ms.map(matchCard).join("")+'</div>';
-    bindResumes(c); bindAlts(c);
+    var sub='<div class="subtabs">'
+      +'<button class="subtab'+(matchSub==="groupes"?" on":"")+'" data-sub="groupes">Phase de groupes</button>'
+      +'<button class="subtab'+(matchSub==="finales"?" on":"")+'" data-sub="finales">\uD83C\uDFC6 Phases finales</button>'
+      +'</div>';
+    if(matchSub==="finales"){
+      renderGrpSel(false);
+      c.innerHTML=sub+renderBracket();
+      bindSub(c);
+    }else{
+      renderGrpSel(true);
+      var ms=DATA.matches.filter(function(m){return m.grp===activeGrp;});
+      c.innerHTML=sub+'<div class="card">'+ms.map(matchCard).join("")+'</div>';
+      bindSub(c); bindResumes(c); bindAlts(c);
+    }
   }
   else if(view==="standings"){
     renderGrpSel(false);
@@ -513,6 +590,20 @@ function render(){
       +'<li><span class="dot d3"></span><span>Les <b>8 meilleurs 3es</b> (sur 12) completent le tableau : on arrive a <b>32 equipes</b> pour le tour suivant (nouveau format a 48 nations).</span></li>'
       +'<li><span class="dot" style="background:var(--mut)"></span><span>Departage en cas d\'egalite : points, puis difference de buts, puis buts marques.</span></li>'
       +'</ul></div>';
+    // Classement projeté des 3es (qui complètent le tableau final)
+    var ko=DATA.knockout;
+    if(ko && ko.thirds && ko.thirds.length){
+      html+='<div class="card"><div class="grphead" style="background:var(--gold);color:#3a2b00">'
+        +'\uD83E\uDD49 Meilleurs 3es \u2014 projection</div><table>'
+        +'<tr><th>#</th><th style="text-align:left;padding-left:11px">Equipe</th><th>Grp</th><th>Pts</th><th>Diff</th><th>Statut</th></tr>'
+        +ko.thirds.map(function(t,i){
+          return '<tr class="'+(t.qualified?"q3":"")+'"><td>'+(i+1)+'</td>'
+            +'<td class="team">'+flagImg(t.code,'sm')+' '+t.team+'</td>'
+            +'<td>'+t.grp+'</td><td><b>'+t.Pts+'</b></td><td>'+(t.GD>=0?'+':'')+t.GD+'</td>'
+            +'<td>'+(t.qualified?'<span style="color:var(--win);font-weight:700">Qualifie</span>':'<span style="color:var(--mut)">Elimine</span>')+'</td></tr>';
+        }).join("")+'</table>'
+        +'<div class="legend" style="padding:10px 14px">Les <b>8 meilleurs 3es</b> (sur 12) accedent aux 16es. Projection basee sur les classements actuels.</div></div>';
+    }
     "ABCDEFGHIJKL".split("").forEach(function(g){
       var rows=DATA.standings[g]||[];
       var nbReels=rows.reduce(function(mx,r){return Math.max(mx,r.reels);},0);
