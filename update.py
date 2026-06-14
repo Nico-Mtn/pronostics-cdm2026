@@ -17,7 +17,8 @@ WC_CODE = "WC"        # football-data.org : code compétition FIFA World Cup
 
 # Version du modèle de pronostic (affichée dans le pied de page).
 # Historique : 1.x base · 2.0 facteur qualification + dynamique · 2.1 règles 2026 (compression ciblée)
-MODEL_VERSION = "2.1"
+#             · 2.2 variation réaliste des scores (distribution CM 2010-2022, graine par affiche)
+MODEL_VERSION = "2.2"
 
 # ─── DONNÉES ÉQUIPES (force, tendance, style, surprise) ──────────────────────
 TEAM_DATA = {
@@ -205,32 +206,31 @@ def style_bonus(s1,s2):
     return (0,0)
 
 def _score_from_diff(diff, home, away, hs, as_, asur):
-    """Convertit un écart de force en score crédible. Réutilisé par compute() et second_choice().
-    NB (règles 2026) : compression CIBLÉE sur la zone d'incertitude uniquement (|diff| faible) —
-    plus de nuls et de victoires serrées sur les matchs équilibrés (anti-temps-mort, pauses
-    fraîcheur, comebacks). Les gros écarts (|diff|>=1.8) ne sont PAS touchés : les coups d'éclat
-    et scores larges restent possibles."""
-    if   diff>=3.5: h,a=3,0
-    elif diff>=2.5: h,a=3,1
-    elif diff>=1.8: h,a=2,0          # — au-delà d'ici : zone "gros écart", inchangée —
-    elif diff>=1.2: h,a=2,1
-    elif diff>=0.6: h,a=1,0
-    elif diff>=0.30: h,a=1,0         # petit avantage -> victoire serrée (avant : 2-1 ouvert)
-    elif diff>-0.30: h,a=(0,0) if (hs=="bloc_bas" and as_=="bloc_bas") else (1,1)  # bande de nul élargie (±0.30)
-    elif diff>-0.6: h,a=0,1          # petit avantage adverse -> victoire serrée (avant : 1-2 ouvert)
-    elif diff>-1.2: h,a=0,1
-    elif diff>-1.8: h,a=1,2
-    elif diff>-2.5: h,a=0,2          # — au-delà d'ici : zone "gros écart", inchangée —
-    elif diff>-3.5: h,a=1,3
-    else: h,a=0,3
-    if asur and diff<1.8 and diff>-1.0 and h>a:
-        a=max(a,h-1)
-        if abs(diff)<0.5: h=a
-    low=["Équateur","Tunisie","Panama","Irak","Iran","Bosnie-Herzégovine"]
-    if home in low or away in low: h=min(h,2); a=min(a,1)
-    high=["Argentine","France","Allemagne","Espagne","Angleterre","Norvège"]
-    if home in high and diff>2: h=min(h+1,4)   # coups d'éclat des cadors préservés
-    return h,a
+    """Score réaliste AVEC variation, calé sur la distribution des scores des Coupes
+    du Monde récentes (1-0, 2-1, 2-0, 1-1, 0-0, 3-1… cf. stats FIFA 2010-2022).
+    Le résultat (vainqueur/nul) suit l'écart de force ; le SCORE exact est tiré d'un
+    panier réaliste via une graine STABLE par affiche -> fini les 1-0 partout, on
+    retrouve une vraie diversité (2-1, 2-0, 3-1, 0-0…) reproductible d'un run à l'autre.
+    Paniers exprimés (buts favori, buts adverse)."""
+    ad=abs(diff)
+    if   ad>=3.2: pool=[(4,0),(3,0),(3,1),(5,0),(4,1),(2,0)]   # écrasant
+    elif ad>=2.4: pool=[(3,0),(2,0),(3,1),(4,1),(2,1)]         # très net
+    elif ad>=1.6: pool=[(2,0),(3,1),(2,1),(3,0),(1,0)]         # net
+    elif ad>=0.9: pool=[(2,1),(2,0),(1,0),(3,1),(2,2)]         # favori clair
+    elif ad>=0.45: pool=[(1,0),(2,1),(2,0),(1,1)]              # léger avantage
+    elif ad>=0.18: pool=[(1,0),(2,1),(1,1),(0,0)]              # serré
+    else: pool=[(1,1),(0,0),(2,2),(1,0),(2,1)]                 # équilibré (souvent nul)
+    # Graine stable par affiche (déterministe, varie d'un match à l'autre)
+    seed=0
+    for ch in (home+"|"+away): seed=(seed*31+ord(ch)) & 0xffffffff
+    fav,dog=pool[seed % len(pool)]
+    # Outsider (équipe surprise côté extérieur) : sur match serré, resserre l'écart
+    if asur and ad<1.2 and fav>dog and (seed%3==0):
+        dog=min(fav, dog+1)
+    if fav==dog:
+        return fav,dog
+    # Orientation : diff>=0 -> le favori est l'équipe à domicile (home)
+    return (fav,dog) if diff>=0 else (dog,fav)
 
 def compute(home,away,momentum=None,qualif=None):
     mo=momentum or {}; qz=qualif or {}
@@ -389,10 +389,14 @@ def match_summary(home, away, rh, ra, statut, mom_after, scorers_by_team):
         elif m <= -0.30: dyn_bits.append(f"{team} accuse le coup ({m:.2f})")
     dyn = (" " + " ; ".join(dyn_bits) + ".") if dyn_bits else ""
 
-    parts = [head]
-    if factual: parts.append(factual)
+    # Résumé factuel (mode Réel) : score + ambiance + buteurs, sans verdict de prono
+    reel_parts = [head]
+    if factual: reel_parts.append(factual)
+    resume_reel = " ".join(reel_parts).strip()
+    # Résumé complet (mode PronoBot) : factuel + verdict + dynamique
+    parts = list(reel_parts)
     parts.append(verdict + dyn)
-    return " ".join(parts).strip()
+    return " ".join(parts).strip(), resume_reel
 
 def compute_momentum(results):
     from collections import defaultdict
@@ -770,7 +774,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
         qz = qualif_states if mid in j3_ids else None
         pah,paa,diffaj=compute(home,away,momentum,qz)
         joue=mid in rint
-        reel=None; statut="avenir"; resume=""
+        reel=None; statut="avenir"; resume=""; resume_reel=""
         if joue:
             rh,ra=rint[mid]["h"],rint[mid]["a"]; reel=[rh,ra]
             po=0 if pih>pia else (1 if pih<pia else 2)
@@ -779,7 +783,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
             elif po==ro: statut="bon"; n_bon+=1
             else: statut="rate"; n_rate+=1
             n_joue+=1
-            resume=match_summary(home, away, rh, ra, statut, momentum, scorers_by_team)
+            resume, resume_reel = match_summary(home, away, rh, ra, statut, momentum, scorers_by_team)
         # === Date + heure + tri, à partir d'un instant UTC unique (cohérent) ===
         dt_utc = None
         api_iso = datetimes.get(str(mid))
@@ -845,7 +849,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
             "ch":FLAG_CODES.get(home,""),"ca":FLAG_CODES.get(away,""),
             "host_h":home in HOST_NATIONS,"host_a":away in HOST_NATIONS,
             "prono":[pah,paa] if not joue else [pih,pia],
-            "prono_initial":[pih,pia],"reel":reel,"statut":statut,"resume":resume,
+            "prono_initial":[pih,pia],"reel":reel,"statut":statut,"resume":resume,"resume_reel":resume_reel,
             "confidence":conf,"second":second,
             "style_label":style_label,"style_note":style_note,
             "mom_h":round(momentum.get(home,0.0),2),"mom_a":round(momentum.get(away,0.0),2),
@@ -877,7 +881,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
     knockout_real=build_knockout_real(real_standings, datetimes)
 
     return {
-        "maj":datetime.datetime.now().strftime("%d/%m/%Y à %H:%M"),
+        "maj":(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(hours=2)).strftime("%d/%m/%Y à %H:%M")+" (Paris)",
         "today":datetime.date.today().isoformat(),
         "version":MODEL_VERSION,
         "stats":{"joue":n_joue,"exact":n_exact,"bon":n_bon,"rate":n_rate,"total":72,"today":n_today},
@@ -902,6 +906,9 @@ def main():
     out=os.path.join(ROOT,"index.html")
     with open(out,"w",encoding="utf-8") as f:
         f.write(html)
+    # data.json : données structurées réutilisables (service worker pour les notifications, etc.)
+    with open(os.path.join(ROOT,"data.json"),"w",encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False)
     s=payload["stats"]
     print(f"[OK] index.html généré — {s['joue']} joués | {s['exact']} exacts, {s['bon']} bons, {s['rate']} ratés | {s['today']} match(s) aujourd'hui")
 

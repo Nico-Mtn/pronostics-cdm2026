@@ -1,5 +1,5 @@
 /* PronoBot — Service Worker (PWA installable + hors-ligne + prêt pour le push) */
-const CACHE = 'pronobot-v1';
+const CACHE = 'pronobot-v2';
 const CORE = ['./', './index.html', './logo.png', './icon-192.png', './icon-512.png', './manifest.webmanifest'];
 
 self.addEventListener('install', function(e){
@@ -36,13 +36,28 @@ self.addEventListener('fetch', function(e){
   }));
 });
 
-/* ── Notifications push (phase 2 : nécessite l'envoi côté serveur via VAPID) ── */
+/* ── Notifications push : message « résultats d'hier + justesse de PronoBot » ──
+   L'expéditeur (GitHub Actions) envoie un push « nu » ; le message est construit
+   ici à partir de data.json (résultats réels + statut du pronostic noté). */
+function digestHier(){
+  return fetch('./data.json', {cache:'no-store'}).then(function(r){ return r.json(); }).then(function(data){
+    var d=new Date(); d.setDate(d.getDate()-1);
+    var iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    var y=(data.matches||[]).filter(function(m){ return m.reel && m.iso===iso; });
+    if(!y.length) return { title:'PronoBot ⚽', body:"Pas de match hier — place aux matchs du jour !" };
+    var ok=y.filter(function(m){ return m.statut==='exact'||m.statut==='bon'; }).length;
+    var det=y.slice(0,4).map(function(m){
+      var s=m.statut==='exact'?'✓':(m.statut==='bon'?'~':'✗');
+      return m.home+' '+m.reel[0]+'-'+m.reel[1]+' '+m.away+' '+s;
+    }).join(' · ');
+    return { title:"PronoBot — résultats d'hier", body:ok+'/'+y.length+' pronos réussis. '+det };
+  }).catch(function(){ return { title:'PronoBot ⚽', body:"Les résultats d'hier sont disponibles." }; });
+}
 self.addEventListener('push', function(e){
-  var data = { title: 'PronoBot ⚽', body: 'Les matchs du jour sont disponibles.', url: './' };
-  try { if(e.data) data = Object.assign(data, e.data.json()); } catch(_){}
-  e.waitUntil(self.registration.showNotification(data.title, {
-    body: data.body, icon: './icon-192.png', badge: './icon-192.png',
-    tag: 'pronobot-daily', data: data.url
+  e.waitUntil(digestHier().then(function(msg){
+    return self.registration.showNotification(msg.title, {
+      body: msg.body, icon: './icon-192.png', badge: './icon-192.png', tag: 'pronobot-daily', data: './'
+    });
   }));
 });
 self.addEventListener('notificationclick', function(e){

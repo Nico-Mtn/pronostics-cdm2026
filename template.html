@@ -357,6 +357,7 @@
 
 <div class="wrap">
   <div id="install-bar" class="install-bar" style="display:none"></div>
+  <div id="notif-bar" class="install-bar" style="display:none"></div>
   <div id="modebar" class="modebar"></div>
   <div id="mode-note" class="mode-note"></div>
   <nav id="nav">
@@ -497,12 +498,18 @@ function matchCard(m){
     var rsc = m.reel
       ? '<div class="sc"><div class="sc-real-lbl">Score final</div><div class="score">'+m.reel[0]+' – '+m.reel[1]+'</div></div>'
       : '<div class="sc"><div class="tag avenir">À venir</div></div>';
+    var rresume='';
+    if(m.reel && m.resume_reel){
+      var rrid='res-'+m.id;
+      rresume='<div class="meta"><button class="resume-toggle" data-res="'+rrid+'">💬 Résumé du match</button>'
+        +'<div class="resume-bubble" id="'+rrid+'" style="display:none">'+m.resume_reel+'</div></div>';
+    }
     return '<div class="match'+(m.today?' is-today':'')+'"><div class="match-main">'
       + '<div class="match-row1">'+rdt
       +   '<span class="tm r"><span class="n tlink" data-team="'+m.home+'">'+m.home+'</span> '+host_h+' '+flagImg(m.ch)+'</span>'
       +   rsc
       +   '<span class="tm l">'+flagImg(m.ca)+' '+host_a+' <span class="n tlink" data-team="'+m.away+'">'+m.away+'</span></span>'
-      + '</div><div class="badges">'+rbadges+'</div></div></div>';
+      + '</div><div class="badges">'+rbadges+'</div>'+rresume+'</div></div>';
   }
   var scoreHtml, tagHtml;
   if(m.reel){
@@ -974,12 +981,14 @@ if('serviceWorker' in navigator){
   var deferred=null, bar=document.getElementById('install-bar');
   function standalone(){ return (window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true; }
   function dismissed(){ try{return localStorage.getItem('pb_install_dismissed')==='1';}catch(e){return false;} }
+  function isMobile(){ var ua=navigator.userAgent||''; return /android|iphone|ipad|ipod|mobile/i.test(ua) || (window.innerWidth||999)<=820; }
   function hide(){ if(bar) bar.style.display='none'; }
   function bind(){
     var c=bar.querySelector('.ib-close'); if(c) c.onclick=function(){ try{localStorage.setItem('pb_install_dismissed','1');}catch(e){} hide(); };
     var b=bar.querySelector('.ib-btn'); if(b) b.onclick=function(){ if(deferred){ deferred.prompt(); deferred.userChoice.then(function(){ deferred=null; hide(); }); } };
   }
-  function show(html){ if(!bar||standalone()||dismissed()) return; bar.innerHTML=html; bar.style.display='flex'; bind(); }
+  // App = mobile uniquement (sur ordinateur : extension Chrome, à venir)
+  function show(html){ if(!bar||standalone()||dismissed()||!isMobile()) return; bar.innerHTML=html; bar.style.display='flex'; bind(); }
   window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); deferred=e;
     show('<span class="ib-ico">📲</span><span class="ib-txt">Installe <b>PronoBot</b> sur ton écran d\'accueil</span><button class="ib-btn">Installer</button><button class="ib-close" aria-label="Fermer">×</button>');
   });
@@ -987,6 +996,33 @@ if('serviceWorker' in navigator){
   var ua=navigator.userAgent||'';
   if(/iphone|ipad|ipod/i.test(ua) && /safari/i.test(ua) && !/crios|fxios|edgios/i.test(ua)){
     setTimeout(function(){ show('<span class="ib-ico">📲</span><span class="ib-txt">Installe <b>PronoBot</b> : appuie sur <b>Partager</b> puis <b>« Sur l\'écran d\'accueil »</b></span><button class="ib-close" aria-label="Fermer">×</button>'); }, 700);
+  }
+})();
+// Notifications push (8h : résultats de la veille + justesse). Inactif tant que PUSH_CONFIG n'est pas renseigné.
+var PUSH_CONFIG = { subscribeUrl: "", vapidPublicKey: "" }; // ← à remplir après déploiement du Cloudflare Worker (voir NOTIFICATIONS.md)
+(function(){
+  var bar=document.getElementById('notif-bar');
+  function configured(){ return PUSH_CONFIG.subscribeUrl && PUSH_CONFIG.vapidPublicKey; }
+  function supported(){ return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+  function dismissed(){ try{return localStorage.getItem('pb_notif_dismissed')==='1';}catch(e){return false;} }
+  function hide(){ if(bar) bar.style.display='none'; }
+  function b64ToU8(b64){ var pad='='.repeat((4-b64.length%4)%4); var s=(b64+pad).replace(/-/g,'+').replace(/_/g,'/'); var raw=atob(s); var a=new Uint8Array(raw.length); for(var i=0;i<raw.length;i++)a[i]=raw.charCodeAt(i); return a; }
+  function subscribe(){
+    navigator.serviceWorker.ready.then(function(reg){
+      return Notification.requestPermission().then(function(p){
+        if(p!=='granted') return;
+        return reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:b64ToU8(PUSH_CONFIG.vapidPublicKey)})
+          .then(function(sub){ return fetch(PUSH_CONFIG.subscribeUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sub)}); })
+          .then(function(){ hide(); });
+      });
+    }).catch(function(){});
+  }
+  if(bar && configured() && supported() && !dismissed() && Notification.permission==='default'){
+    bar.innerHTML='<span class="ib-ico">🔔</span><span class="ib-txt">Reçois chaque matin les <b>résultats de la veille</b> et la justesse de PronoBot</span>'
+      +'<button class="ib-btn">Activer</button><button class="ib-close" aria-label="Fermer">×</button>';
+    bar.style.display='flex';
+    bar.querySelector('.ib-btn').onclick=subscribe;
+    bar.querySelector('.ib-close').onclick=function(){ try{localStorage.setItem('pb_notif_dismissed','1');}catch(e){} hide(); };
   }
 })();
 </script>
