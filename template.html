@@ -294,6 +294,18 @@
   .scorer-row .pl .tn{font-size:9.5px;color:var(--mut);font-weight:600}
   .scorer-row .gl{font-size:13px;font-weight:800;color:var(--win);min-width:54px;text-align:right;flex-shrink:0}
   .scorer-row .gl small{font-size:8.5px;color:var(--mut);font-weight:600}
+  /* Bandeau d'installation PWA */
+  .install-bar{display:flex;align-items:center;gap:10px;background:var(--accent);color:#fff;
+    border-radius:12px;padding:10px 13px;margin:0 0 12px;box-shadow:var(--shadow)}
+  .install-bar .ib-ico{font-size:18px;flex-shrink:0}
+  .install-bar .ib-txt{flex:1;font-size:11.5px;font-weight:700;line-height:1.35}
+  .install-bar .ib-txt b{font-weight:800}
+  .install-bar .ib-btn{background:#fff;color:var(--accent);border:none;border-radius:9px;
+    padding:8px 13px;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .install-bar .ib-btn:hover{filter:brightness(.97)}
+  .install-bar .ib-close{background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;
+    line-height:1;opacity:.85;padding:0 2px;flex-shrink:0}
+  .install-bar .ib-close:hover{opacity:1}
   /* Switch de mode Réel / PronoBot */
   .modebar{display:flex;gap:0;background:var(--card);border:1px solid var(--line);border-radius:12px;
     padding:4px;margin:0 0 14px;box-shadow:var(--shadow)}
@@ -344,6 +356,7 @@
 </header>
 
 <div class="wrap">
+  <div id="install-bar" class="install-bar" style="display:none"></div>
   <div id="modebar" class="modebar"></div>
   <div id="mode-note" class="mode-note"></div>
   <nav id="nav">
@@ -956,6 +969,26 @@ render();
 if('serviceWorker' in navigator){
   window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
 }
+// PWA : bandeau/bouton d'installation (1 clic sur Android, instructions sur iOS)
+(function(){
+  var deferred=null, bar=document.getElementById('install-bar');
+  function standalone(){ return (window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true; }
+  function dismissed(){ try{return localStorage.getItem('pb_install_dismissed')==='1';}catch(e){return false;} }
+  function hide(){ if(bar) bar.style.display='none'; }
+  function bind(){
+    var c=bar.querySelector('.ib-close'); if(c) c.onclick=function(){ try{localStorage.setItem('pb_install_dismissed','1');}catch(e){} hide(); };
+    var b=bar.querySelector('.ib-btn'); if(b) b.onclick=function(){ if(deferred){ deferred.prompt(); deferred.userChoice.then(function(){ deferred=null; hide(); }); } };
+  }
+  function show(html){ if(!bar||standalone()||dismissed()) return; bar.innerHTML=html; bar.style.display='flex'; bind(); }
+  window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); deferred=e;
+    show('<span class="ib-ico">📲</span><span class="ib-txt">Installe <b>PronoBot</b> sur ton écran d\'accueil</span><button class="ib-btn">Installer</button><button class="ib-close" aria-label="Fermer">×</button>');
+  });
+  window.addEventListener('appinstalled', function(){ try{localStorage.setItem('pb_install_dismissed','1');}catch(e){} deferred=null; hide(); });
+  var ua=navigator.userAgent||'';
+  if(/iphone|ipad|ipod/i.test(ua) && /safari/i.test(ua) && !/crios|fxios|edgios/i.test(ua)){
+    setTimeout(function(){ show('<span class="ib-ico">📲</span><span class="ib-txt">Installe <b>PronoBot</b> : appuie sur <b>Partager</b> puis <b>« Sur l\'écran d\'accueil »</b></span><button class="ib-close" aria-label="Fermer">×</button>'); }, 700);
+  }
+})();
 </script>
 </body>
 </html>
