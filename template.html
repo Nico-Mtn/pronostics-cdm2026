@@ -42,8 +42,8 @@
   header{position:sticky;top:0;z-index:50;background:var(--bg2);
     border-bottom:1px solid var(--line);padding:15px 16px 13px;margin:0 -16px 18px}
   .hrow{display:flex;align-items:center;gap:13px;max-width:760px;margin:0 auto}
-  .logo{display:flex;align-items:center;justify-content:center;width:58px;height:58px;flex-shrink:0;overflow:hidden;border-radius:14px;background:#0b1018;box-shadow:0 2px 8px rgba(20,40,80,.18)}
-  .logo img{width:58px;height:58px;display:block}
+  .logo{display:flex;align-items:center;justify-content:center;width:58px;height:58px;flex-shrink:0;overflow:hidden;border-radius:14px;background:#eaf1fb;box-shadow:0 2px 8px rgba(20,40,80,.18)}
+  .logo img{width:58px;height:58px;display:block;object-fit:cover}
   .titlebox{min-width:0}
   h1{font-size:19px;font-weight:900;color:var(--txt);margin:0;letter-spacing:.3px;line-height:1.1}
   .tagline{font-size:11px;font-weight:700;color:var(--accent2);margin:2px 0 0;line-height:1.2}
@@ -242,31 +242,69 @@
     border-radius:14px;padding:13px;margin-bottom:16px}
   .champion .cl{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);font-weight:800}
   .champion .cn{font-size:18px;font-weight:900;color:var(--txt);margin-top:4px;display:flex;align-items:center;justify-content:center;gap:8px}
-  .bracket{display:flex;flex-direction:column;gap:0}
-  .ko-round{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:11px 13px;box-shadow:var(--shadow)}
-  .ko-rname{font-size:11px;font-weight:800;color:var(--accent2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:9px}
-  .ko-arrow{text-align:center;color:var(--dim);font-size:11px;margin:5px 0}
-  .ko-match{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line2)}
-  .ko-match:last-child{border-bottom:none}
+  /* Bracket arborescent (branches + connecteurs) */
+  .bracket-hint{font-size:9.5px;color:var(--mut);display:flex;align-items:center;justify-content:flex-end;gap:5px;margin:0 2px 6px}
+  .bracket-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;padding-bottom:8px}
+  .bracket{--g:30px;display:flex;gap:var(--g);align-items:stretch;min-width:min-content;padding:4px 2px 8px}
+  .ko-round{display:flex;flex-direction:column;flex:0 0 auto;width:206px}
+  .ko-rname{font-size:10.5px;font-weight:800;color:var(--accent2);text-transform:uppercase;letter-spacing:.5px;
+    text-align:center;min-height:42px;display:flex;flex-direction:column;justify-content:center;gap:2px;
+    background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:5px 8px;margin-bottom:10px}
+  .ko-rname .per{font-size:8.5px;font-weight:600;color:var(--mut);letter-spacing:.2px;text-transform:none}
+  .ko-matches{flex:1;display:flex;flex-direction:column}
+  .ko-cell{flex:1;display:flex;align-items:center;justify-content:center;position:relative;min-height:64px}
+  /* Connecteurs dessinés côté "receveur" (toutes les manches sauf la 1re) */
+  .ko-round:not(:first-child) .ko-cell::before{content:"";position:absolute;right:100%;top:50%;
+    width:calc(var(--g)/2);height:2px;background:var(--line)}
+  .ko-round:not(:first-child) .ko-cell::after{content:"";position:absolute;right:calc(100% + var(--g)/2 - 1px);
+    top:25%;height:50%;width:calc(var(--g)/2);border:2px solid var(--line);border-left:none;
+    border-top-right-radius:7px;border-bottom-right-radius:7px}
+  .ko-match{width:100%;background:var(--card2);border:1px solid var(--line);border-radius:12px;
+    padding:6px 9px;box-shadow:var(--shadow)}
+  .ko-line{display:flex;align-items:center;gap:7px;padding:3px 0}
+  .ko-line+.ko-line{border-top:1px dashed var(--line2)}
   .ko-team{flex:1;display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--txt2);min-width:0}
   .ko-team .kn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .ko-team.win{color:var(--txt);font-weight:800}
-  .ko-team.win .kn::after{content:" \2713";color:var(--win);font-size:10px}
+  .ko-team.win .kn::after{content:" \2713";color:var(--win);font-size:10px;font-weight:800}
   .ko-team.tbd{color:var(--dim);font-style:italic}
-  .ko-team:last-child{justify-content:flex-end;text-align:right}
-  .ko-sc{flex-shrink:0;font-size:11px;font-weight:800;color:var(--txt);min-width:46px;text-align:center}
-  .ko-sc .tab{font-size:7.5px;color:var(--mut);font-weight:700;letter-spacing:.3px}
-  @media (min-width:640px){
-    .bracket{flex-direction:row;align-items:flex-start;gap:10px;overflow-x:auto;padding-bottom:8px}
-    .ko-round{flex:1;min-width:200px}
-    .ko-arrow{display:none}
-  }
+  .ko-sc{flex-shrink:0;font-size:12.5px;font-weight:800;color:var(--txt);min-width:16px;text-align:right;line-height:1.1}
+  .ko-sc .tab{display:block;font-size:7px;color:var(--mut);font-weight:700;letter-spacing:.3px;text-align:right}
+  /* Lien cliquable sur un nom d'équipe */
+  .tlink{cursor:pointer;border-bottom:1px dotted transparent;transition:.12s}
+  .tlink:hover{color:var(--accent2);border-bottom-color:var(--accent2)}
+  /* Carte buteurs */
+  .scorer-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line2)}
+  .scorer-row:last-child{border-bottom:none}
+  .scorer-row .rk{font-size:12px;font-weight:800;color:var(--mut);width:18px;text-align:center;flex-shrink:0}
+  .scorer-row .rk.gold{color:var(--gold)}
+  .scorer-row .pl{flex:1;font-size:12.5px;color:var(--txt);font-weight:600;display:flex;align-items:center;gap:7px;min-width:0}
+  .scorer-row .pl .pn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .scorer-row .pl .tn{font-size:9.5px;color:var(--mut);font-weight:600}
+  .scorer-row .gl{font-size:13px;font-weight:800;color:var(--win);min-width:54px;text-align:right;flex-shrink:0}
+  .scorer-row .gl small{font-size:8.5px;color:var(--mut);font-weight:600}
+  /* Fiche équipe (modale) */
+  .tp-head{display:flex;align-items:center;gap:11px}
+  .tp-head .tp-name{font-size:16px;font-weight:900;color:var(--txt)}
+  .tp-head .tp-meta{font-size:9.5px;color:var(--mut);margin-top:2px}
+  .tp-mom{margin-left:auto;text-align:right;font-size:9px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+  .tp-mom .mv{font-size:15px;font-weight:800;display:block}
+  .tp-sec{font-size:9.5px;font-weight:800;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 6px}
+  .tp-m{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--line2)}
+  .tp-m:last-child{border-bottom:none}
+  .tp-m .tp-d{font-size:9px;color:var(--mut);min-width:46px;flex-shrink:0}
+  .tp-m .tp-opp{flex:1;font-size:12px;color:var(--txt);display:flex;align-items:center;gap:6px;min-width:0}
+  .tp-m .tp-opp .vs{font-size:8.5px;color:var(--mut);font-weight:700}
+  .tp-m .tp-res{font-size:12px;font-weight:800;text-align:right;flex-shrink:0;min-width:60px}
+  .tp-m .tp-res .pr{font-size:9px;color:var(--mut);font-weight:600}
+  .tp-tag{font-size:7.5px;padding:2px 7px;border-radius:20px;font-weight:800;letter-spacing:.3px;white-space:nowrap;flex-shrink:0}
+  .tp-empty{font-size:11px;color:var(--mut);padding:8px 0}
 </style>
 </head>
 <body>
 <header>
   <div class="hrow">
-    <div class="logo" id="logo"><img src="logo.svg" alt="PronoBot" width="58" height="58"></div>
+    <div class="logo" id="logo"><img src="logo.png" alt="PronoBot" width="58" height="58"></div>
     <div class="titlebox">
       <h1>PronoBot</h1>
       <div class="tagline">Nono le robot, roi des prono &#128081;</div>
@@ -428,9 +466,9 @@ function matchCard(m){
     + confRing(m.confidence)
     + '<div class="match-main">'
     +   '<div class="match-row1">'+dt
-    +     '<span class="tm r"><span class="n">'+m.home+'</span> '+host_h+' '+flagImg(m.ch)+'</span>'
+    +     '<span class="tm r"><span class="n tlink" data-team="'+m.home+'">'+m.home+'</span> '+host_h+' '+flagImg(m.ch)+'</span>'
     +     '<div class="sc">'+scoreHtml+tagHtml+'</div>'
-    +     '<span class="tm l">'+flagImg(m.ca)+' '+host_a+' <span class="n">'+m.away+'</span></span>'
+    +     '<span class="tm l">'+flagImg(m.ca)+' '+host_a+' <span class="n tlink" data-team="'+m.away+'">'+m.away+'</span></span>'
     +   '</div>'
     +   '<div class="badges">'+badges+'</div>'
     +   '<div class="meta">'
@@ -494,32 +532,115 @@ function bindSub(c){
   });
 }
 
-function koTeam(name, code, isWinner){
-  if(!name) return '<span class="ko-team tbd"><span class="kn">\u00e0 venir</span></span>';
-  return '<span class="ko-team'+(isWinner?' win':'')+'">'+flagImg(code,'sm')+' <span class="kn">'+name+'</span></span>';
+// Une ligne = une \u00e9quipe + son score. Nom cliquable (fiche \u00e9quipe).
+function koLine(name, code, sc, isWinner, tabFlag){
+  if(!name){
+    return '<div class="ko-line"><span class="ko-team tbd"><span class="kn">\u00e0 venir</span></span>'
+      + '<span class="ko-sc">\u2013</span></div>';
+  }
+  var tab = (tabFlag && isWinner) ? '<span class="tab">tab</span>' : '';
+  return '<div class="ko-line"><span class="ko-team'+(isWinner?' win':'')+'">'+flagImg(code,'sm')
+    + ' <span class="kn tlink" data-team="'+name+'">'+name+'</span></span>'
+    + '<span class="ko-sc">'+(sc==null?'\u2013':sc)+tab+'</span></div>';
 }
 function koMatch(m){
-  var sc = (m.sh==null) ? '<span class="ko-sc">\u2013</span>'
-    : '<span class="ko-sc">'+m.sh+'\u2013'+m.sa+(m.tab?' <span class="tab">tab</span>':'')+'</span>';
   return '<div class="ko-match">'
-    + koTeam(m.home,m.ch,m.winner&&m.winner===m.home)
-    + sc
-    + koTeam(m.away,m.ca,m.winner&&m.winner===m.away)
+    + koLine(m.home,m.ch,m.sh,m.winner&&m.winner===m.home,m.tab)
+    + koLine(m.away,m.ca,m.sa,m.winner&&m.winner===m.away,m.tab)
     + '</div>';
 }
+var KO_PERIODS={r32:"28 juin \u2013 3 juil.",r16:"4 \u2013 7 juil.",qf:"9 \u2013 11 juil.",sf:"14 \u2013 15 juil.",final:"19 juil."};
 function renderBracket(){
   var ko=DATA.knockout;
   if(!ko||!ko.rounds){return '<div class="empty">Tableau final indisponible.</div>';}
   var champ = ko.champion ? ('<div class="champion"><div class="cl">\uD83C\uDFC6 Vainqueur projet\u00e9</div>'
-    + '<div class="cn">'+flagImg(ko.champion_code,'sm')+' <b>'+ko.champion+'</b></div></div>') : '';
+    + '<div class="cn">'+flagImg(ko.champion_code,'sm')+' <b class="tlink" data-team="'+ko.champion+'">'+ko.champion+'</b></div></div>') : '';
   var note='<div class="ko-note">\u26A0\uFE0F Projection pr\u00e9visionnelle : le tableau se construit \u00e0 partir des classements '
     + '(r\u00e9els + pronostiqu\u00e9s) et s\u2019actualise au fil de la comp\u00e9tition. Tant que les poules ne sont pas '
     + 'termin\u00e9es, les qualifi\u00e9s restent une estimation.</div>';
-  var rounds=ko.rounds.map(function(r){
-    return '<div class="ko-round"><div class="ko-rname">'+r.name+'</div>'
-      + r.matches.map(koMatch).join("") + '</div>';
-  }).join('<div class="ko-arrow">\u25BC</div>');
-  return note + champ + '<div class="bracket">'+rounds+'</div>';
+  var cols=ko.rounds.map(function(r){
+    var cells=r.matches.map(function(m){return '<div class="ko-cell">'+koMatch(m)+'</div>';}).join("");
+    return '<div class="ko-round"><div class="ko-rname">'+r.name
+      + (KO_PERIODS[r.key]?'<span class="per">'+KO_PERIODS[r.key]+'</span>':'')
+      + '</div><div class="ko-matches">'+cells+'</div></div>';
+  }).join("");
+  var hint='<div class="bracket-hint">\u2194 faites d\u00e9filer pour parcourir les tours</div>';
+  return note + champ + hint + '<div class="bracket-scroll"><div class="bracket">'+cols+'</div></div>';
+}
+
+// ===== Top buteurs (carte vue Classements) =====
+function renderScorers(){
+  var sc=DATA.scorers||[];
+  var head='<div class="card"><div class="grphead" style="background:var(--win)">\ud83e\udd45 Meilleurs buteurs</div>';
+  if(!sc.length){
+    return head+'<div class="legend" style="padding:14px">Le classement des buteurs s\u2019affichera d\u00e8s les premiers buts du tournoi (source : football-data.org).</div></div>';
+  }
+  var rows=sc.slice(0,5).map(function(s,i){
+    var ast=s.assists?' <small>\u00b7 '+s.assists+' PD</small>':'';
+    return '<div class="scorer-row"><span class="rk'+(i===0?' gold':'')+'">'+(i+1)+'</span>'
+      +'<span class="pl">'+flagImg(s.code,'sm')+'<span class="pn">'+s.player+'</span>'
+      +'<span class="tn tlink" data-team="'+s.team+'">'+s.team+'</span></span>'
+      +'<span class="gl">'+s.goals+' <small>but'+(s.goals>1?'s':'')+'</small>'+ast+'</span></div>';
+  }).join("");
+  return head+rows+'<div class="legend" style="padding:10px 14px">Buts r\u00e9els (et passes d\u00e9cisives) \u2014 top 5. Source : football-data.org.</div></div>';
+}
+
+// ===== Fiche \u00e9quipe (clic sur un nom) =====
+function codeFor(team){
+  var c=""; (DATA.matches||[]).some(function(m){
+    if(m.home===team){c=m.ch;return true;} if(m.away===team){c=m.ca;return true;} return false;});
+  return c;
+}
+function openTeamProfile(team){
+  var ms=DATA.matches.filter(function(m){return m.home===team||m.away===team;})
+    .sort(function(a,b){return a.sort<b.sort?-1:1;});
+  if(!ms.length) return;
+  var grp=ms[0].grp, code=codeFor(team);
+  var mom=null; (DATA.momentum||[]).forEach(function(x){if(x.team===team)mom=x;});
+  var rowsHtml=ms.map(function(m){
+    var home=m.home===team, opp=home?m.away:m.home, oppCode=home?m.ca:m.ch;
+    var lieu=home?'re\u00e7oit':'chez';
+    var res;
+    if(m.reel){
+      var gf=home?m.reel[0]:m.reel[1], ga=home?m.reel[1]:m.reel[0];
+      var pf=home?m.prono[0]:m.prono[1], pg=home?m.prono[1]:m.prono[0];
+      res='<span class="tp-res">'+gf+'\u2013'+ga+'<div class="pr">prono '+pf+'\u2013'+pg+'</div></span>'
+        +'<div class="tag '+m.statut+'">'+TAG_LABEL[m.statut]+'</div>';
+    } else {
+      var pf2=home?m.prono[0]:m.prono[1], pg2=home?m.prono[1]:m.prono[0];
+      res='<span class="tp-res" style="color:var(--gold)">'+pf2+'\u2013'+pg2+'<div class="pr">'+m.confidence+'% conf.</div></span>'
+        +'<div class="tag avenir">\u00c0 venir</div>';
+    }
+    return '<div class="tp-m"><span class="tp-d">'+m.date+'</span>'
+      +'<span class="tp-opp"><span class="vs">'+lieu+'</span> '+flagImg(oppCode,'sm')+' <span class="tlink" data-team="'+opp+'">'+opp+'</span></span>'
+      +res+'</div>';
+  }).join("");
+  var koHtml="", ko=DATA.knockout, path=[];
+  if(ko&&ko.rounds){
+    ko.rounds.forEach(function(r){
+      r.matches.forEach(function(m){
+        if(m.home===team||m.away===team){
+          var home=m.home===team, opp=home?m.away:m.home, oppCode=home?m.ca:m.ch;
+          var gf=home?m.sh:m.sa, ga=home?m.sa:m.sh, won=m.winner===team;
+          path.push('<div class="tp-m"><span class="tp-d">'+r.name+'</span>'
+            +'<span class="tp-opp"><span class="vs">vs</span> '+flagImg(oppCode,'sm')+' <span class="tlink" data-team="'+(opp||'')+'">'+(opp||'\u00e0 d\u00e9finir')+'</span></span>'
+            +'<span class="tp-res" style="color:'+(won?'var(--win)':'var(--rate)')+'">'+(gf==null?'\u2013':gf+'\u2013'+ga)+(m.tab?' tab':'')+'<div class="pr">'+(won?'qualifi\u00e9':'\u00e9limin\u00e9')+'</div></span></div>');
+        }
+      });
+    });
+    if(path.length) koHtml='<div class="tp-sec">Parcours projet\u00e9 en phase finale</div>'+path.join("");
+  }
+  var momHtml = mom ? ('<div class="tp-mom">Dynamique<span class="mv '+(mom.mom>=0.2?'up':(mom.mom<=-0.2?'down':'neu'))+'">'+(mom.mom>=0?'+':'')+mom.mom+'</span></div>') : '';
+  var html='<div class="modal-bg" id="modal-bg"><div class="modal">'
+    +'<div class="modal-head"><div class="tp-head" style="flex:1">'+flagImg(code)
+    +'<div><div class="tp-name">'+team+'</div><div class="tp-meta">Groupe '+grp+'</div></div>'+momHtml+'</div>'
+    +'<button class="close" id="modal-close">\u00d7</button></div>'
+    +'<div class="modal-body"><div class="tp-sec">Phase de groupes</div>'+rowsHtml+koHtml+'</div></div></div>';
+  var root=document.getElementById("modal-root");
+  root.innerHTML=html;
+  function close(){root.innerHTML="";}
+  document.getElementById("modal-close").onclick=close;
+  document.getElementById("modal-bg").onclick=function(e){if(e.target.id==="modal-bg")close();};
 }
 
 function render(){
@@ -590,6 +711,8 @@ function render(){
       +'<li><span class="dot d3"></span><span>Les <b>8 meilleurs 3es</b> (sur 12) completent le tableau : on arrive a <b>32 equipes</b> pour le tour suivant (nouveau format a 48 nations).</span></li>'
       +'<li><span class="dot" style="background:var(--mut)"></span><span>Departage en cas d\'egalite : points, puis difference de buts, puis buts marques.</span></li>'
       +'</ul></div>';
+    // Top buteurs (données réelles football-data.org)
+    html+=renderScorers();
     // Classement projeté des 3es (qui complètent le tableau final)
     var ko=DATA.knockout;
     if(ko && ko.thirds && ko.thirds.length){
@@ -598,7 +721,7 @@ function render(){
         +'<tr><th>#</th><th style="text-align:left;padding-left:11px">Equipe</th><th>Grp</th><th>Pts</th><th>Diff</th><th>Statut</th></tr>'
         +ko.thirds.map(function(t,i){
           return '<tr class="'+(t.qualified?"q3":"")+'"><td>'+(i+1)+'</td>'
-            +'<td class="team">'+flagImg(t.code,'sm')+' '+t.team+'</td>'
+            +'<td class="team">'+flagImg(t.code,'sm')+' <span class="tlink" data-team="'+t.team+'">'+t.team+'</span></td>'
             +'<td>'+t.grp+'</td><td><b>'+t.Pts+'</b></td><td>'+(t.GD>=0?'+':'')+t.GD+'</td>'
             +'<td>'+(t.qualified?'<span style="color:var(--win);font-weight:700">Qualifie</span>':'<span style="color:var(--mut)">Elimine</span>')+'</td></tr>';
         }).join("")+'</table>'
@@ -614,7 +737,7 @@ function render(){
           var cls=i<2?"q"+(i+1):(i===2?"q3":"");
           var diff=r.BP-r.BC;
           return '<tr class="'+cls+'"><td>'+(i+1)+'</td>'
-            +'<td class="team">'+flagImg(r.code,'sm')+' '+r.team+(r.host?' '+hostBadge():'')+'</td>'
+            +'<td class="team">'+flagImg(r.code,'sm')+' <span class="tlink" data-team="'+r.team+'">'+r.team+'</span>'+(r.host?' '+hostBadge():'')+'</td>'
             +'<td><b>'+r.Pts+'</b></td><td>'+r.J+'</td><td>'+r.G+'</td><td>'+r.N+'</td><td>'+r.P+'</td>'
             +'<td>'+(diff>=0?'+':'')+diff+'</td></tr>';
         }).join("")+'</table></div>';
@@ -630,7 +753,7 @@ function render(){
     c.innerHTML='<div class="card">'+DATA.momentum.map(function(m){
       var cls=m.mom>=0.2?"up":(m.mom<=-0.2?"down":"neu");
       var lbl=m.mom>=0.2?"En hausse \u2191":(m.mom<=-0.2?"En baisse \u2193":"Neutre \u2192");
-      return '<div class="momrow"><span class="tn">'+flagImg(m.code,'sm')+' '+m.team
+      return '<div class="momrow"><span class="tn">'+flagImg(m.code,'sm')+' <span class="tlink" data-team="'+m.team+'">'+m.team+'</span>'
         +' <span class="res">'+m.detail+'</span></span>'
         +'<span class="mv '+cls+'">'+(m.mom>=0?'+':'')+m.mom+'</span>'
         +'<span class="ar '+cls+'">'+lbl+'</span></div>';
@@ -641,6 +764,11 @@ function render(){
 
 Array.prototype.forEach.call(document.querySelectorAll("#nav button"),function(b){
   b.onclick=function(){view=b.dataset.v;render();};});
+// Clic sur un nom d'équipe (n'importe où) -> fiche équipe
+document.addEventListener("click",function(e){
+  var t=e.target.closest ? e.target.closest(".tlink") : null;
+  if(t && t.dataset && t.dataset.team){ e.preventDefault(); openTeamProfile(t.dataset.team); }
+});
 var legEl=document.getElementById("legend-stadium");
 if(legEl) legEl.innerHTML=STADIUM_SVG;
 var verEl=document.getElementById("model-version");

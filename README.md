@@ -63,6 +63,8 @@ C'est cette **URL que tu partages**. Elle se met à jour toute seule.
 
 > Modifier l'heure : change la ligne `cron: "0 8 * * *"` dans `.github/workflows/update.yml` (en UTC).
 
+> ⚠️ **Pas de trigger `push`** sur le workflow : le job committe lui-même `index.html` (dont l'horodatage change à chaque run), donc un déclenchement sur `push` relancerait le workflow en boucle. Les commits du bot portent `[skip ci]` en garde-fou.
+
 ---
 
 ## 🛟 Mode repli (sans API)
@@ -88,9 +90,23 @@ La clé est le **numéro du match** (id de 1 à 72, ordre des matchs de groupe),
 
 Chaque pronostic combine : **force FIFA**, **tendance de forme** (15 derniers matchs), **clash tactique** (bloc bas vs pressing, contre vs possession), **léger avantage pays-hôte** (USA/Canada/Mexique — terrain neutre partout ailleurs) et un **facteur surprise** pour les dark horses.
 
-**Dynamique (momentum)** : à partir des vrais résultats, chaque équipe gagne ou perd de la « forme » (victoire +0,30 / défaite −0,30, bonus d'écart de buts, effet exploit/contre-performance, plafonné à ±1,2). Cette forme ajustée recalcule les pronostics des matchs suivants — un match serré peut basculer si une équipe est lancée.
+Chaque match affiche :
+- un **indice de confiance en %** (issu de l'écart de force via une courbe logistique : ~50 % = issue ouverte, 90 %+ = favori net) ;
+- l'**analyse de style** (ex. « Contre-attaque vs Possession ») avec une note tactique.
 
-**Notation** : le pronostic noté est celui du **modèle initial** (pré-tournoi), pour mesurer la qualité des prévisions de départ. ✓ score exact · ~ bon résultat · ✗ raté.
+**Dynamique (momentum)** : à partir des vrais résultats, chaque équipe gagne ou perd de la « forme » (victoire +0,30 / défaite −0,30, bonus d'écart de buts, effet exploit/contre-performance, plafonné à ±1,2). Cette forme ajustée recalcule les pronostics des matchs suivants.
+
+**Notation** : le pronostic noté est celui du **modèle initial** (pré-tournoi). ✓ score exact · ~ bon résultat · ✗ raté.
+
+## 🎨 Interface (page web)
+
+- **Mode clair par défaut**, bouton 🌙/☀️ pour basculer en **mode sombre** (préférence mémorisée).
+- **Logo** de l'événement, **drapeaux en images** (via flagcdn.com — gère correctement Écosse et Angleterre).
+- Badge **🏟️ pays-hôte** sur les nations organisatrices.
+- 4 vues : Live feed, Matchs (confiance + style + **phases finales en bracket arborescent**), Classements (avec **top buteurs**), Dynamique.
+- **Fiche équipe** : un clic sur n'importe quel nom d'équipe ouvre son parcours (matchs joués + à venir, dynamique, projection en phase finale).
+- **Top buteurs** : classement des 5 meilleurs buteurs réels (et passes décisives), récupéré via football-data.org, dans l'onglet Classements.
+- **Bracket arborescent** : tableau final en branches avec connecteurs, défilement horizontal, vainqueur projeté en tête.
 
 ---
 

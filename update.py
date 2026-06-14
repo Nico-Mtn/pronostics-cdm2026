@@ -464,9 +464,12 @@ def fetch_from_api():
 
 def fetch_scorers():
     """Récupère les meilleurs buteurs du tournoi (endpoint /scorers, dispo en gratuit).
-    Retourne {nom_equipe_FR: [noms_joueurs]}. Vide si indisponible."""
+    Retourne (by_team, top_list) :
+      - by_team : {nom_equipe_FR: [noms_joueurs]} (utilisé dans les résumés de match)
+      - top_list : [{'player','team','code','goals','assists'}] trié par buts décroissant
+    (..., []) si indisponible."""
     if not API_KEY:
-        return {}
+        return {}, []
     url=f"{API_BASE}/competitions/{WC_CODE}/scorers?limit=50"
     req=urllib.request.Request(url, headers={"X-Auth-Token":API_KEY})
     try:
@@ -474,16 +477,21 @@ def fetch_scorers():
             payload=json.loads(resp.read().decode("utf-8"))
     except Exception as e:
         print(f"[INFO] Buteurs indisponibles : {e}", file=sys.stderr)
-        return {}
-    by_team={}
+        return {}, []
+    by_team={}; top_list=[]
     for sc in payload.get("scorers", []):
         player=(sc.get("player") or {}).get("name")
         team_obj=sc.get("team") or {}
         team=map_team(team_obj.get("name"), team_obj.get("tla"))
         goals=sc.get("goals") or 0
+        assists=sc.get("assists") or 0
         if player and team and goals:
             by_team.setdefault(team, []).append(player)
-    return by_team
+            top_list.append({"player":player,"team":team,"code":FLAG_CODES.get(team,""),
+                             "goals":int(goals),"assists":int(assists)})
+    # tri : buts décroissants, puis passes décisives, puis ordre alphabétique
+    top_list.sort(key=lambda x:(-x["goals"], -x["assists"], x["player"]))
+    return by_team, top_list
 
 def load_results():
     """API en priorité, repli sur data/results_manual.json.
@@ -594,6 +602,28 @@ def _ko_match(home, away, momentum):
     return {"home":home,"away":away,"sh":h,"sa":a,"winner":winner,"tab":tab}
 
 KO_NAMES={"r32":"16es de finale","r16":"8es de finale","qf":"Quarts de finale","sf":"Demi-finales","final":"Finale"}
+
+def _bracket_orders():
+    """Ordre d'AFFICHAGE des matchs par tour, dérivé de l'arbre officiel (KO_NEXT).
+    Garantit que deux matchs visuellement adjacents alimentent bien le même match du
+    tour suivant -> les branches du bracket suivent les bonnes lignes.
+    Retourne {key: [match_id, ...]}."""
+    feeders={mid:(a,b) for mid,a,b in KO_NEXT}   # match -> (feeder_a, feeder_b)
+    parent={}
+    for mid,(a,b) in feeders.items(): parent[a]=mid; parent[b]=mid
+    def sub(mid):
+        if mid in feeders:
+            a,b=feeders[mid]; return sub(a)+sub(b)
+        return [mid]   # feuille = match de 16es
+    leaves=sub(104)    # 16 ids de 16es dans l'ordre de l'arbre
+    orders={"r32":leaves}; cur=leaves
+    for key in ("r16","qf","sf","final"):
+        nxt=[]
+        for i in range(0,len(cur),2):
+            nxt.append(parent[cur[i]])
+        orders[key]=nxt; cur=nxt
+    return orders
+
 def build_knockout(standings, momentum):
     thirds_sorted, qual_groups, slot_team = _assign_thirds(standings)
     winners={}; rounds=[]
@@ -617,6 +647,13 @@ def build_knockout(standings, momentum):
     play({97,98,99,100},"qf")
     play({101,102},"sf")
     play({104},"final")
+    # Réordonner chaque tour selon l'arbre officiel pour un tracé de branches correct
+    order_map=_bracket_orders()
+    for rd in rounds:
+        om=order_map.get(rd["key"])
+        if om:
+            pos={mid:i for i,mid in enumerate(om)}
+            rd["matches"].sort(key=lambda m: pos.get(m["id"], 999))
     champion = winners.get(104)
     thirds_rank=[{"team":t[4],"code":FLAG_CODES.get(t[4],""),"grp":t[0],"Pts":t[1],"GD":t[2],"GF":t[3],
                   "qualified":t[0] in qual_groups} for t in thirds_sorted]
@@ -624,9 +661,10 @@ def build_knockout(standings, momentum):
             "champion_code":FLAG_CODES.get(champion,"")}
 
 # ─── CONSTRUCTION DES DONNÉES DE LA PAGE ─────────────────────────────────────
-def build_payload(results, scorers_by_team=None, datetimes=None):
+def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=None):
     from collections import defaultdict
     scorers_by_team = scorers_by_team or {}
+    scorers_top = scorers_top or []
     datetimes = datetimes or {}
     results={str(k):v for k,v in results.items()}
     momentum,detail=compute_momentum(results)
@@ -760,6 +798,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None):
         "version":MODEL_VERSION,
         "stats":{"joue":n_joue,"exact":n_exact,"bon":n_bon,"rate":n_rate,"total":72,"today":n_today},
         "matches":matches,"standings":standings,"momentum":mom_list,"knockout":knockout,
+        "scorers":scorers_top,
     }
 
 # ─── GÉNÉRATION HTML ─────────────────────────────────────────────────────────
@@ -770,10 +809,10 @@ def render_html(payload):
 
 def main():
     results, datetimes = load_results()
-    scorers=fetch_scorers()
+    scorers, scorers_top = fetch_scorers()
     if scorers:
-        print(f"[OK] Buteurs récupérés pour {len(scorers)} équipe(s)")
-    payload=build_payload(results, scorers, datetimes)
+        print(f"[OK] Buteurs récupérés pour {len(scorers)} équipe(s) ; {len(scorers_top)} buteur(s) classés")
+    payload=build_payload(results, scorers, datetimes, scorers_top)
     html=render_html(payload)
     out=os.path.join(ROOT,"index.html")
     with open(out,"w",encoding="utf-8") as f:
