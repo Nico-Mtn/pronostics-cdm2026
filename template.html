@@ -6,6 +6,14 @@
 <title>PronoBot — Pronostics IA Coupe du Monde 2026</title>
 <meta name="description" content="Pronostics IA de la Coupe du Monde 2026, mis a jour chaque jour avec les vrais scores et la dynamique des equipes.">
 <link rel="preconnect" href="https://flagcdn.com">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1746a2">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="PronoBot">
 <style>
   :root{
     --bg:#f4f6fb; --bg2:#ffffff; --card:#ffffff; --card2:#ffffff;
@@ -944,6 +952,10 @@ if(verEl && DATA.version) verEl.textContent="Site v"+SITE_VERSION+" · Modele v"
 renderModeBar();
 renderHeader();
 render();
+// PWA : enregistrement du service worker (installable + hors-ligne)
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+}
 </script>
 </body>
 </html>
