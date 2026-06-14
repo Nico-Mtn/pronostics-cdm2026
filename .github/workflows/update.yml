@@ -2,10 +2,9 @@ name: Mise à jour quotidienne des pronostics
 
 on:
   schedule:
-    # Cron en UTC. Paris = UTC+2 en été. Minutes décalées de l'heure pile
-    # pour éviter le pic de charge GitHub (qui retarde les jobs lancés à HH:00).
-    - cron: "12 4 * * *"     # ~06h12 Paris
-    - cron: "12 17 * * *"    # ~19h12 Paris
+    # Cron en UTC. Mise a jour toutes les 2 heures (minute 12 pour eviter le pic
+    # de charge GitHub a l'heure pile). 12 executions/jour, ~2 appels API chacune.
+    - cron: "12 */2 * * *"
   workflow_dispatch:        # permet de lancer manuellement depuis l'onglet Actions
   push:
     branches: [ main ]      # régénère aussi à chaque push sur main
