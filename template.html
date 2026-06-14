@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pronostics IA — Coupe du Monde 2026</title>
+<title>PronoBot — Pronostics IA Coupe du Monde 2026</title>
 <meta name="description" content="Pronostics IA de la Coupe du Monde 2026, mis a jour chaque jour avec les vrais scores et la dynamique des equipes.">
 <link rel="preconnect" href="https://flagcdn.com">
 <style>
@@ -42,10 +42,12 @@
   header{position:sticky;top:0;z-index:50;background:var(--bg2);
     border-bottom:1px solid var(--line);padding:15px 16px 13px;margin:0 -16px 18px}
   .hrow{display:flex;align-items:center;gap:13px;max-width:760px;margin:0 auto}
-  .logo{display:flex;align-items:center;justify-content:center;width:48px;height:48px;flex-shrink:0}
-  .logo svg{width:48px;height:48px}
-  h1{font-size:16px;font-weight:800;color:var(--txt);margin:0;letter-spacing:.2px;line-height:1.25}
-  .sub{font-size:9px;color:var(--mut);letter-spacing:1.3px;margin:3px 0 0;text-transform:uppercase}
+  .logo{display:flex;align-items:center;justify-content:center;width:58px;height:58px;flex-shrink:0;overflow:hidden;border-radius:14px;background:#0b1018;box-shadow:0 2px 8px rgba(20,40,80,.18)}
+  .logo img{width:58px;height:58px;display:block}
+  .titlebox{min-width:0}
+  h1{font-size:19px;font-weight:900;color:var(--txt);margin:0;letter-spacing:.3px;line-height:1.1}
+  .tagline{font-size:11px;font-weight:700;color:var(--accent2);margin:2px 0 0;line-height:1.2}
+  .sub{font-size:8.5px;color:var(--mut);letter-spacing:1px;margin:3px 0 0;text-transform:uppercase}
   .htools{margin-left:auto;display:flex;align-items:center;gap:10px}
   .pct-box{text-align:right}
   .pct-box .big{font-size:21px;font-weight:800;color:var(--gold);line-height:1}
@@ -89,13 +91,39 @@
   .tm span.n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .host{flex-shrink:0;cursor:help;display:inline-flex;align-items:center;color:var(--accent2);vertical-align:middle}
   .host .stadium{display:block}
-  .sc{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:70px}
+  .sc{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:78px}
   .sc .score{font-size:16px;font-weight:800;color:var(--txt);letter-spacing:1px}
   .sc .score.prono{color:var(--gold)}
+  .sc-real-lbl{font-size:7.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--win)}
+  .sc-prono-lbl{font-size:7.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--mut)}
+  .sc-prono{font-size:9px;color:var(--mut);font-weight:600}
   .sc .tag{font-size:8px;padding:2px 8px;border-radius:20px;font-weight:700;letter-spacing:.3px;white-space:nowrap}
   .tag.exact{background:var(--winbg);color:var(--win)}.tag.bon{background:var(--drawbg);color:var(--draw)}
   .tag.rate{background:var(--ratebg);color:var(--rate)}.tag.avenir{background:var(--line2);color:var(--mut)}
-  .badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .dt .hn{font-size:8px;color:var(--accent2);font-weight:700}
+  .pill.clk{cursor:pointer;transition:.15s}
+  .pill.clk:hover{border-color:var(--accent2);transform:translateY(-1px)}
+  .pill.clk::after{content:"\2197";font-size:8px;color:var(--mut);position:absolute;top:5px;right:7px}
+  .pill{position:relative}
+  /* Modale détail des stats */
+  .modal-bg{position:fixed;inset:0;background:rgba(10,16,24,.55);backdrop-filter:blur(2px);z-index:200;
+    display:flex;align-items:flex-end;justify-content:center;padding:0}
+  .modal{background:var(--bg);width:100%;max-width:760px;max-height:82vh;overflow-y:auto;
+    border-radius:18px 18px 0 0;border:1px solid var(--line);box-shadow:0 -8px 40px rgba(0,0,0,.3)}
+  @media (min-width:600px){.modal-bg{align-items:center;padding:20px}.modal{border-radius:18px}}
+  .modal-head{position:sticky;top:0;background:var(--bg2);border-bottom:1px solid var(--line);
+    padding:15px 18px;display:flex;align-items:center;gap:10px;z-index:2}
+  .modal-head h2{font-size:15px;font-weight:800;margin:0;color:var(--txt)}
+  .modal-head .close{margin-left:auto;width:32px;height:32px;border-radius:9px;border:1px solid var(--line);
+    background:var(--card);color:var(--txt2);font-size:17px;cursor:pointer;line-height:1}
+  .modal-body{padding:14px 18px 24px}
+  .mrow{display:flex;align-items:center;gap:9px;padding:11px 0;border-bottom:1px solid var(--line2)}
+  .mrow:last-child{border-bottom:none}
+  .mrow .mteams{flex:1;font-size:12px;color:var(--txt);font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .mrow .mdate{font-size:9px;color:var(--mut);min-width:52px}
+  .mrow .mscores{text-align:right;font-size:11px}
+  .mrow .mscores .r{font-weight:800;color:var(--txt)}
+  .mrow .mscores .p{color:var(--mut);font-size:9.5px}
   .b-today{font-size:8.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;
     background:var(--gold);color:#3a2b00;padding:2px 8px;border-radius:20px;display:inline-flex;align-items:center;gap:4px}
   .b-grp{font-size:8.5px;font-weight:800;color:#fff;padding:2px 8px;border-radius:20px}
@@ -206,10 +234,11 @@
 <body>
 <header>
   <div class="hrow">
-    <div class="logo" id="logo"></div>
-    <div>
-      <h1>Pronostics IA &mdash; Coupe du Monde 2026</h1>
-      <div class="sub">Mise a jour quotidienne &middot; Scores &amp; dynamique</div>
+    <div class="logo" id="logo"><img src="logo.svg" alt="PronoBot" width="58" height="58"></div>
+    <div class="titlebox">
+      <h1>PronoBot</h1>
+      <div class="tagline">Nono le robot, roi des prono &#128081;</div>
+      <div class="sub">Pronostics IA &middot; Coupe du Monde 2026 &#9917;</div>
     </div>
     <div class="htools">
       <div class="pct-box"><div class="big" id="pct">&mdash;</div><div class="lbl">Fiabilite</div></div>
@@ -229,11 +258,12 @@
   </nav>
   <div id="grpsel" class="grpsel"></div>
   <div id="content"></div>
+  <div id="modal-root"></div>
   <div class="host-legend"><span class="host" id="legend-stadium"></span> <span>Le picto stade signale un <b style="color:var(--txt2)">pays-hote</b> de la competition (Etats-Unis, Canada, Mexique), qui beneficie d'un leger avantage a domicile.</span></div>
   <footer>
     Coupe du Monde 2026 &middot; 11 juin &ndash; 19 juillet &middot; Etats-Unis / Canada / Mexique<br>
     Pronostics generes par modele IA &middot; Scores reels via football-data.org &middot; Mise a jour automatique quotidienne<br>
-    <span style="display:inline-block;margin-top:6px">Cree par <a href="https://github.com/Nico-Mtn" target="_blank" rel="noopener">Nico-Mtn</a></span>
+    <span style="display:inline-block;margin-top:6px">Cree par <a href="https://github.com/Nico-Mtn" target="_blank" rel="noopener">Nico-Mtn</a> &middot; <span id="model-version">Modele</span></span>
   </footer>
 </div>
 
@@ -246,13 +276,6 @@ const GRP_COL = {A:"#E53E3E",B:"#DD6B20",C:"#D69E2E",D:"#38A169",E:"#319795",F:"
 let view = "feed";
 let activeGrp = "A";
 let oldOpen = false;
-
-const LOGO_SVG = '<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">'
-  + '<defs><linearGradient id="g" x1="0" y1="0" x2="48" y2="48">'
-  + '<stop offset="0" stop-color="#2e6fd6"/><stop offset="1" stop-color="#1746a2"/></linearGradient></defs>'
-  + '<circle cx="24" cy="24" r="22" fill="url(#g)"/>'
-  + '<path d="M24 10l2.9 5.9 6.5.95-4.7 4.6 1.1 6.45L24 28.85l-5.8 3.05 1.1-6.45-4.7-4.6 6.5-.95z" fill="#fff" opacity=".95"/>'
-  + '<circle cx="24" cy="36" r="3.2" fill="#f0c040"/></svg>';
 
 function flagImg(code, cls){
   if(!code) return "\uD83C\uDFF3\uFE0F";
@@ -287,7 +310,6 @@ document.getElementById("theme").onclick=function(){
 };
 
 function renderHeader(){
-  document.getElementById("logo").innerHTML = LOGO_SVG;
   var s=DATA.stats;
   var graded=s.exact+s.bon+s.rate;
   var pct=graded?Math.round((s.exact+s.bon)/graded*100):0;
@@ -295,9 +317,12 @@ function renderHeader(){
   document.getElementById("maj").textContent="Derniere mise a jour : "+DATA.maj+" \u2014 "+s.joue+"/"+s.total+" matchs joues";
   document.getElementById("scorebar").innerHTML=
     '<div class="pill j"><div class="v">'+s.joue+'</div><div class="t">Joues</div></div>'
-   +'<div class="pill exact"><div class="v">'+s.exact+'</div><div class="t">Exacts</div></div>'
-   +'<div class="pill bon"><div class="v">'+s.bon+'</div><div class="t">Bons</div></div>'
-   +'<div class="pill rate"><div class="v">'+s.rate+'</div><div class="t">Rates</div></div>';
+   +'<div class="pill exact'+(s.exact?' clk':'')+'" data-cat="exact"><div class="v">'+s.exact+'</div><div class="t">Exacts</div></div>'
+   +'<div class="pill bon'+(s.bon?' clk':'')+'" data-cat="bon"><div class="v">'+s.bon+'</div><div class="t">Bons</div></div>'
+   +'<div class="pill rate'+(s.rate?' clk':'')+'" data-cat="rate"><div class="v">'+s.rate+'</div><div class="t">Rates</div></div>';
+  Array.prototype.forEach.call(document.querySelectorAll(".pill.clk"),function(p){
+    p.onclick=function(){openStatDetail(p.dataset.cat);};
+  });
 }
 
 function renderGrpSel(show){
@@ -325,15 +350,19 @@ function matchCard(m){
   var host_a=m.host_a?hostBadge():'';
   var scoreHtml, tagHtml;
   if(m.reel){
-    scoreHtml='<div class="score">'+m.reel[0]+' \u2013 '+m.reel[1]+'</div>';
+    // Score final réel mis en avant + pronostic conservé en dessous
+    scoreHtml='<div class="sc-real-lbl">Score final r\u00e9el</div>'
+      +'<div class="score">'+m.reel[0]+' \u2013 '+m.reel[1]+'</div>'
+      +'<div class="sc-prono">Prono : '+m.prono[0]+'\u2013'+m.prono[1]+'</div>';
     tagHtml='<div class="tag '+m.statut+'">'+TAG_LABEL[m.statut]+'</div>';
   }else{
-    scoreHtml='<div class="score prono">'+m.prono[0]+' \u2013 '+m.prono[1]+'</div>';
+    scoreHtml='<div class="sc-prono-lbl">Pronostic</div><div class="score prono">'+m.prono[0]+' \u2013 '+m.prono[1]+'</div>';
     var altBtn = m.second ? '<button class="alt-badge" data-alt="alt-'+m.id+'" title="Pronostic incertain : voir le 2e choix">!</button>' : '';
-    tagHtml='<div class="tag avenir">Pronostic'+altBtn+'</div>';
+    tagHtml='<div class="tag avenir">A venir'+altBtn+'</div>';
   }
-  // date + heure
-  var dt='<span class="dt">'+m.date+(m.heure?'<span class="h">'+m.heure+'</span>':'')+'</span>';
+  // date + heure (heure de Paris ; note de date si le match passe apres minuit FR)
+  var hpart = m.heure ? ('<span class="h">'+m.heure+(m.heure_note?' <span class="hn">'+m.heure_note+'</span>':'')+'</span>') : '';
+  var dt='<span class="dt">'+m.date+hpart+'</span>';
   // badges
   var badges='<span class="b-grp" style="background:'+GRP_COL[m.grp]+'">Groupe '+m.grp+'</span>';
   if(m.today) badges='<span class="b-today">\u25CF Match du jour</span>'+badges;
@@ -400,6 +429,30 @@ function bindResumes(c){
       btn.innerHTML=(open?"\uD83D\uDCAC Resume du match":"\uD83D\uDCAC Masquer le resume");
     };
   });
+}
+
+var STAT_TITLE={exact:"\u2713 Pronostics exacts",bon:"~ Bons resultats",rate:"\u2717 Pronostics rates"};
+function openStatDetail(cat){
+  var list=DATA.matches.filter(function(m){return m.reel && m.statut===cat;})
+    .sort(function(a,b){return a.sort<b.sort?-1:1;});
+  var rows=list.map(function(m){
+    return '<div class="mrow">'
+      +'<span class="mdate">'+m.date+'</span>'
+      +'<span class="mteams">'+flagImg(m.ch,'sm')+' '+m.home+' <b>vs</b> '+m.away+' '+flagImg(m.ca,'sm')+'</span>'
+      +'<span class="mscores"><span class="r">'+m.reel[0]+'\u2013'+m.reel[1]+'</span><br>'
+      +'<span class="p">prono '+m.prono[0]+'\u2013'+m.prono[1]+'</span></span>'
+      +'</div>';
+  }).join("") || '<div class="empty">Aucun match dans cette categorie pour l\'instant.</div>';
+  var html='<div class="modal-bg" id="modal-bg"><div class="modal">'
+    +'<div class="modal-head"><h2>'+STAT_TITLE[cat]+'</h2>'
+    +'<span style="font-size:11px;color:var(--mut)">'+list.length+' match'+(list.length>1?'s':'')+'</span>'
+    +'<button class="close" id="modal-close">\u00d7</button></div>'
+    +'<div class="modal-body">'+rows+'</div></div></div>';
+  var root=document.getElementById("modal-root");
+  root.innerHTML=html;
+  function close(){root.innerHTML="";}
+  document.getElementById("modal-close").onclick=close;
+  document.getElementById("modal-bg").onclick=function(e){if(e.target.id==="modal-bg")close();};
 }
 
 function render(){
@@ -499,6 +552,8 @@ Array.prototype.forEach.call(document.querySelectorAll("#nav button"),function(b
   b.onclick=function(){view=b.dataset.v;render();};});
 var legEl=document.getElementById("legend-stadium");
 if(legEl) legEl.innerHTML=STADIUM_SVG;
+var verEl=document.getElementById("model-version");
+if(verEl && DATA.version) verEl.textContent="Modele v"+DATA.version;
 renderHeader();
 render();
 </script>
