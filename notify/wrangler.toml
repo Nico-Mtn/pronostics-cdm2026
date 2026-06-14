@@ -1,0 +1,11 @@
+name = "pronobot-push"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+# Remplace l'id par celui de ton namespace KV (créé avec : wrangler kv namespace create SUBS)
+[[kv_namespaces]]
+binding = "SUBS"
+id = "REMPLACER_PAR_TON_KV_ID"
+
+# Le secret LIST_SECRET se définit (et ne se met PAS ici) avec :
+#   wrangler secret put LIST_SECRET
