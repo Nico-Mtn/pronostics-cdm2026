@@ -40,7 +40,7 @@
     box-shadow:0 0 0 1px rgba(0,0,0,.08);vertical-align:middle}
   img.flag.sm{width:20px;height:15px}
   header{position:sticky;top:0;z-index:50;background:var(--bg2);
-    border-bottom:1px solid var(--line);padding:15px 16px 13px;margin:0 -16px 18px}
+    border-bottom:1px solid var(--line);padding:15px 16px 13px;margin:0 0 18px}
   .hrow{display:flex;align-items:center;gap:13px;max-width:760px;margin:0 auto}
   .logo{display:flex;align-items:center;justify-content:center;width:58px;height:58px;flex-shrink:0;overflow:hidden;border-radius:14px;background:#eaf1fb;box-shadow:0 2px 8px rgba(20,40,80,.18)}
   .logo img{width:58px;height:58px;display:block;object-fit:cover}
@@ -200,7 +200,7 @@
   /* ===== RESPONSIVE MOBILE ===== */
   @media (max-width:560px){
     .wrap{padding:0 11px 44px}
-    header{padding:13px 11px 11px;margin:0 -11px 14px}
+    header{padding:13px 11px 11px;margin:0 0 14px}
     h1{font-size:13.5px}
     .sub{font-size:8px;letter-spacing:1px}
     .pct-box .big{font-size:18px}
@@ -471,8 +471,8 @@ function matchCard(m){
   if(!isProno()){
     var rh = m.heure ? ('<span class="h">'+m.heure+(m.heure_note?' <span class="hn">'+m.heure_note+'</span>':'')+'</span>') : '';
     var rdt='<span class="dt">'+m.date+rh+'</span>';
-    var rbadges='<span class="b-grp" style="background:'+GRP_COL[m.grp]+'">Groupe '+m.grp+'</span>';
-    if(m.today) rbadges='<span class="b-today">● Match du jour</span>'+rbadges;
+    var rgrp='<span class="b-grp" style="background:'+GRP_COL[m.grp]+'">Groupe '+m.grp+'</span>';
+    var rbadges = m.today ? '<span class="b-today">● Match du jour</span><div style="margin-top:5px">'+rgrp+'</div>' : rgrp;
     var rsc = m.reel
       ? '<div class="sc"><div class="sc-real-lbl">Score final</div><div class="score">'+m.reel[0]+' – '+m.reel[1]+'</div></div>'
       : '<div class="sc"><div class="tag avenir">À venir</div></div>';
@@ -499,8 +499,8 @@ function matchCard(m){
   var hpart = m.heure ? ('<span class="h">'+m.heure+(m.heure_note?' <span class="hn">'+m.heure_note+'</span>':'')+'</span>') : '';
   var dt='<span class="dt">'+m.date+hpart+'</span>';
   // badges
-  var badges='<span class="b-grp" style="background:'+GRP_COL[m.grp]+'">Groupe '+m.grp+'</span>';
-  if(m.today) badges='<span class="b-today">\u25CF Match du jour</span>'+badges;
+  var grpb='<span class="b-grp" style="background:'+GRP_COL[m.grp]+'">Groupe '+m.grp+'</span>';
+  var badges = m.today ? '<span class="b-today">\u25CF Match du jour</span><div style="margin-top:5px">'+grpb+'</div>' : grpb;
   // dynamique
   var dyn="";
   if(!m.reel){
@@ -590,11 +590,21 @@ function openStatDetail(cat){
   document.getElementById("modal-bg").onclick=function(e){if(e.target.id==="modal-bg")close();};
 }
 
-var matchSub="groupes";
-function bindSub(c){
-  Array.prototype.forEach.call(c.querySelectorAll(".subtab"),function(b){
-    b.onclick=function(){matchSub=b.dataset.sub;render();};
-  });
+var subPhase={matches:"groupes", standings:"groupes"};
+var dynFilter="top";
+// Sous-onglets Phase de groupes / Phases finales (communs à Matchs et Classements)
+function phaseTabs(v){
+  var p=subPhase[v];
+  return '<div class="subtabs">'
+    +'<button class="subtab'+(p==="groupes"?" on":"")+'" data-ph="groupes" data-pv="'+v+'">Phase de groupes</button>'
+    +'<button class="subtab'+(p==="finales"?" on":"")+'" data-ph="finales" data-pv="'+v+'">🏆 Phases finales</button>'
+    +'</div>';
+}
+// Sélecteur de groupe (lettres A→L), intégré dans la sous-partie Phase de groupes
+function grpButtons(){
+  return '<div class="grpsel">'+"ABCDEFGHIJKL".split("").map(function(g){
+    return '<button data-g="'+g+'" class="'+(g===activeGrp?'on':'')+'" style="background:'+GRP_COL[g]+';border-color:'+GRP_COL[g]+'">'+g+'</button>';
+  }).join("")+'</div>';
 }
 
 // Une ligne = une \u00e9quipe + son score. Nom cliquable (fiche \u00e9quipe).
@@ -617,9 +627,22 @@ function koMatch(m){
     + '</div>';
 }
 var KO_PERIODS={r32:"28 juin \u2013 3 juil.",r16:"4 \u2013 7 juil.",qf:"9 \u2013 11 juil.",sf:"14 \u2013 15 juil.",final:"19 juil."};
+function bracketCols(ko){
+  var cols=ko.rounds.map(function(r){
+    var cells=r.matches.map(function(m){return '<div class="ko-cell">'+koMatch(m)+'</div>';}).join("");
+    return '<div class="ko-round"><div class="ko-rname">'+r.name
+      + (KO_PERIODS[r.key]?'<span class="per">'+KO_PERIODS[r.key]+'</span>':'')
+      + '</div><div class="ko-matches">'+cells+'</div></div>';
+  }).join("");
+  return '<div class="bracket-scroll"><div class="bracket">'+cols+'</div></div>';
+}
 function renderBracket(){
   if(!isProno()){
-    return '<div class="ko-note">Le tableau à élimination directe (28 juin – 19 juillet) s’affichera ici avec les <b>qualifiés réels</b> dès la fin de la phase de groupes. Pour voir la <b>projection IA</b> (vainqueur estimé, parcours), basculez en mode 🤖 PronoBot en haut de page.</div>';
+    var kor=DATA.knockout_real;
+    if(!kor||!kor.rounds){return '<div class="empty">Tableau indisponible.</div>';}
+    var rnote='<div class="ko-note">🟢 <b>Qualifiés provisoires</b> selon le classement réel actuel (1ers, 2es et meilleurs 3es). Les 16es se précisent au fil des résultats ; les tours suivants s’afficheront une fois les matchs disputés. Pour la <b>projection IA</b> (vainqueur, parcours), basculez en 🤖 PronoBot.</div>';
+    var rhint='<div class="bracket-hint">↔ faites défiler pour parcourir les tours</div>';
+    return rnote + rhint + bracketCols(kor);
   }
   var ko=DATA.knockout;
   if(!ko||!ko.rounds){return '<div class="empty">Tableau final indisponible.</div>';}
@@ -628,14 +651,8 @@ function renderBracket(){
   var note='<div class="ko-note">\u26A0\uFE0F Projection pr\u00e9visionnelle : le tableau se construit \u00e0 partir des classements '
     + '(r\u00e9els + pronostiqu\u00e9s) et s\u2019actualise au fil de la comp\u00e9tition. Tant que les poules ne sont pas '
     + 'termin\u00e9es, les qualifi\u00e9s restent une estimation.</div>';
-  var cols=ko.rounds.map(function(r){
-    var cells=r.matches.map(function(m){return '<div class="ko-cell">'+koMatch(m)+'</div>';}).join("");
-    return '<div class="ko-round"><div class="ko-rname">'+r.name
-      + (KO_PERIODS[r.key]?'<span class="per">'+KO_PERIODS[r.key]+'</span>':'')
-      + '</div><div class="ko-matches">'+cells+'</div></div>';
-  }).join("");
   var hint='<div class="bracket-hint">\u2194 faites d\u00e9filer pour parcourir les tours</div>';
-  return note + champ + hint + '<div class="bracket-scroll"><div class="bracket">'+cols+'</div></div>';
+  return note + champ + hint + bracketCols(ko);
 }
 
 // ===== Top buteurs (corps de la carte repliable) =====
@@ -721,7 +738,7 @@ function openTeamProfile(team){
 }
 
 // Sections repliables (mémorisées le temps de la session)
-var openSec={scorers:false, thirds:false};
+var openSec={qualif:false, scorers:false, thirds:false};
 function collapsible(key, title, innerHtml){
   var open=openSec[key];
   return '<div class="accordion"><button class="acc-head'+(open?' open':'')+'" data-sec="'+key+'">'
@@ -774,6 +791,7 @@ function realForme(){
 function render(){
   Array.prototype.forEach.call(document.querySelectorAll("#nav button"),function(b){
     b.classList.toggle("on",b.dataset.v===view);});
+  renderGrpSel(false);   // sélecteur autonome masqué : les lettres sont intégrées aux sous-onglets
   var c=document.getElementById("content");
 
   if(view==="feed"){
@@ -817,33 +835,30 @@ function render(){
     bindResumes(c); bindAlts(c);
   }
   else if(view==="matches"){
-    var sub='<div class="subtabs">'
-      +'<button class="subtab'+(matchSub==="groupes"?" on":"")+'" data-sub="groupes">Phase de groupes</button>'
-      +'<button class="subtab'+(matchSub==="finales"?" on":"")+'" data-sub="finales">\uD83C\uDFC6 Phases finales</button>'
-      +'</div>';
-    if(matchSub==="finales"){
-      renderGrpSel(false);
-      c.innerHTML=sub+renderBracket();
-      bindSub(c);
+    var html=phaseTabs("matches");
+    if(subPhase.matches==="finales"){
+      c.innerHTML=html+renderBracket();
     }else{
-      renderGrpSel(true);
       var ms=DATA.matches.filter(function(m){return m.grp===activeGrp;});
-      c.innerHTML=sub+'<div class="card">'+ms.map(matchCard).join("")+'</div>';
-      bindSub(c); bindResumes(c); bindAlts(c);
+      c.innerHTML=html+grpButtons()+'<div class="card">'+ms.map(matchCard).join("")+'</div>';
+      bindResumes(c); bindAlts(c);
     }
   }
   else if(view==="standings"){
-    renderGrpSel(true);
-    var html='<div class="qrules"><h3>\uD83C\uDFC6 Comment se qualifier ?</h3><ul>'
+    var html=phaseTabs("standings");
+    if(subPhase.standings==="finales"){ c.innerHTML=html+renderBracket(); return; }
+    html+=grpButtons();
+    var qualifBody='<div class="qrules" style="margin:0"><ul>'
       +'<li><span class="dot d1"></span><span>Les <b>2 premiers de chaque groupe</b> (12 groupes) sont qualifies directement pour les 1/16e de finale, soit <b>24 equipes</b>.</span></li>'
       +'<li><span class="dot d3"></span><span>Les <b>8 meilleurs 3es</b> (sur 12) completent le tableau : on arrive a <b>32 equipes</b> pour le tour suivant (nouveau format a 48 nations).</span></li>'
       +'<li><span class="dot" style="background:var(--mut)"></span><span>Departage en cas d\'egalite : points, puis difference de buts, puis buts marques.</span></li>'
       +'</ul></div>';
+    html+=collapsible('qualif','🏆 Comment se qualifier ?', qualifBody);
     // Top buteurs (repliable, lecture mobile)
     html+=collapsible('scorers','🥅 Meilleurs buteurs', renderScorers());
-    // Meilleurs 3es (repliable) — projection : uniquement en mode PronoBot
-    var ko=DATA.knockout;
-    if(isProno() && ko && ko.thirds && ko.thirds.length){
+    // Meilleurs 3es (repliable) — projection (PronoBot) ou classement réel provisoire (Réel)
+    var ko=isProno()?DATA.knockout:DATA.knockout_real;
+    if(ko && ko.thirds && ko.thirds.length){
       var thirdsBody='<div class="card"><table>'
         +'<tr><th>#</th><th style="text-align:left;padding-left:11px">Equipe</th><th>Grp</th><th>Pts</th><th>Diff</th><th>Statut</th></tr>'
         +ko.thirds.map(function(t,i){
@@ -852,8 +867,8 @@ function render(){
             +'<td>'+t.grp+'</td><td><b>'+t.Pts+'</b></td><td>'+(t.GD>=0?'+':'')+t.GD+'</td>'
             +'<td>'+(t.qualified?'<span style="color:var(--win);font-weight:700">Qualifie</span>':'<span style="color:var(--mut)">Elimine</span>')+'</td></tr>';
         }).join("")+'</table>'
-        +'<div class="legend" style="padding:10px 14px">Les <b>8 meilleurs 3es</b> (sur 12) accedent aux 16es. Projection basee sur les classements actuels.</div></div>';
-      html+=collapsible('thirds','🥉 Meilleurs 3es — projection', thirdsBody);
+        +'<div class="legend" style="padding:10px 14px">Les <b>8 meilleurs 3es</b> (sur 12) accedent aux 16es. '+(isProno()?'Projection basee sur les classements actuels.':'Classement reel actuel (provisoire).')+'</div></div>';
+      html+=collapsible('thirds','🥉 Meilleurs 3es — '+(isProno()?'projection':'classement réel'), thirdsBody);
     }
     var g=activeGrp;
     var rows=isProno()?(DATA.standings[g]||[]):realStandings(g);
@@ -873,52 +888,59 @@ function render(){
     bindSecs(c);
   }
   else if(view==="momentum"){
-    renderGrpSel(false);
+    var dynBar='<div class="subtabs">'
+      +'<button class="subtab'+(dynFilter==="top"?" on":"")+'" data-dyn="top">Top équipes</button>'
+      +'<button class="subtab'+(dynFilter==="mid"?" on":"")+'" data-dyn="mid">Moyennes</button>'
+      +'<button class="subtab'+(dynFilter==="flop"?" on":"")+'" data-dyn="flop">Flop équipes</button>'
+      +'</div>';
+    var emptyCat='<div class="empty">Aucune équipe dans cette catégorie pour l\'instant.</div>';
     if(!isProno()){
-      // Mode R\u00e9el : Forme factuelle (+2 victoire / 0 nul / -1 d\u00e9faite)
       var f=realForme();
-      if(!f.length){
-        c.innerHTML='<div class="empty">Aucun match joue pour l\'instant.<br>La forme apparaitra des les premiers resultats.</div>';
-        return;
-      }
-      c.innerHTML='<div class="card">'+f.map(function(m){
+      if(!f.length){ c.innerHTML=dynBar+'<div class="empty">Aucun match joué pour l\'instant.<br>La forme apparaîtra dès les premiers résultats.</div>'; return; }
+      var ff=f.filter(function(m){ return dynFilter==="top"?m.pts>0:(dynFilter==="flop"?m.pts<0:m.pts===0); });
+      var rows=ff.map(function(m){
         var cls=m.pts>0?"forme-pos":(m.pts<0?"forme-neg":"forme-neu");
-        var lbl=m.pts>0?"Positive":(m.pts<0?"N\u00e9gative":"Neutre");
+        var lbl=m.pts>0?"Positive":(m.pts<0?"Négative":"Neutre");
         return '<div class="momrow"><span class="tn">'+flagImg(m.code,'sm')+' <span class="tlink" data-team="'+m.team+'">'+m.team+'</span>'
-          +' <span class="res">'+m.detail.join(" \u00b7 ")+'</span></span>'
+          +' <span class="res">'+m.detail.join(" · ")+'</span></span>'
           +'<span class="mv '+cls+'">'+(m.pts>0?'+':'')+m.pts+'</span>'
           +'<span class="ar '+cls+'">'+lbl+'</span></div>';
-      }).join("")+'</div>'
-      +'<div class="legend">Forme calculee sur les matchs joues : <b>+2</b> victoire \u00b7 <b>0</b> nul \u00b7 <b>-1</b> defaite.</div>';
+      }).join("");
+      c.innerHTML=dynBar+(rows?'<div class="card">'+rows+'</div>':emptyCat)
+        +'<div class="legend">Forme calculée sur les matchs joués : <b>+2</b> victoire · <b>0</b> nul · <b>-1</b> défaite.</div>';
       return;
     }
-    if(!DATA.momentum.length){
-      c.innerHTML='<div class="empty">Aucun match joue pour l\'instant.<br>La dynamique apparaitra des les premiers resultats.</div>';
-      return;
-    }
-    c.innerHTML='<div class="card">'+DATA.momentum.map(function(m){
+    if(!DATA.momentum.length){ c.innerHTML=dynBar+'<div class="empty">Aucun match joué pour l\'instant.<br>La dynamique apparaîtra dès les premiers résultats.</div>'; return; }
+    var mm=DATA.momentum.filter(function(m){ return dynFilter==="top"?m.mom>=0.2:(dynFilter==="flop"?m.mom<=-0.2:(m.mom>-0.2&&m.mom<0.2)); });
+    var rows2=mm.map(function(m){
       var cls=m.mom>=0.2?"up":(m.mom<=-0.2?"down":"neu");
-      var lbl=m.mom>=0.2?"En hausse \u2191":(m.mom<=-0.2?"En baisse \u2193":"Neutre \u2192");
+      var lbl=m.mom>=0.2?"En hausse ↑":(m.mom<=-0.2?"En baisse ↓":"Neutre →");
       return '<div class="momrow"><span class="tn">'+flagImg(m.code,'sm')+' <span class="tlink" data-team="'+m.team+'">'+m.team+'</span>'
         +' <span class="res">'+m.detail+'</span></span>'
         +'<span class="mv '+cls+'">'+(m.mom>=0?'+':'')+m.mom+'</span>'
         +'<span class="ar '+cls+'">'+lbl+'</span></div>';
-    }).join("")+'</div>'
-    +'<div class="legend">Le momentum ajuste la force d\'une equipe pour ses prochains matchs.<br>Calcule a partir des vrais resultats : victoire/defaite, ecart de buts, exploit ou contre-performance.</div>';
+    }).join("");
+    c.innerHTML=dynBar+(rows2?'<div class="card">'+rows2+'</div>':emptyCat)
+      +'<div class="legend">Le momentum ajuste la force d\'une équipe pour ses prochains matchs (victoire/défaite, écart de buts, exploit/contre-performance).</div>';
   }
 }
 
 Array.prototype.forEach.call(document.querySelectorAll("#nav button"),function(b){
   b.onclick=function(){view=b.dataset.v;render();};});
-// Clic sur un nom d'équipe (n'importe où) -> fiche équipe
+// Délégation des clics : fiche équipe, sous-onglets Phase, sélecteur de groupe, filtres Dynamique
 document.addEventListener("click",function(e){
-  var t=e.target.closest ? e.target.closest(".tlink") : null;
-  if(t && t.dataset && t.dataset.team){ e.preventDefault(); openTeamProfile(t.dataset.team); }
+  if(!e.target.closest) return;
+  var t;
+  if((t=e.target.closest(".tlink")) && t.dataset.team){ e.preventDefault(); openTeamProfile(t.dataset.team); return; }
+  if((t=e.target.closest("[data-ph]"))){ subPhase[t.dataset.pv]=t.dataset.ph; render(); return; }
+  if((t=e.target.closest("[data-g]"))){ activeGrp=t.dataset.g; render(); return; }
+  if((t=e.target.closest("[data-dyn]"))){ dynFilter=t.dataset.dyn; render(); return; }
 });
 var legEl=document.getElementById("legend-stadium");
 if(legEl) legEl.innerHTML=STADIUM_SVG;
+var SITE_VERSION="1.1";
 var verEl=document.getElementById("model-version");
-if(verEl && DATA.version) verEl.textContent="Modele v"+DATA.version;
+if(verEl && DATA.version) verEl.textContent="Site v"+SITE_VERSION+" · Modele v"+DATA.version;
 renderModeBar();
 renderHeader();
 render();

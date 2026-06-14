@@ -654,6 +654,55 @@ def _ko_date_fr(datetimes, mid):
     except Exception:
         return ("","")
 
+def build_real_standings(rint):
+    """Classement RÉEL-only (matchs joués uniquement), tous les 4 par groupe inclus.
+    Sert au bracket 'Réel' (qualifiés provisoires d'après les vrais résultats)."""
+    from collections import defaultdict
+    table=defaultdict(lambda:defaultdict(lambda:{"Pts":0,"J":0,"G":0,"N":0,"P":0,"BP":0,"BC":0,"reels":0}))
+    teams_by_grp=defaultdict(set)
+    for mid,grp,date,h,a in GROUP_MATCHES:
+        teams_by_grp[grp].add(h); teams_by_grp[grp].add(a)
+        if mid in rint:
+            rh,ra=rint[mid]["h"],rint[mid]["a"]
+            th,ta=table[grp][h],table[grp][a]
+            th["J"]+=1;ta["J"]+=1;th["BP"]+=rh;th["BC"]+=ra;ta["BP"]+=ra;ta["BC"]+=rh;th["reels"]+=1;ta["reels"]+=1
+            if rh>ra: th["Pts"]+=3;th["G"]+=1;ta["P"]+=1
+            elif ra>rh: ta["Pts"]+=3;ta["G"]+=1;th["P"]+=1
+            else: th["Pts"]+=1;ta["Pts"]+=1;th["N"]+=1;ta["N"]+=1
+    standings={}
+    for grp,teams in teams_by_grp.items():
+        for t in teams: table[grp][t]   # garantit la présence des 4 équipes
+        ranked=sorted(table[grp].items(),key=lambda kv:(kv[1]["Pts"],kv[1]["BP"]-kv[1]["BC"],kv[1]["BP"]),reverse=True)
+        standings[grp]=[{"team":t,"code":FLAG_CODES.get(t,""),"host":t in HOST_NATIONS,**st} for t,st in ranked]
+    return standings
+
+def build_knockout_real(real_standings, datetimes=None):
+    """Bracket 'Réel' : 16es remplis selon le classement réel actuel (qualifiés provisoires),
+    sans prédiction des vainqueurs. Les tours suivants restent à définir."""
+    thirds_sorted, qual_groups, slot_team = _assign_thirds(real_standings)
+    r32=[]
+    for mid,ra,rb in KO_R32:
+        home=_resolve_ref(ra,real_standings,slot_team); away=_resolve_ref(rb,real_standings,slot_team)
+        d,h=_ko_date_fr(datetimes,mid)
+        r32.append({"id":mid,"home":home,"away":away,"sh":None,"sa":None,"winner":None,"tab":False,
+                    "ch":FLAG_CODES.get(home,""),"ca":FLAG_CODES.get(away,""),"date":d,"heure":h})
+    def empty(ids,key):
+        return {"key":key,"name":KO_NAMES[key],"matches":[
+            {"id":i,"home":None,"away":None,"sh":None,"sa":None,"winner":None,"tab":False,
+             "ch":"","ca":"","date":"","heure":""} for i in ids]}
+    rounds=[{"key":"r32","name":KO_NAMES["r32"],"matches":r32},
+            empty([89,90,91,92,93,94,95,96],"r16"),
+            empty([97,98,99,100],"qf"), empty([101,102],"sf"), empty([104],"final")]
+    order_map=_bracket_orders()
+    for rd in rounds:
+        om=order_map.get(rd["key"])
+        if om:
+            pos={m:i for i,m in enumerate(om)}
+            rd["matches"].sort(key=lambda x:pos.get(x["id"],999))
+    thirds_rank=[{"team":t[4],"code":FLAG_CODES.get(t[4],""),"grp":t[0],"Pts":t[1],"GD":t[2],"GF":t[3],
+                  "qualified":t[0] in qual_groups} for t in thirds_sorted]
+    return {"rounds":rounds,"thirds":thirds_rank}
+
 def build_knockout(standings, momentum, datetimes=None):
     thirds_sorted, qual_groups, slot_team = _assign_thirds(standings)
     winners={}; rounds=[]
@@ -824,6 +873,8 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
                      for t,v in momentum.items()), key=lambda x:-x["mom"])
 
     knockout=build_knockout(standings, momentum, datetimes)
+    real_standings=build_real_standings(rint)
+    knockout_real=build_knockout_real(real_standings, datetimes)
 
     return {
         "maj":datetime.datetime.now().strftime("%d/%m/%Y à %H:%M"),
@@ -831,6 +882,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
         "version":MODEL_VERSION,
         "stats":{"joue":n_joue,"exact":n_exact,"bon":n_bon,"rate":n_rate,"total":72,"today":n_today},
         "matches":matches,"standings":standings,"momentum":mom_list,"knockout":knockout,
+        "knockout_real":knockout_real,
         "scorers":scorers_top,
     }
 
