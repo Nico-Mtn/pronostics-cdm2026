@@ -6,8 +6,9 @@ on:
     # de charge GitHub a l'heure pile). 12 executions/jour, ~2 appels API chacune.
     - cron: "12 */2 * * *"
   workflow_dispatch:        # permet de lancer manuellement depuis l'onglet Actions
-  push:
-    branches: [ main ]      # régénère aussi à chaque push sur main
+  # NB : pas de trigger `push`. Le job committe lui-même index.html (dont le champ
+  # `maj` change a chaque run) ; un trigger push relancerait le workflow en boucle.
+  # Les commits du bot portent [skip ci] en garde-fou supplementaire.
 
 permissions:
   contents: write           # pour committer results_manual.json mis à jour
@@ -40,7 +41,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/results_manual.json index.html
-          git diff --staged --quiet || git commit -m "MAJ auto $(date -u +%Y-%m-%d)"
+          git diff --staged --quiet || git commit -m "MAJ auto $(date -u +%Y-%m-%d) [skip ci]"
           git push || echo "Rien à pousser"
 
       - name: Configurer Pages
