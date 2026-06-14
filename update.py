@@ -15,6 +15,10 @@ API_KEY = os.environ.get("FOOTBALLDATA_KEY", "").strip()
 API_BASE = "https://api.football-data.org/v4"
 WC_CODE = "WC"        # football-data.org : code compétition FIFA World Cup
 
+# Version du modèle de pronostic (affichée dans le pied de page).
+# Historique : 1.x base · 2.0 facteur qualification + dynamique · 2.1 règles 2026 (compression ciblée)
+MODEL_VERSION = "2.1"
+
 # ─── DONNÉES ÉQUIPES (force, tendance, style, surprise) ──────────────────────
 TEAM_DATA = {
     "Mexique": (7.2,"up","pressing",False), "Afrique du Sud": (5.2,"stable","bloc_bas",False),
@@ -201,18 +205,22 @@ def style_bonus(s1,s2):
     return (0,0)
 
 def _score_from_diff(diff, home, away, hs, as_, asur):
-    """Convertit un écart de force en score crédible. Réutilisé par compute() et second_choice()."""
+    """Convertit un écart de force en score crédible. Réutilisé par compute() et second_choice().
+    NB (règles 2026) : compression CIBLÉE sur la zone d'incertitude uniquement (|diff| faible) —
+    plus de nuls et de victoires serrées sur les matchs équilibrés (anti-temps-mort, pauses
+    fraîcheur, comebacks). Les gros écarts (|diff|>=1.8) ne sont PAS touchés : les coups d'éclat
+    et scores larges restent possibles."""
     if   diff>=3.5: h,a=3,0
     elif diff>=2.5: h,a=3,1
-    elif diff>=1.8: h,a=2,0
+    elif diff>=1.8: h,a=2,0          # — au-delà d'ici : zone "gros écart", inchangée —
     elif diff>=1.2: h,a=2,1
     elif diff>=0.6: h,a=1,0
-    elif diff>=0.2: h,a=2,1
-    elif diff>-0.2: h,a=(0,0) if (hs=="bloc_bas" and as_=="bloc_bas") else (1,1)
-    elif diff>-0.6: h,a=1,2
+    elif diff>=0.30: h,a=1,0         # petit avantage -> victoire serrée (avant : 2-1 ouvert)
+    elif diff>-0.30: h,a=(0,0) if (hs=="bloc_bas" and as_=="bloc_bas") else (1,1)  # bande de nul élargie (±0.30)
+    elif diff>-0.6: h,a=0,1          # petit avantage adverse -> victoire serrée (avant : 1-2 ouvert)
     elif diff>-1.2: h,a=0,1
     elif diff>-1.8: h,a=1,2
-    elif diff>-2.5: h,a=0,2
+    elif diff>-2.5: h,a=0,2          # — au-delà d'ici : zone "gros écart", inchangée —
     elif diff>-3.5: h,a=1,3
     else: h,a=0,3
     if asur and diff<1.8 and diff>-1.0 and h>a:
@@ -221,7 +229,7 @@ def _score_from_diff(diff, home, away, hs, as_, asur):
     low=["Équateur","Tunisie","Panama","Irak","Iran","Bosnie-Herzégovine"]
     if home in low or away in low: h=min(h,2); a=min(a,1)
     high=["Argentine","France","Allemagne","Espagne","Angleterre","Norvège"]
-    if home in high and diff>2: h=min(h+1,4)
+    if home in high and diff>2: h=min(h+1,4)   # coups d'éclat des cadors préservés
     return h,a
 
 def compute(home,away,momentum=None,qualif=None):
@@ -277,7 +285,8 @@ def confidence_pct(diff):
     p = 1.0 / (1.0 + math.exp(-1.35*a))   # 0.5 (a=0) .. ~1.0, pente plus marquée
     # remappe [0.5..1.0] vers [38%..94%] : plancher relevé, sommet relevé
     pct = 38 + (p-0.5)/0.5 * 56
-    return int(round(min(94, max(30, pct))))
+    pct -= 3   # abattement variance "règles 2026" : comebacks/anti-temps-mort -> upsets plus fréquents
+    return int(round(min(92, max(28, pct))))
 
 def style_analysis(home, away):
     """Retourne (libellé court 'Style1 vs Style2', note tactique) pour l'affichage."""
@@ -588,15 +597,28 @@ def build_payload(results, scorers_by_team=None, datetimes=None):
 
         if dt_utc is not None:
             dt_paris = dt_utc + datetime.timedelta(hours=2)   # Paris = UTC+2 (été)
-            iso_date = dt_paris.strftime("%Y-%m-%d")
-            heure = dt_paris.strftime("%H:%M") if KICKOFF_UTC.get(mid) or api_iso else ""
+            paris_date = dt_paris.strftime("%Y-%m-%d")
+            heure = dt_paris.strftime("%H:%M") if (KICKOFF_UTC.get(mid) or api_iso) else ""
             sort_key = dt_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
         else:
-            iso_date = date; heure=""; sort_key = date + "T23:59:00Z"
+            paris_date = date; heure=""; sort_key = date + "T23:59:00Z"
 
-        mmkey="06-"+iso_date.split("-")[2]
-        date_fr = DATE_FR.get(mmkey, iso_date)
-        is_today = (iso_date == today_iso)
+        # Le "jour du match" = date OFFICIELLE FIFA (jour local sur place), pas la date de Paris.
+        # C'est cette date qui sert au regroupement du feed ET au badge "match du jour"
+        # (comportement type live feed L'Équipe). L'heure affichée reste l'heure de Paris.
+        matchday_iso = date
+        mmkey="06-"+matchday_iso.split("-")[2]
+        day_fr = DATE_FR.get(mmkey, matchday_iso)
+        # Si l'heure de Paris fait basculer le match au lendemain (matchs nocturnes aux Amériques),
+        # on le signale discrètement à côté de l'heure.
+        heure_note = ""
+        if heure and paris_date != matchday_iso:
+            try:
+                pd = datetime.date.fromisoformat(paris_date)
+                heure_note = pd.strftime("%d/%m")
+            except Exception:
+                heure_note = ""
+        is_today = (matchday_iso == today_iso)
         if is_today: n_today += 1
         style_label, style_note = style_analysis(home, away)
         conf = confidence_pct(diffaj if not joue else compute(home,away,None)[2])
@@ -606,8 +628,8 @@ def build_payload(results, scorers_by_team=None, datetimes=None):
             s_h, s_a, s_lbl = second_choice(home, away, diffaj)
             second = {"score":[s_h,s_a], "label":s_lbl}
         matches.append({
-            "id":mid,"grp":grp,"date":date_fr,"heure":heure or "","iso":iso_date,"sort":sort_key,
-            "today":is_today,
+            "id":mid,"grp":grp,"date":day_fr,"day":day_fr,"heure":heure or "","heure_note":heure_note,
+            "iso":matchday_iso,"sort":sort_key,"today":is_today,
             "home":home,"away":away,
             "ch":FLAG_CODES.get(home,""),"ca":FLAG_CODES.get(away,""),
             "host_h":home in HOST_NATIONS,"host_a":away in HOST_NATIONS,
@@ -642,6 +664,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None):
     return {
         "maj":datetime.datetime.now().strftime("%d/%m/%Y à %H:%M"),
         "today":datetime.date.today().isoformat(),
+        "version":MODEL_VERSION,
         "stats":{"joue":n_joue,"exact":n_exact,"bon":n_bon,"rate":n_rate,"total":72,"today":n_today},
         "matches":matches,"standings":standings,"momentum":mom_list,
     }
