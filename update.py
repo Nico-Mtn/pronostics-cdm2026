@@ -18,7 +18,9 @@ WC_CODE = "WC"        # football-data.org : code compétition FIFA World Cup
 # Version du modèle de pronostic (affichée dans le pied de page).
 # Historique : 1.x base · 2.0 facteur qualification + dynamique · 2.1 règles 2026 (compression ciblée)
 #             · 2.2 variation réaliste des scores (distribution CM 2010-2022, graine par affiche)
-MODEL_VERSION = "2.2"
+#             · 2.3 ajustement dynamique conservateur : forme off/déf réelle, tendance de buts du
+#                   tournoi, pondération récence, blend force FIFA ↔ performances observées
+MODEL_VERSION = "2.3"
 
 # ─── DONNÉES ÉQUIPES (force, tendance, style, surprise) ──────────────────────
 TEAM_DATA = {
@@ -232,8 +234,33 @@ def _score_from_diff(diff, home, away, hs, as_, asur):
     # Orientation : diff>=0 -> le favori est l'équipe à domicile (home)
     return (fav,dog) if diff>=0 else (dog,fav)
 
-def compute(home,away,momentum=None,qualif=None):
-    mo=momentum or {}; qz=qualif or {}
+def _adjust_goals(h, a, diff, home, away, dyn):
+    """v2.3 — Ajustement CONSERVATEUR du score à venir selon la forme observée :
+    forme offensive/défensive réelle des deux équipes + tendance de buts du tournoi.
+    Au plus 1 but de variation, en PRÉSERVANT le vainqueur (ou le nul). N'agit qu'après
+    quelques matchs disputés (assez de données)."""
+    if not dyn or dyn.get("n", 0) < 4:
+        return h, a
+    off = dyn.get("off", {}); dfn = dyn.get("def_", {}); tg = dyn.get("tg") or 2.4
+    base = 1.20
+    env = max(0.85, min(1.15, tg / 2.4))          # environnement de scoring (±15 % max)
+    eh = (0.6 * base + 0.2 * off.get(home, base) + 0.2 * dfn.get(away, base)) * env
+    ea = (0.6 * base + 0.2 * off.get(away, base) + 0.2 * dfn.get(home, base)) * env
+    gap = (eh + ea) - (h + a)
+    seed = 0
+    for ch in (home + "#" + away): seed = (seed * 31 + ord(ch)) & 0xffffffff
+    if gap >= 1.0 and seed % 2 == 0:              # match attendu plus prolifique : +1 but
+        if h > a: h += 1
+        elif a > h: a += 1
+        elif gap >= 2.0: h += 1; a += 1           # nul : ne s'ouvre que si écart marqué
+    elif gap <= -1.0 and seed % 2 == 1:           # attendu plus fermé : -1 but (préserve le signe)
+        if h > a and a >= 1: a -= 1
+        elif a > h and h >= 1: h -= 1
+        elif h == a and h >= 1: h -= 1; a -= 1
+    return h, a
+
+def compute(home,away,momentum=None,qualif=None,dyn=None):
+    mo=momentum or {}; qz=qualif or {}; dy=dyn or {}
     hf0,ht,hs,hsur=TEAM_DATA[home]; af0,at,as_,asur=TEAM_DATA[away]
     tb={"up":0.4,"down":-0.4,"stable":0}
     hF=hf0+tb[ht]+mo.get(home,0.0); aF=af0+tb[at]+mo.get(away,0.0)
@@ -244,8 +271,12 @@ def compute(home,away,momentum=None,qualif=None):
     qb={"qualified":-0.35,"alive":0.20,"eliminated":-0.25,None:0.0}
     hF+=qb.get(qz.get(home),0.0); aF+=qb.get(qz.get(away),0.0)
     sbh,sba=style_bonus(hs,as_); hF+=sbh; aF+=sba
+    # v2.3 — blend force FIFA <-> niveau réel observé (conservateur, plafonné dans compute_form)
+    lvl=dy.get("level",{})
+    hF+=lvl.get(home,0.0); aF+=lvl.get(away,0.0)
     diff=hF-aF
     h,a=_score_from_diff(diff, home, away, hs, as_, asur)
+    h,a=_adjust_goals(h, a, diff, home, away, dy)
     return h,a,diff
 
 def second_choice(home, away, diff):
@@ -396,9 +427,11 @@ def match_summary(home, away, rh, ra, statut, mom_after, scorers_by_team):
     return " ".join(parts).strip(), resume_reel
 
 def compute_momentum(results):
+    """Dynamique (forme V/N/D) avec PONDÉRATION RÉCENCE (v2.3) : les derniers matchs
+    d'une équipe pèsent un peu plus (rampe douce 0.85 -> 1.15). Plafonné ±1.2."""
     from collections import defaultdict
-    momentum=defaultdict(float); detail=defaultdict(list)
     by_id={m[0]:m for m in GROUP_MATCHES}
+    per_team=defaultdict(list)
     for mid,sc in results.items():
         mid=int(mid)
         if mid not in by_id: continue
@@ -408,15 +441,49 @@ def compute_momentum(results):
             if gf>ga: base=0.30; tag="V"
             elif gf<ga: base=-0.30; tag="D"
             else: base=0.0; tag="N"
-            margin=max(-3,min(3,gf-ga)); margin_bonus=margin*0.07
+            margin_bonus=max(-3,min(3,gf-ga))*0.07
             gap=opp_f-TEAM_DATA[team][0]; surprise=0.0
             if gf>ga and gap>0: surprise=gap*0.10
             elif gf<ga and gap<0: surprise=gap*0.10
             elif gf==ga and gap>0: surprise=gap*0.05
-            momentum[team]+=base+margin_bonus+surprise
-            detail[team].append(f"{tag} {gf}-{ga}")
-    for t in momentum: momentum[t]=max(-1.2,min(1.2,momentum[t]))
-    return dict(momentum),dict(detail)
+            per_team[team].append((date, mid, base+margin_bonus+surprise, f"{tag} {gf}-{ga}"))
+    momentum={}; detail={}
+    for team,lst in per_team.items():
+        lst.sort(key=lambda x:(x[0],x[1]))            # chronologique
+        k=len(lst); s=0.0
+        for i,(d,mid,contrib,tg) in enumerate(lst):
+            w=1.0 if k==1 else (0.85+0.30*(i/(k-1)))   # récence : le dernier match pèse +
+            s+=contrib*w
+        momentum[team]=max(-1.2,min(1.2,s))
+        detail[team]=[x[3] for x in lst]
+    return momentum, detail
+
+def compute_form(results):
+    """v2.3 — Forme OBSERVÉE à partir des vrais résultats :
+       off[team]   = buts marqués / match      def_[team] = buts encaissés / match
+       level[team] = niveau réel (pts/match + diff de buts), plafonné ±0.35, montée en confiance
+       tg          = buts moyens / match du tournoi (tendance de scoring)
+       n           = nombre de matchs joués."""
+    from collections import defaultdict
+    by_id={m[0]:m for m in GROUP_MATCHES}
+    gs=defaultdict(int); gc=defaultdict(int); pts=defaultdict(int); pl=defaultdict(int)
+    tot_goals=0; tot_matches=0
+    for mid,sc in results.items():
+        mid=int(mid)
+        if mid not in by_id: continue
+        _,grp,date,home,away=by_id[mid]
+        rh,ra=sc["h"],sc["a"]; tot_goals+=rh+ra; tot_matches+=1
+        for team,gf,ga in [(home,rh,ra),(away,ra,rh)]:
+            gs[team]+=gf; gc[team]+=ga; pl[team]+=1
+            if gf>ga: pts[team]+=3
+            elif gf==ga: pts[team]+=1
+    off={}; dfn={}; level={}
+    for t in pl:
+        n=pl[t]; off[t]=gs[t]/n; dfn[t]=gc[t]/n
+        raw=((pts[t]/n)-1.0)*0.20 + ((gs[t]-gc[t])/n)*0.10
+        level[t]=max(-0.35,min(0.35,raw))*min(1.0,n/2.0)
+    tg=(tot_goals/tot_matches) if tot_matches else 0.0
+    return {"off":off,"def_":dfn,"level":level,"tg":tg,"n":tot_matches}
 
 # ─── RÉCUPÉRATION DES RÉSULTATS ──────────────────────────────────────────────
 def fetch_from_api():
@@ -611,9 +678,9 @@ def _resolve_ref(ref, standings, slot_team):
     if kind=="3": return slot_team.get(key)
     return None
 
-def _ko_match(home, away, momentum):
+def _ko_match(home, away, momentum, form=None):
     if not home or not away: return {"home":home,"away":away,"sh":None,"sa":None,"winner":None,"tab":False}
-    h,a,diff=compute(home,away,momentum)   # pas de facteur qualification en phase finale
+    h,a,diff=compute(home,away,momentum,None,form)   # pas de facteur qualification en phase finale
     if h==a:
         winner = home if diff>=0 else away; tab=True   # nul -> tirs au but, le favori passe
     else:
@@ -704,13 +771,13 @@ def build_knockout_real(real_standings, datetimes=None):
                   "qualified":t[0] in qual_groups} for t in thirds_sorted]
     return {"rounds":rounds,"thirds":thirds_rank}
 
-def build_knockout(standings, momentum, datetimes=None):
+def build_knockout(standings, momentum, datetimes=None, form=None):
     thirds_sorted, qual_groups, slot_team = _assign_thirds(standings)
     winners={}; rounds=[]
     r32=[]
     for mid,ra,rb in KO_R32:
         home=_resolve_ref(ra,standings,slot_team); away=_resolve_ref(rb,standings,slot_team)
-        res=_ko_match(home,away,momentum); winners[mid]=res["winner"]
+        res=_ko_match(home,away,momentum,form); winners[mid]=res["winner"]
         res["id"]=mid; res["ch"]=FLAG_CODES.get(res["home"],""); res["ca"]=FLAG_CODES.get(res["away"],"")
         r32.append(res)
     rounds.append({"key":"r32","name":KO_NAMES["r32"],"matches":r32})
@@ -719,7 +786,7 @@ def build_knockout(standings, momentum, datetimes=None):
         for mid,a,b in KO_NEXT:
             if mid not in idset: continue
             home=winners.get(a); away=winners.get(b)
-            res=_ko_match(home,away,momentum); winners[mid]=res["winner"]
+            res=_ko_match(home,away,momentum,form); winners[mid]=res["winner"]
             res["id"]=mid; res["ch"]=FLAG_CODES.get(res["home"],""); res["ca"]=FLAG_CODES.get(res["away"],"")
             arr.append(res)
         rounds.append({"key":key,"name":KO_NAMES[key],"matches":arr})
@@ -751,6 +818,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
     datetimes = datetimes or {}
     results={str(k):v for k,v in results.items()}
     momentum,detail=compute_momentum(results)
+    form=compute_form(results)   # v2.3 : forme observée (off/déf, niveau réel, tendance de buts)
     qualif_states=compute_qualif_states(results)
     rint={int(k):v for k,v in results.items()}
     today_iso = datetime.date.today().isoformat()
@@ -769,7 +837,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
         pih,pia,_=compute(home,away,None)
         # facteur qualification uniquement pour les 3es matchs
         qz = qualif_states if mid in j3_ids else None
-        pah,paa,diffaj=compute(home,away,momentum,qz)
+        pah,paa,diffaj=compute(home,away,momentum,qz,form)
         joue=mid in rint
         reel=None; statut="avenir"; resume=""; resume_reel=""
         if joue:
@@ -876,7 +944,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
     mom_list=sorted(({"team":t,"code":FLAG_CODES.get(t,""),"mom":round(v,2),"detail":" · ".join(detail.get(t,[]))}
                      for t,v in momentum.items()), key=lambda x:-x["mom"])
 
-    knockout=build_knockout(standings, momentum, datetimes)
+    knockout=build_knockout(standings, momentum, datetimes, form)
     real_standings=build_real_standings(rint)
     knockout_real=build_knockout_real(real_standings, datetimes)
 
