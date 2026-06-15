@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PronoBot — Pronostics IA Coupe du Monde 2026</title>
+<title>Pronostix — Pronostics IA Coupe du Monde 2026</title>
 <meta name="description" content="Pronostics IA de la Coupe du Monde 2026, mis a jour chaque jour avec les vrais scores et la dynamique des equipes.">
 <link rel="preconnect" href="https://flagcdn.com">
 <link rel="manifest" href="manifest.webmanifest">
@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="PronoBot">
+<meta name="apple-mobile-web-app-title" content="Pronostix">
 <style>
   :root{
     --bg:#f4f6fb; --bg2:#ffffff; --card:#ffffff; --card2:#ffffff;
@@ -313,7 +313,7 @@
   .install-bar .ib-close{background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;
     line-height:1;opacity:.85;padding:0 2px;flex-shrink:0}
   .install-bar .ib-close:hover{opacity:1}
-  /* Switch de mode Réel / PronoBot */
+  /* Switch de mode Réel / Prono de Nono */
   .modebar{display:flex;gap:0;background:var(--card);border:1px solid var(--line);border-radius:12px;
     padding:4px;margin:0 0 14px;box-shadow:var(--shadow)}
   .modebar button{flex:1;padding:9px 6px;border:none;border-radius:9px;background:transparent;cursor:pointer;
@@ -347,9 +347,9 @@
 <body>
 <header>
   <div class="hrow">
-    <div class="logo" id="logo"><img src="logo.png" alt="PronoBot" width="58" height="58"></div>
+    <div class="logo" id="logo"><img src="logo.png" alt="Pronostix" width="58" height="58"></div>
     <div class="titlebox">
-      <h1>PronoBot</h1>
+      <h1>Pronostix</h1>
       <div class="tagline">Nono le robot, roi des prono &#128081;</div>
       <div class="sub">Pronostics IA &middot; Coupe du Monde 2026 &#9917;</div>
     </div>
@@ -405,10 +405,10 @@ function renderModeBar(){
   var el=document.getElementById("modebar");
   if(el) el.innerHTML=
      '<button class="reel'+(mode==="reel"?" on reel":"")+'" data-mode="reel">⚽ Réel</button>'
-    +'<button class="prono'+(mode==="prono"?" on prono":"")+'" data-mode="prono">🤖 PronoBot</button>';
+    +'<button class="prono'+(mode==="prono"?" on prono":"")+'" data-mode="prono">🤖 Prono de Nono</button>';
   var note=document.getElementById("mode-note");
   if(note) note.innerHTML = (mode==="prono")
-    ? "Mode <b>PronoBot</b> : pronostics, indice de confiance et projections IA (résultats réels inclus)."
+    ? "Mode <b>Prono de Nono</b> : pronostics, indice de confiance et projections IA (résultats réels inclus)."
     : "Mode <b>Réel</b> : résultats et calendrier officiels, sans projection.";
   if(el) Array.prototype.forEach.call(el.querySelectorAll("button"),function(b){
     b.onclick=function(){ if(b.dataset.mode!==mode) applyMode(b.dataset.mode); };
@@ -676,7 +676,7 @@ function renderBracket(){
   if(!isProno()){
     var kor=DATA.knockout_real;
     if(!kor||!kor.rounds){return '<div class="empty">Tableau indisponible.</div>';}
-    var rnote='<div class="ko-note">🟢 <b>Qualifiés provisoires</b> selon le classement réel actuel (1ers, 2es et meilleurs 3es). Les 16es se précisent au fil des résultats ; les tours suivants s’afficheront une fois les matchs disputés. Pour la <b>projection IA</b> (vainqueur, parcours), basculez en 🤖 PronoBot.</div>';
+    var rnote='<div class="ko-note">🟢 <b>Qualifiés provisoires</b> selon le classement réel actuel (1ers, 2es et meilleurs 3es). Les 16es se précisent au fil des résultats ; les tours suivants s’afficheront une fois les matchs disputés. Pour la <b>projection IA</b> (vainqueur, parcours), basculez en 🤖 Prono de Nono.</div>';
     var rhint='<div class="bracket-hint">↔ faites défiler pour parcourir les tours</div>';
     return rnote + rhint + bracketCols(kor);
   }
@@ -892,7 +892,7 @@ function render(){
       +'<li><span class="dot" style="background:var(--mut)"></span><span>Departage en cas d\'egalite : points, puis difference de buts, puis buts marques.</span></li>'
       +'</ul></div>';
     html+=collapsible('qualif','🏆 Comment se qualifier ?', qualifBody);
-    // Meilleurs 3es (repliable) — projection (PronoBot) ou classement réel provisoire (Réel)
+    // Meilleurs 3es (repliable) — projection (Prono de Nono) ou classement réel provisoire (Réel)
     var ko=isProno()?DATA.knockout:DATA.knockout_real;
     if(ko && ko.thirds && ko.thirds.length){
       var thirdsBody='<div class="card"><table>'
@@ -1022,12 +1022,12 @@ if('serviceWorker' in navigator){
   // App = mobile uniquement (sur ordinateur : extension Chrome, à venir)
   function show(html){ if(!bar||standalone()||dismissed()||!isMobile()) return; bar.innerHTML=html; bar.style.display='flex'; bind(); }
   window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); deferred=e;
-    show('<span class="ib-ico">📲</span><span class="ib-txt">Installe <b>PronoBot</b> sur ton écran d\'accueil</span><button class="ib-btn">Installer</button><button class="ib-close" aria-label="Fermer">×</button>');
+    show('<span class="ib-ico">📲</span><span class="ib-txt">Installe <b>Pronostix</b> sur ton écran d\'accueil</span><button class="ib-btn">Installer</button><button class="ib-close" aria-label="Fermer">×</button>');
   });
   window.addEventListener('appinstalled', function(){ try{localStorage.setItem('pb_install_dismissed','1');}catch(e){} deferred=null; hide(); });
   var ua=navigator.userAgent||'';
   if(/iphone|ipad|ipod/i.test(ua) && /safari/i.test(ua) && !/crios|fxios|edgios/i.test(ua)){
-    setTimeout(function(){ show('<span class="ib-ico">📲</span><span class="ib-txt">Installe <b>PronoBot</b> : appuie sur <b>Partager</b> puis <b>« Sur l\'écran d\'accueil »</b></span><button class="ib-close" aria-label="Fermer">×</button>'); }, 700);
+    setTimeout(function(){ show('<span class="ib-ico">📲</span><span class="ib-txt">Installe <b>Pronostix</b> : appuie sur <b>Partager</b> puis <b>« Sur l\'écran d\'accueil »</b></span><button class="ib-close" aria-label="Fermer">×</button>'); }, 700);
   }
 })();
 // Notifications push (8h : résultats de la veille + justesse). Inactif tant que PUSH_CONFIG n'est pas renseigné.
@@ -1051,7 +1051,7 @@ var PUSH_CONFIG = { subscribeUrl: "https://pronobot-push.nicolasmartin-contact.w
     }).catch(function(){});
   }
   if(bar && mobile() && configured() && supported() && !dismissed() && Notification.permission==='default'){
-    bar.innerHTML='<span class="ib-ico">🔔</span><span class="ib-txt">Reçois chaque matin les <b>résultats de la veille</b> et la justesse de PronoBot</span>'
+    bar.innerHTML='<span class="ib-ico">🔔</span><span class="ib-txt">Reçois chaque matin les <b>résultats de la veille</b> et la justesse de Pronostix</span>'
       +'<button class="ib-btn">Activer</button><button class="ib-close" aria-label="Fermer">×</button>';
     bar.style.display='flex';
     bar.querySelector('.ib-btn').onclick=subscribe;

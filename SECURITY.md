@@ -1,4 +1,4 @@
-# Politique de sécurité — PronoBot
+# Politique de sécurité — Pronostix
 
 ## Signaler une vulnérabilité
 

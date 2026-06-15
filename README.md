@@ -1,4 +1,4 @@
-# ⚽ Pronostics IA — Coupe du Monde 2026
+# ⚽ Pronostix — Pronostics IA, Coupe du Monde 2026
 
 Page web **gratuite, partageable et auto-actualisée chaque jour** : pronostics IA de la Coupe du Monde 2026, mis à jour avec les vrais scores récupérés via football-data.org. La dynamique (momentum) de chaque sélection est recalculée à partir des résultats réels et réinjectée dans les pronostics des matchs à venir.
 
@@ -140,13 +140,13 @@ Chaque match affiche :
 
 ---
 
-## 🔀 Deux modes : Réel & PronoBot
+## 🔀 Deux modes : Réel & Prono de Nono
 
 Un sélecteur global bascule l'ensemble du site entre :
 
 - **Réel** (par défaut) : uniquement les faits — scores réels, classements réels,
   bracket des qualifiés provisoires. Aucun pronostic affiché.
-- **PronoBot** : les pronostics du modèle (confiance, style, scores prédits,
+- **Prono de Nono** : les pronostics du modèle (confiance, style, scores prédits,
   projection du tableau final).
 
 ## 📱 Application mobile (PWA) & notifications
@@ -157,7 +157,7 @@ dernières données via un *service worker*).
 
 Les visiteurs sur mobile peuvent **activer une notification matinale** (08h05 Paris) :
 elle résume les **résultats de la veille** et la **justesse des pronostics** de
-PronoBot. L'abonnement est anonyme et désactivable à tout moment.
+Pronostix. L'abonnement est anonyme et désactivable à tout moment.
 
 > Détails d'implémentation : voir [`NOTIFICATIONS.md`](./NOTIFICATIONS.md).
 

@@ -1,4 +1,4 @@
-# 🔔 Notifications matinales PronoBot (8h — résultats de la veille + justesse)
+# 🔔 Notifications matinales Pronostix (8h — résultats de la veille + justesse)
 
 Le code est prêt. Il reste à brancher l'infrastructure d'envoi, **gratuite**, en ~20 min.
 Architecture : un petit **Cloudflare Worker** stocke les abonnés ; **GitHub Actions** envoie le push chaque matin à 8h ; le **service worker** du site compose le message (« hier : 3/4 pronos réussis… ») à partir de `data.json`.
@@ -51,14 +51,14 @@ Le bouton **« 🔔 Activer »** apparaîtra alors automatiquement sur le site.
 
 Déplace `notify/notify.yml` vers `.github/workflows/notify.yml`, puis commit.
 - Envoi automatique chaque jour à **06:00 UTC = 08:00 Paris** (heure d'été).
-- Test manuel : onglet **Actions → Notification matinale PronoBot → Run workflow**.
+- Test manuel : onglet **Actions → Notification matinale Pronostix → Run workflow**.
 
 ---
 
 ## Vérifier
 
 1. Ouvre le site sur mobile → bouton **🔔 Activer** → autorise les notifications.
-2. Lance le workflow manuellement → tu dois recevoir une notification « PronoBot — résultats d'hier ».
+2. Lance le workflow manuellement → tu dois recevoir une notification « Pronostix — résultats d'hier ».
 
 ## Notes
 

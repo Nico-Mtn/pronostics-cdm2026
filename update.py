@@ -390,7 +390,7 @@ def match_summary(home, away, rh, ra, statut, mom_after, scorers_by_team):
     reel_parts = [head]
     if factual: reel_parts.append(factual)
     resume_reel = " ".join(reel_parts).strip()
-    # Résumé complet (mode PronoBot) : factuel + verdict + dynamique
+    # Résumé complet (mode Prono de Nono) : factuel + verdict + dynamique
     parts = list(reel_parts)
     parts.append(verdict + dyn)
     return " ".join(parts).strip(), resume_reel
