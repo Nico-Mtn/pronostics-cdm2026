@@ -7,5 +7,12 @@ compatibility_date = "2024-11-01"
 binding = "SUBS"
 id = "REMPLACER_PAR_TON_KV_ID"
 
-# Le secret LIST_SECRET se définit (et ne se met PAS ici) avec :
-#   wrangler secret put LIST_SECRET
+# Secrets (ne se mettent PAS ici) :
+#   wrangler secret put LIST_SECRET     # protège /list et /remove
+#   wrangler secret put GH_TOKEN        # PAT GitHub fine-grained (Actions: read/write)
+
+# Cron Triggers Cloudflare (fiables) — pilotent les workflows GitHub via l'API.
+#   "0 */2 * * *" → mise à jour page (update.yml), toutes les 2 h
+#   "5 6 * * *"   → notification matinale 08h05 Paris l'été (notify.yml)
+[triggers]
+crons = ["0 */2 * * *", "5 6 * * *"]

@@ -37,6 +37,35 @@ export default {
     }
 
     return new Response('PronoBot push service', { headers: cors });
+  },
+
+  /* Cron Triggers Cloudflare (fiables, contrairement au cron GitHub).
+     Déclenche les workflows GitHub via l'API (workflow_dispatch).
+     Secret attendu : GH_TOKEN (PAT fine-grained, repo Nico-Mtn/pronostics-cdm2026,
+     permission Actions: Read and write).
+     Crons configurés :
+       "0 */2 * * *"  → mise à jour de la page (update.yml)
+       "5 6 * * *"    → notification matinale 08h05 Paris (notify.yml) */
+  async scheduled(event, env, ctx) {
+    const REPO = 'Nico-Mtn/pronostics-cdm2026';
+    const dispatch = (wf) => fetch(
+      'https://api.github.com/repos/' + REPO + '/actions/workflows/' + wf + '/dispatches',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + env.GH_TOKEN,
+          'Accept': 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+          'User-Agent': 'pronobot-cron'
+        },
+        body: JSON.stringify({ ref: 'main' })
+      }
+    );
+    if (event.cron === '5 6 * * *') {
+      ctx.waitUntil(dispatch('notify.yml'));
+    } else {
+      ctx.waitUntil(dispatch('update.yml'));
+    }
   }
 };
 async function sha(s) {
