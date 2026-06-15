@@ -834,6 +834,8 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
         if is_today: n_today += 1
         style_label, style_note = style_analysis(home, away)
         conf = confidence_pct(diffaj if not joue else compute(home,away,None)[2])
+        # Surprise : favori net (>85 %) donné vainqueur mais battu par l'autre équipe (gros upset)
+        surprise = bool(joue and conf > 85 and po in (0, 1) and ro in (0, 1) and po != ro)
         # Second choix : seulement pour les matchs à venir incertains (confiance < 70%)
         second = None
         if not joue and conf < 70:
@@ -847,7 +849,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
             "host_h":home in HOST_NATIONS,"host_a":away in HOST_NATIONS,
             "prono":[pah,paa] if not joue else [pih,pia],
             "prono_initial":[pih,pia],"reel":reel,"statut":statut,"resume":resume,"resume_reel":resume_reel,
-            "confidence":conf,"second":second,
+            "confidence":conf,"surprise":surprise,"second":second,
             "style_label":style_label,"style_note":style_note,
             "mom_h":round(momentum.get(home,0.0),2),"mom_a":round(momentum.get(away,0.0),2),
         })

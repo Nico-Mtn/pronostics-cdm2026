@@ -108,6 +108,13 @@
   .sc .tag{font-size:8px;padding:2px 8px;border-radius:20px;font-weight:700;letter-spacing:.3px;white-space:nowrap}
   .tag.exact{background:var(--winbg);color:var(--win)}.tag.bon{background:var(--drawbg);color:var(--draw)}
   .tag.rate{background:var(--ratebg);color:var(--rate)}.tag.avenir{background:var(--line2);color:var(--mut)}
+  .b-surprise{display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:3px 9px;border-radius:999px;
+    font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:#fff;
+    background:linear-gradient(135deg,#f59e0b,#ef4444);box-shadow:0 1px 5px rgba(239,68,68,.45);white-space:nowrap}
+  .pb-toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(16px);z-index:300;
+    background:var(--accent);color:#fff;padding:9px 16px;border-radius:999px;font-size:12px;font-weight:700;
+    box-shadow:0 6px 22px rgba(0,0,0,.28);opacity:0;pointer-events:none;transition:opacity .3s,transform .3s}
+  .pb-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .dt .hn{font-size:8px;color:var(--accent2);font-weight:700}
   .pill.clk{cursor:pointer;transition:.15s}
   .pill.clk:hover{border-color:var(--accent2);transform:translateY(-1px)}
@@ -378,7 +385,7 @@
 </div>
 
 <script>
-const DATA = /*__DATA__*/null;
+let DATA = /*__DATA__*/null;
 const FLAG_BASE = "https://flagcdn.com";
 const TAG_LABEL = {exact:"\u2713 Exact", bon:"~ Bon resultat", rate:"\u2717 Rate", avenir:"A venir"};
 const GRP_COL = {A:"#E53E3E",B:"#DD6B20",C:"#D69E2E",D:"#38A169",E:"#319795",F:"#3182CE",
@@ -523,6 +530,7 @@ function matchCard(m){
     var altBtn = m.second ? '<button class="alt-badge" data-alt="alt-'+m.id+'" title="Pronostic incertain : voir le 2e choix">!</button>' : '';
     tagHtml='<div class="tag avenir">A venir'+altBtn+'</div>';
   }
+  if(m.surprise) tagHtml += '<span class="b-surprise" title="Gros upset : le favori du modèle (>85%) a perdu">⚡ Surprise</span>';
   // date + heure (heure de Paris ; note de date si le match passe apres minuit FR)
   var hpart = m.heure ? ('<span class="h">'+m.heure+(m.heure_note?' <span class="hn">'+m.heure_note+'</span>':'')+'</span>') : '';
   var dt='<span class="dt">'+m.date+hpart+'</span>';
@@ -976,6 +984,30 @@ render();
 if('serviceWorker' in navigator){
   window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
 }
+// ── Auto-refresh : récupère data.json périodiquement et met à jour la page sans
+//    action de l'utilisateur (les données sont régénérées ~toutes les 25 min).
+(function(){
+  var POLL_MS = 180000; // 3 min
+  function toast(msg){
+    var t=document.getElementById('pb-toast');
+    if(!t){ t=document.createElement('div'); t.id='pb-toast'; t.className='pb-toast'; document.body.appendChild(t); }
+    t.textContent=msg; t.classList.add('show');
+    clearTimeout(t._h); t._h=setTimeout(function(){ t.classList.remove('show'); }, 3500);
+  }
+  function poll(){
+    fetch('./data.json?t='+Date.now(), {cache:'no-store'})
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(fresh){
+        if(!fresh || !fresh.maj || fresh.maj===DATA.maj) return;
+        DATA = fresh;                 // DATA est déclaré avec let
+        renderHeader(); render();     // re-render en conservant vue, mode et accordéons ouverts
+        toast('🔄 Résultats mis à jour');
+      })
+      .catch(function(){});
+  }
+  setInterval(poll, POLL_MS);
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) poll(); });
+})();
 // PWA : bandeau/bouton d'installation (1 clic sur Android, instructions sur iOS)
 (function(){
   var deferred=null, bar=document.getElementById('install-bar');
