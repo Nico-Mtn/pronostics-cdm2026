@@ -14,14 +14,26 @@ Page web **gratuite, partageable et auto-actualisée chaque jour** : pronostics 
 
 ```
 .
-├── update.py
-├── template.html
-├── index.html                     (généré, mais inclus pour le premier affichage)
+├── update.py                      moteur : fetch scores + pronostics + génération
+├── template.html                  gabarit de la SPA (modes, PWA, push)
+├── index.html                     page générée (publiée sur Pages)
+├── data.json                      payload complet généré (lu par le service worker)
+├── manifest.webmanifest           manifeste PWA
+├── sw.js                          service worker (offline + notifications push)
+├── logo.png · icon-192.png · icon-512.png · apple-touch-icon.png
 ├── data/
-│   └── results_manual.json
+│   └── results_manual.json        filet de sécurité / historique des scores
+├── notify/                        infra notifications (Cloudflare + envoi)
+│   ├── worker.js                  Worker : abonnements push + Cron Triggers
+│   ├── send.mjs                   envoi des push (web-push)
+│   ├── notify.yml                 → à placer dans .github/workflows/
+│   └── wrangler.toml
 ├── .github/
 │   └── workflows/
-│       └── update.yml
+│       ├── update.yml             mise à jour + déploiement Pages
+│       └── notify.yml             notification matinale
+├── NOTIFICATIONS.md               guide de mise en place des notifications
+├── SECURITY.md                    politique de signalement de vulnérabilité
 └── README.md
 ```
 
@@ -53,17 +65,35 @@ C'est cette **URL que tu partages**. Elle se met à jour toute seule.
 
 ## 🔄 Fonctionnement automatique
 
-- **Tous les jours à 08:00 UTC** (10h Paris l'été), GitHub Actions :
+**Toutes les 2 heures**, le pipeline :
   1. interroge football-data.org pour les matchs **terminés** (statut FINISHED) ;
   2. mappe les noms d'équipes (anglais → français) et réoriente les scores ;
   3. calcule la **dynamique** de chaque sélection ;
   4. recalcule les pronostics des matchs **à venir** ;
-  5. régénère `index.html` et le publie sur GitHub Pages.
-- Tu n'as **rien à faire**. Tu peux aussi déclencher manuellement via **Actions → Run workflow**.
+  5. régénère `index.html` + `data.json` et les publie sur GitHub Pages.
 
-> Modifier l'heure : change la ligne `cron: "0 8 * * *"` dans `.github/workflows/update.yml` (en UTC).
+Tu n'as **rien à faire**. Déclenchement manuel possible via **Actions → Run workflow**.
 
-> ⚠️ **Pas de trigger `push`** sur le workflow : le job committe lui-même `index.html` (dont l'horodatage change à chaque run), donc un déclenchement sur `push` relancerait le workflow en boucle. Les commits du bot portent `[skip ci]` en garde-fou.
+### Qui déclenche quoi ? (architecture)
+
+Le **cron natif de GitHub Actions n'est pas fiable** : les exécutions planifiées
+sont « best-effort » et régulièrement ignorées la nuit. Pour garantir des mises à
+jour et des notifications **à l'heure**, c'est un **Cloudflare Worker** (dont les
+Cron Triggers sont fiables) qui pilote les workflows GitHub via l'API
+(`workflow_dispatch`) :
+
+| Cron Cloudflare (UTC) | Action | Workflow GitHub appelé |
+|---|---|---|
+| `0 */2 * * *` | Mise à jour de la page | `update.yml` |
+| `5 6 * * *` (08h05 Paris l'été) | Notification matinale | `notify.yml` |
+
+Le Worker utilise un **token GitHub fine-grained** (secret Cloudflare `GH_TOKEN`,
+permission *Actions: read/write* sur ce dépôt uniquement). Les workflows GitHub
+n'ont donc **plus de `schedule`** : seulement `workflow_dispatch` (Cloudflare + manuel).
+
+> ⚠️ **Pas de trigger `push`** sur `update.yml` : le job committe lui-même
+> `index.html` (dont l'horodatage change à chaque run), donc un déclenchement sur
+> `push` relancerait le workflow en boucle. Les commits du bot portent `[skip ci]`.
 
 ---
 
@@ -110,11 +140,35 @@ Chaque match affiche :
 
 ---
 
+## 🔀 Deux modes : Réel & PronoBot
+
+Un sélecteur global bascule l'ensemble du site entre :
+
+- **Réel** (par défaut) : uniquement les faits — scores réels, classements réels,
+  bracket des qualifiés provisoires. Aucun pronostic affiché.
+- **PronoBot** : les pronostics du modèle (confiance, style, scores prédits,
+  projection du tableau final).
+
+## 📱 Application mobile (PWA) & notifications
+
+Le site est une **PWA** : sur mobile, il peut être **installé sur l'écran d'accueil**
+(« Ajouter à l'écran d'accueil ») et fonctionne **hors-ligne** (mise en cache des
+dernières données via un *service worker*).
+
+Les visiteurs sur mobile peuvent **activer une notification matinale** (08h05 Paris) :
+elle résume les **résultats de la veille** et la **justesse des pronostics** de
+PronoBot. L'abonnement est anonyme et désactivable à tout moment.
+
+> Détails d'implémentation : voir [`NOTIFICATIONS.md`](./NOTIFICATIONS.md).
+
+---
+
 ## ⚙️ Personnalisation
 
 - **Forces des équipes** : dict `TEAM_DATA` dans `update.py`.
 - **Apparence** : variables CSS `:root` en haut de `template.html`.
-- **Heure de mise à jour** : `cron` dans le workflow.
+- **Fréquence des mises à jour / heure de notification** : **Cron Triggers** du
+  Worker Cloudflare (`pronobot-push`), section *Settings → Trigger events*.
 
 ---
 
