@@ -339,29 +339,35 @@ def match_summary(home, away, rh, ra, statut, mom_after, scorers_by_team):
     """Génère un résumé court combinant factuel (A) et analyse du moteur (C).
     mom_after : dict team->momentum (après ce match). scorers_by_team : dict team->[noms]."""
     # --- Factuel (A) ---
+    total = rh + ra
     if rh > ra:
-        winner, wscore, lscore = home, rh, ra
+        winner, margin = home, rh - ra
         head = f"{home} s'impose {rh}-{ra} face à {away}."
     elif ra > rh:
-        winner, wscore, lscore = away, ra, rh
+        winner, margin = away, ra - rh
         head = f"{away} s'impose {ra}-{rh} face à {home}."
     else:
-        winner = None
+        winner, margin = None, 0
         head = f"{home} et {away} se neutralisent {rh}-{ra}."
-    total = rh + ra
-    if winner is None and total == 0:
-        head += " Un match fermé, sans but."
-    elif total >= 5:
-        head += " Une rencontre spectaculaire et offensive."
-    elif total >= 3:
-        head += " Un match animé."
 
-    # buteurs si disponibles (endpoint scorers, partiel sur plan gratuit)
+    # Physionomie de la rencontre
+    if winner is None:
+        head += " Aucun but, les défenses ont tenu." if total == 0 else " Un nul équilibré."
+    elif margin >= 3:
+        head += f" Un large succès, {winner} n'a pas tremblé."
+    elif total >= 4:
+        head += " Un match ouvert et spectaculaire."
+    elif margin == 1:
+        head += " Une victoire arrachée."
+
+    # Buteurs en forme (endpoint scorers, partiel sur le plan gratuit)
     scorer_bits = []
     for team in (home, away):
-        names = scorers_by_team.get(team, [])
+        names = scorers_by_team.get(team, [])[:2]
         if names:
-            scorer_bits.append(f"Côté {team}, on retrouve {', '.join(names[:2])} parmi les buteurs du tournoi.")
+            who = " et ".join(names)
+            verb = "compte" if len(names) == 1 else "comptent"
+            scorer_bits.append(f"Côté {team}, {who} {verb} parmi les buteurs en forme.")
     factual = " ".join(scorer_bits)
 
     # --- Analyse du moteur (C) ---

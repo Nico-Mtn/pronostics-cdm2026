@@ -68,7 +68,7 @@
   .pill .v{font-size:17px;font-weight:800}
   .pill .t{font-size:8px;color:var(--mut);letter-spacing:.5px;text-transform:uppercase;margin-top:1px}
   .pill.exact .v{color:var(--win)}.pill.bon .v{color:var(--gold)}.pill.rate .v{color:var(--rate)}.pill.j .v{color:var(--accent2)}
-  .maj{font-size:10px;color:var(--mut);text-align:center;margin:10px auto 0;max-width:760px}
+  .maj{font-size:11px;color:var(--txt2);text-align:center;margin:10px auto 0;max-width:760px}
   nav{display:flex;gap:7px;margin:18px 0}
   nav button{flex:1;padding:10px 4px;border:1px solid var(--line);border-radius:11px;background:var(--card);
     color:var(--mut);font-weight:700;font-size:11px;cursor:pointer;letter-spacing:.3px;transition:.15s;font-family:inherit}
@@ -140,13 +140,13 @@
   .style .lbl{font-size:9px;color:var(--mut);width:50px;flex-shrink:0;text-transform:uppercase;letter-spacing:.5px;padding-top:1px}
   .style .body{flex:1;font-size:10.5px;color:var(--txt2);line-height:1.4}
   .style .body b{color:var(--txt);font-weight:700}
-  .style .note{font-size:9.5px;color:var(--mut);font-style:italic;margin-top:1px}
+  .style .note{font-size:11px;color:var(--txt2);font-style:italic;margin-top:1px}
   .dyn{font-size:9.5px;color:var(--accent2);margin-top:2px}
   .resume-toggle{display:inline-flex;align-items:center;gap:4px;font-size:9.5px;font-weight:700;color:var(--accent2);
     background:none;border:none;cursor:pointer;padding:2px 0;font-family:inherit;letter-spacing:.3px}
   .resume-toggle:hover{text-decoration:underline}
   .resume-bubble{margin-top:6px;background:var(--real);border:1px solid var(--line);border-radius:11px;
-    padding:10px 12px;font-size:10.5px;line-height:1.55;color:var(--txt2);position:relative}
+    padding:10px 12px;font-size:12px;line-height:1.55;color:var(--txt2);position:relative}
   .resume-bubble::before{content:"";position:absolute;top:-5px;left:18px;width:9px;height:9px;
     background:var(--real);border-left:1px solid var(--line);border-top:1px solid var(--line);transform:rotate(45deg)}
   .alt-badge{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin-left:5px;
@@ -187,7 +187,7 @@
   .momrow .mv{font-size:13px;font-weight:800;min-width:46px;text-align:right}
   .momrow .ar{font-size:10px;font-weight:700;min-width:82px;text-align:right}
   .up{color:var(--win)}.down{color:var(--rate)}.neu{color:var(--mut)}
-  .legend{font-size:9.5px;color:var(--mut);line-height:1.8;padding:14px 6px;text-align:center}
+  .legend{font-size:11px;color:var(--txt2);line-height:1.8;padding:14px 6px;text-align:center}
   footer{text-align:center;font-size:9.5px;color:var(--dim);padding:24px 0 0;line-height:1.7}
   footer a{color:var(--accent2);text-decoration:none;font-weight:700}
   .empty{text-align:center;padding:46px 20px;color:var(--mut)}
@@ -315,8 +315,8 @@
   .modebar button.on{color:#fff}
   .modebar button.on.reel{background:var(--win)}
   .modebar button.on.prono{background:var(--accent)}
-  .modebar .sub{font-size:8px;font-weight:600;opacity:.8;margin-left:2px}
-  .mode-note{font-size:10px;color:var(--mut);text-align:center;margin:-6px 0 14px;line-height:1.4}
+  .modebar .sub{font-size:9.5px;font-weight:600;opacity:1;margin-left:2px}
+  .mode-note{font-size:12px;color:var(--txt2);text-align:center;margin:-6px 0 14px;line-height:1.45;font-weight:500}
   /* Forme (Dynamique en mode Réel) */
   .forme-pos{color:var(--win)}.forme-neu{color:var(--mut)}.forme-neg{color:var(--rate)}
   /* Fiche équipe (modale) */
@@ -873,7 +873,9 @@ function render(){
     }
   }
   else if(view==="standings"){
-    var html=phaseTabs("standings");
+    // Top buteurs : toujours en tête, consultable quel que soit le filtre
+    var html=collapsible('scorers','🥅 Meilleurs buteurs', renderScorers());
+    html+=phaseTabs("standings");
     if(subPhase.standings==="finales"){ c.innerHTML=html+renderBracket(); return; }
     html+=grpButtons();
     var qualifBody='<div class="qrules" style="margin:0"><ul>'
@@ -882,8 +884,6 @@ function render(){
       +'<li><span class="dot" style="background:var(--mut)"></span><span>Departage en cas d\'egalite : points, puis difference de buts, puis buts marques.</span></li>'
       +'</ul></div>';
     html+=collapsible('qualif','🏆 Comment se qualifier ?', qualifBody);
-    // Top buteurs (repliable, lecture mobile)
-    html+=collapsible('scorers','🥅 Meilleurs buteurs', renderScorers());
     // Meilleurs 3es (repliable) — projection (PronoBot) ou classement réel provisoire (Réel)
     var ko=isProno()?DATA.knockout:DATA.knockout_real;
     if(ko && ko.thirds && ko.thirds.length){
