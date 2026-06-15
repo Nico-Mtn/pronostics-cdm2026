@@ -4,9 +4,11 @@
 name: Notification matinale PronoBot
 
 on:
-  schedule:
-    - cron: "0 6 * * *"   # 06:00 UTC = 08:00 Paris (heure d'été, période du Mondial)
-  workflow_dispatch:
+  workflow_dispatch:        # déclenché par le Cron Trigger Cloudflare (API) + manuel
+  # NB : le cron GitHub (schedule) a été RETIRÉ car peu fiable (le run de 06:00 UTC
+  # était régulièrement ignoré → aucune notif certains matins). C'est désormais le
+  # Cron Trigger Cloudflare ("5 6 * * *", soit 08h05 Paris l'été) qui appelle ce
+  # workflow via l'API, 5 min après la mise à jour de 06:00 (data.json frais).
 
 jobs:
   notify:

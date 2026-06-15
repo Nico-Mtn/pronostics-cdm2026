@@ -1,14 +1,12 @@
 name: Mise à jour quotidienne des pronostics
 
 on:
-  schedule:
-    # Cron en UTC. Mise a jour toutes les 2 heures (minute 12 pour eviter le pic
-    # de charge GitHub a l'heure pile). 12 executions/jour, ~2 appels API chacune.
-    - cron: "12 */2 * * *"
-  workflow_dispatch:        # permet de lancer manuellement depuis l'onglet Actions
-  # NB : pas de trigger `push`. Le job committe lui-même index.html (dont le champ
-  # `maj` change a chaque run) ; un trigger push relancerait le workflow en boucle.
-  # Les commits du bot portent [skip ci] en garde-fou supplementaire.
+  workflow_dispatch:        # déclenché par le Cron Trigger Cloudflare (API) + manuel
+  # NB : le cron GitHub (schedule) a été RETIRÉ car peu fiable (runs nocturnes
+  # régulièrement ignorés). C'est désormais le Cron Trigger Cloudflare qui appelle
+  # ce workflow via l'API (workflow_dispatch), toutes les 2 h.
+  # Pas de trigger `push` : le job committe index.html (champ `maj` changeant) ;
+  # un push relancerait le workflow en boucle. Garde-fou : commits en [skip ci].
 
 permissions:
   contents: write           # pour committer results_manual.json mis à jour
@@ -40,7 +38,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/results_manual.json index.html
+          git add data/results_manual.json index.html data.json
           git diff --staged --quiet || git commit -m "MAJ auto $(date -u +%Y-%m-%d) [skip ci]"
           git push || echo "Rien à pousser"
 
