@@ -1,4 +1,4 @@
-/* PronoBot — Cloudflare Worker : stockage des abonnements push (gratuit, KV).
+/* Pronostix — Cloudflare Worker : stockage des abonnements push (gratuit, KV).
    Endpoints :
      POST /subscribe   → enregistre un abonnement (depuis le site)
      GET  /list?key=…  → liste les abonnements (pour l'envoi GitHub Actions, protégé)
@@ -36,7 +36,7 @@ export default {
       return new Response('ok');
     }
 
-    return new Response('PronoBot push service', { headers: cors });
+    return new Response('Pronostix push service', { headers: cors });
   },
 
   /* Cron Triggers Cloudflare (fiables, contrairement au cron GitHub).
