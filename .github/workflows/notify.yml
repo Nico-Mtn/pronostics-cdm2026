@@ -1,7 +1,7 @@
-# PronoBot — notification matinale (résultats de la veille + justesse)
+# Pronostix — notification matinale (résultats de la veille + justesse)
 # ⚠️ À DÉPLACER dans .github/workflows/ APRÈS avoir configuré les secrets
 # (voir NOTIFICATIONS.md). Tant qu'il n'y est pas, il ne s'exécute pas.
-name: Notification matinale PronoBot
+name: Notification matinale Pronostix
 
 on:
   workflow_dispatch:        # déclenché par le Cron Trigger Cloudflare (API) + manuel
