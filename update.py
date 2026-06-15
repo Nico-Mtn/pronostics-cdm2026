@@ -834,8 +834,9 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
         if is_today: n_today += 1
         style_label, style_note = style_analysis(home, away)
         conf = confidence_pct(diffaj if not joue else compute(home,away,None)[2])
-        # Surprise : favori net (>85 %) donné vainqueur mais battu par l'autre équipe (gros upset)
-        surprise = bool(joue and conf > 85 and po in (0, 1) and ro in (0, 1) and po != ro)
+        # Surprise : favori net (>85 %) donné vainqueur mais qui NE GAGNE PAS
+        # (battu OU accroché sur un nul) — ex. un nul d'une grosse équipe face à un outsider
+        surprise = bool(joue and conf > 85 and po in (0, 1) and ro != po)
         # Second choix : seulement pour les matchs à venir incertains (confiance < 70%)
         second = None
         if not joue and conf < 70:

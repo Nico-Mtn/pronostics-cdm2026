@@ -530,7 +530,7 @@ function matchCard(m){
     var altBtn = m.second ? '<button class="alt-badge" data-alt="alt-'+m.id+'" title="Pronostic incertain : voir le 2e choix">!</button>' : '';
     tagHtml='<div class="tag avenir">A venir'+altBtn+'</div>';
   }
-  if(m.surprise) tagHtml += '<span class="b-surprise" title="Gros upset : le favori du modèle (>85%) a perdu">⚡ Surprise</span>';
+  if(m.surprise) tagHtml += '<span class="b-surprise" title="Surprise : le favori du modèle (>85%) ne l’emporte pas (défaite ou nul)">⚡ Surprise</span>';
   // date + heure (heure de Paris ; note de date si le match passe apres minuit FR)
   var hpart = m.heure ? ('<span class="h">'+m.heure+(m.heure_note?' <span class="hn">'+m.heure_note+'</span>':'')+'</span>') : '';
   var dt='<span class="dt">'+m.date+hpart+'</span>';
