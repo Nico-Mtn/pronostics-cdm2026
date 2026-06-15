@@ -704,7 +704,7 @@ function renderScorers(){
       +'<span class="tn tlink" data-team="'+s.team+'">'+s.team+'</span></span>'
       +'<span class="gl">'+s.goals+' <small>but'+(s.goals>1?'s':'')+'</small>'+ast+'</span></div>';
   }).join("");
-  return '<div class="card">'+rows+'<div class="legend" style="padding:10px 14px">Buts r\u00e9els (et passes d\u00e9cisives) \u2014 top 5. Source : football-data.org.</div></div>';
+  return '<div class="card">'+rows+'<div class="legend" style="padding:10px 14px">Buts r\u00e9els (et passes d\u00e9cisives) \u2014 top 5 de <b>toute la comp\u00e9tition</b> (phases de groupes + finales). Source : football-data.org.</div></div>';
 }
 
 // ===== Fiche \u00e9quipe (clic sur un nom) =====
@@ -882,7 +882,7 @@ function render(){
   }
   else if(view==="standings"){
     // Top buteurs : toujours en tête, consultable quel que soit le filtre
-    var html=collapsible('scorers','🥅 Meilleurs buteurs', renderScorers());
+    var html=collapsible('scorers','🥅 Meilleurs buteurs (toute la compétition)', renderScorers());
     html+=phaseTabs("standings");
     if(subPhase.standings==="finales"){ c.innerHTML=html+renderBracket(); return; }
     html+=grpButtons();
