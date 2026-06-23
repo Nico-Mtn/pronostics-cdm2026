@@ -555,7 +555,7 @@ def fetch_scorers():
       - top_list : [{'player','team','code','goals','assists'}] trié par buts décroissant
     (..., []) si indisponible."""
     if not API_KEY:
-        return {}, []
+        return {}, [], []
     url=f"{API_BASE}/competitions/{WC_CODE}/scorers?limit=50"
     req=urllib.request.Request(url, headers={"X-Auth-Token":API_KEY})
     try:
@@ -563,21 +563,27 @@ def fetch_scorers():
             payload=json.loads(resp.read().decode("utf-8"))
     except Exception as e:
         print(f"[INFO] Buteurs indisponibles : {e}", file=sys.stderr)
-        return {}, []
-    by_team={}; top_list=[]
+        return {}, [], []
+    by_team={}; top_list=[]; assists_list=[]
     for sc in payload.get("scorers", []):
         player=(sc.get("player") or {}).get("name")
         team_obj=sc.get("team") or {}
         team=map_team(team_obj.get("name"), team_obj.get("tla"))
         goals=sc.get("goals") or 0
         assists=sc.get("assists") or 0
-        if player and team and goals:
+        if not (player and team):
+            continue
+        if goals:
             by_team.setdefault(team, []).append(player)
             top_list.append({"player":player,"team":team,"code":FLAG_CODES.get(team,""),
                              "goals":int(goals),"assists":int(assists)})
-    # tri : buts décroissants, puis passes décisives, puis ordre alphabétique
+        if assists:
+            assists_list.append({"player":player,"team":team,"code":FLAG_CODES.get(team,""),
+                                 "assists":int(assists),"goals":int(goals)})
+    # buteurs : buts décroissants ; passeurs : passes décisives décroissantes
     top_list.sort(key=lambda x:(-x["goals"], -x["assists"], x["player"]))
-    return by_team, top_list
+    assists_list.sort(key=lambda x:(-x["assists"], -x["goals"], x["player"]))
+    return by_team, top_list, assists_list
 
 def load_results():
     """API en priorité, repli sur data/results_manual.json.
@@ -811,10 +817,11 @@ def build_knockout(standings, momentum, datetimes=None, form=None):
             "champion_code":FLAG_CODES.get(champion,"")}
 
 # ─── CONSTRUCTION DES DONNÉES DE LA PAGE ─────────────────────────────────────
-def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=None):
+def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=None, assists_top=None):
     from collections import defaultdict
     scorers_by_team = scorers_by_team or {}
     scorers_top = scorers_top or []
+    assists_top = assists_top or []
     datetimes = datetimes or {}
     results={str(k):v for k,v in results.items()}
     momentum,detail=compute_momentum(results)
@@ -952,10 +959,11 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
         "maj":(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(hours=2)).strftime("%d/%m/%Y à %H:%M")+" (Paris)",
         "today":datetime.date.today().isoformat(),
         "version":MODEL_VERSION,
-        "stats":{"joue":n_joue,"exact":n_exact,"bon":n_bon,"rate":n_rate,"total":72,"today":n_today},
+        "stats":{"joue":len(rint),"exact":n_exact,"bon":n_bon,"rate":n_rate,"total":104,"today":n_today},
         "matches":matches,"standings":standings,"momentum":mom_list,"knockout":knockout,
         "knockout_real":knockout_real,
         "scorers":scorers_top,
+        "assists":assists_top,
     }
 
 # ─── GÉNÉRATION HTML ─────────────────────────────────────────────────────────
@@ -966,10 +974,10 @@ def render_html(payload):
 
 def main():
     results, datetimes = load_results()
-    scorers, scorers_top = fetch_scorers()
+    scorers, scorers_top, assists_top = fetch_scorers()
     if scorers:
         print(f"[OK] Buteurs récupérés pour {len(scorers)} équipe(s) ; {len(scorers_top)} buteur(s) classés")
-    payload=build_payload(results, scorers, datetimes, scorers_top)
+    payload=build_payload(results, scorers, datetimes, scorers_top, assists_top)
     html=render_html(payload)
     out=os.path.join(ROOT,"index.html")
     with open(out,"w",encoding="utf-8") as f:

@@ -707,6 +707,21 @@ function renderScorers(){
   return '<div class="card">'+rows+'<div class="legend" style="padding:10px 14px">Buts r\u00e9els (et passes d\u00e9cisives) \u2014 top 5 de <b>toute la comp\u00e9tition</b> (phases de groupes + finales). Source : football-data.org.</div></div>';
 }
 
+function renderAssists(){
+  var sc=DATA.assists||[];
+  if(!sc.length){
+    return '<div class="card"><div class="legend" style="padding:14px">Le classement des passeurs s\u2019affichera d\u00e8s les premi\u00e8res passes d\u00e9cisives (source : football-data.org).</div></div>';
+  }
+  var rows=sc.slice(0,5).map(function(s,i){
+    var gl=s.goals?' <small>\u00b7 '+s.goals+' but'+(s.goals>1?'s':'')+'</small>':'';
+    return '<div class="scorer-row"><span class="rk'+(i===0?' gold':'')+'">'+(i+1)+'</span>'
+      +'<span class="pl">'+flagImg(s.code,'sm')+'<span class="pn">'+s.player+'</span>'
+      +'<span class="tn tlink" data-team="'+s.team+'">'+s.team+'</span></span>'
+      +'<span class="gl">'+s.assists+' <small>PD</small>'+gl+'</span></div>';
+  }).join("");
+  return '<div class="card">'+rows+'<div class="legend" style="padding:10px 14px">Passes d\u00e9cisives \u2014 top 5 de <b>toute la comp\u00e9tition</b>. Source : football-data.org.</div></div>';
+}
+
 // ===== Fiche \u00e9quipe (clic sur un nom) =====
 function codeFor(team){
   var c=""; (DATA.matches||[]).some(function(m){
@@ -774,7 +789,7 @@ function openTeamProfile(team){
 }
 
 // Sections repliables (mémorisées le temps de la session)
-var openSec={qualif:false, scorers:false, thirds:false};
+var openSec={qualif:false, scorers:false, assists:false, thirds:false};
 function collapsible(key, title, innerHtml){
   var open=openSec[key];
   return '<div class="accordion"><button class="acc-head'+(open?' open':'')+'" data-sec="'+key+'">'
@@ -844,7 +859,7 @@ function render(){
         +'\uD83D\uDCC1 Anciens matchs <span class="count">'+played.length+'</span>'
         +'<span class="chev">\u25BC</span></button>'
         +'<div id="accbody" style="display:'+(oldOpen?'block':'none')+'">'
-        +'<div class="card">'+played.map(matchCard).join("")+'</div></div></div>';
+        +'<div class="card">'+played.slice().reverse().map(matchCard).join("")+'</div></div></div>';
     }
     // matchs à venir, groupés par jour
     if(upcoming.length){
@@ -883,6 +898,7 @@ function render(){
   else if(view==="standings"){
     // Top buteurs : toujours en tête, consultable quel que soit le filtre
     var html=collapsible('scorers','🥅 Meilleurs buteurs (toute la compétition)', renderScorers());
+    html+=collapsible('assists','🎯 Meilleurs passeurs (toute la compétition)', renderAssists());
     html+=phaseTabs("standings");
     if(subPhase.standings==="finales"){ c.innerHTML=html+renderBracket(); return; }
     html+=grpButtons();

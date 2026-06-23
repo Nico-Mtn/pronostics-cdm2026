@@ -44,14 +44,11 @@ function digestHier(){
     var d=new Date(); d.setDate(d.getDate()-1);
     var iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     var y=(data.matches||[]).filter(function(m){ return m.reel && m.iso===iso; });
-    if(!y.length) return { title:'Pronostix ⚽', body:"Pas de match hier — place aux matchs du jour !" };
+    if(!y.length) return { title:'⚽ Pronostix', body:"Pas de match hier — place aux matchs du jour !" };
+    var scores=y.slice(0,5).map(function(m){ return m.home+' '+m.reel[0]+'-'+m.reel[1]+' '+m.away; }).join(' / ');
     var ok=y.filter(function(m){ return m.statut==='exact'||m.statut==='bon'; }).length;
-    var det=y.slice(0,4).map(function(m){
-      var s=m.statut==='exact'?'✓':(m.statut==='bon'?'~':'✗');
-      return m.home+' '+m.reel[0]+'-'+m.reel[1]+' '+m.away+' '+s;
-    }).join(' · ');
-    return { title:"Pronostix — résultats d'hier", body:ok+'/'+y.length+' pronos réussis. '+det };
-  }).catch(function(){ return { title:'Pronostix ⚽', body:"Les résultats d'hier sont disponibles." }; });
+    return { title:'⚽ Résultats du jour', body:scores+' — '+ok+'/'+y.length+' pronos réussis ✅' };
+  }).catch(function(){ return { title:'⚽ Pronostix', body:"Les résultats du jour sont disponibles." }; });
 }
 self.addEventListener('push', function(e){
   e.waitUntil(digestHier().then(function(msg){
