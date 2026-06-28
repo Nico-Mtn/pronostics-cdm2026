@@ -1044,17 +1044,22 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
         except Exception:
             return None,None
     ko_feed=[]
+    PREV_ROUND={"r16":"16es de finale","qf":"8es de finale","sf":"quarts de finale","final":"demi-finales"}
     realmap={m["id"]:m for rd in knockout_real["rounds"] for m in rd["matches"]}
     for rd in knockout["rounds"]:
+        prevlbl=PREV_ROUND.get(rd.get("key"),"")
         for m in rd["matches"]:
             if not m.get("home") or not m.get("away"): continue
             mid=m["id"]; utc=datetimes.get(str(mid)); iso,sort_key=_iso_paris(utc)
             rm=realmap.get(mid,{}); played=rm.get("sh") is not None
+            fx=(ko_fixtures or {}).get(str(mid)) or {}
+            is_real=bool(fx.get("home") and fx.get("away"))   # affiche réellement connue (tirage)
             ko_feed.append({
                 "id":mid,"phase":rd["name"],"date":m.get("date",""),"heure":m.get("heure",""),
                 "iso":iso or "","sort":sort_key or (m.get("date","")+"~"),
                 "today":(iso==today_iso) if iso else False,
                 "home":m["home"],"away":m["away"],"ch":m.get("ch",""),"ca":m.get("ca",""),
+                "real":is_real,"prev":prevlbl,
                 "reel":[rm["sh"],rm["sa"]] if played else None,
                 "prono":[m["sh"],m["sa"]] if (not played and m.get("sh") is not None) else None,
                 "winner":rm.get("winner") if played else None,

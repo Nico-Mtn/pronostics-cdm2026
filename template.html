@@ -112,6 +112,7 @@
     padding:11px 14px;text-align:center;font-size:13px;margin:0 0 14px;line-height:1.4}
   @keyframes pbpulse{0%{opacity:1}50%{opacity:.55}100%{opacity:1}}
   .b-today{animation:pbpulse 1.8s ease-in-out infinite}
+  .tbd-name{font-style:italic;color:var(--dim);font-size:11.5px}
   .b-surprise{display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:3px 9px;border-radius:999px;
     font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:#fff;
     background:linear-gradient(135deg,#f59e0b,#ef4444);box-shadow:0 1px 5px rgba(239,68,68,.45);white-space:nowrap}
@@ -417,6 +418,17 @@ function koFeedCard(m){
   var dt='<span class="dt">'+m.date+(m.heure?' <span class="h">'+m.heure+'</span>':'')+'</span>';
   var phase='<span class="b-grp" style="background:var(--accent)">'+m.phase+'</span>';
   var badges=m.today ? '<span class="b-today">● Match du jour</span><div style="margin-top:5px">'+phase+'</div>' : phase;
+  // En mode Réel, on n'invente pas l'affiche des tours non encore tirés : "Vainqueur [tour précédent]".
+  var tbd = (!isProno()) && !m.real;
+  var hTeam, aTeam;
+  if(tbd){
+    var lbl='Vainqueur '+(m.prev||'tour précédent');
+    hTeam='<span class="n tbd-name">'+lbl+'</span>';
+    aTeam='<span class="n tbd-name">'+lbl+'</span>';
+  } else {
+    hTeam='<span class="n tlink" data-team="'+m.home+'">'+m.home+'</span> '+host_h+' '+flagImg(m.ch);
+    aTeam=flagImg(m.ca)+' '+host_a+' <span class="n tlink" data-team="'+m.away+'">'+m.away+'</span>';
+  }
   var sc;
   if(m.reel){
     var nul=(m.reel[0]===m.reel[1]);
@@ -427,9 +439,9 @@ function koFeedCard(m){
     sc='<div class="sc"><div class="tag avenir">À venir</div></div>';
   }
   return '<div class="match'+(m.today?' is-today':'')+'"><div class="match-main"><div class="match-row1">'+dt
-    +'<span class="tm r"><span class="n tlink" data-team="'+m.home+'">'+m.home+'</span> '+host_h+' '+flagImg(m.ch)+'</span>'
+    +'<span class="tm r">'+hTeam+'</span>'
     + sc
-    +'<span class="tm l">'+flagImg(m.ca)+' '+host_a+' <span class="n tlink" data-team="'+m.away+'">'+m.away+'</span></span>'
+    +'<span class="tm l">'+aTeam+'</span>'
     +'</div><div class="badges">'+badges+'</div></div></div>';
 }
 function shareChampion(){
