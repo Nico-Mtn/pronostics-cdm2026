@@ -828,6 +828,10 @@ function renderBracket(){
 }
 
 // ===== Top buteurs (corps de la carte repliable) =====
+function scorersBlock(){
+  return collapsible('scorers','🥅 Meilleurs buteurs (toute la compétition)', renderScorers())
+       + collapsible('assists','🎯 Meilleurs passeurs (toute la compétition)', renderAssists());
+}
 function renderScorers(){
   var sc=DATA.scorers||[];
   if(!sc.length){
@@ -1028,7 +1032,9 @@ function render(){
   else if(view==="matches"){
     var html=phaseTabs("matches");
     if(subPhase.matches==="finales"){
-      c.innerHTML=html+renderBracket();
+      c.innerHTML=html+scorersBlock()+renderBracket();
+      bindSecs(c);
+      var _sb=document.getElementById("sharechamp"); if(_sb)_sb.onclick=shareChampion;
     }else{
       var ms=DATA.matches.filter(function(m){return m.grp===activeGrp;});
       c.innerHTML=html+grpButtons()+'<div class="card">'+ms.map(matchCard).join("")+'</div>';
@@ -1037,10 +1043,9 @@ function render(){
   }
   else if(view==="standings"){
     // Top buteurs : toujours en tête, consultable quel que soit le filtre
-    var html=collapsible('scorers','🥅 Meilleurs buteurs (toute la compétition)', renderScorers());
-    html+=collapsible('assists','🎯 Meilleurs passeurs (toute la compétition)', renderAssists());
+    var html=scorersBlock();
     html+=phaseTabs("standings");
-    if(subPhase.standings==="finales"){ c.innerHTML=html+renderBracket(); var _sb=document.getElementById("sharechamp"); if(_sb)_sb.onclick=shareChampion; return; }
+    if(subPhase.standings==="finales"){ c.innerHTML=html+renderBracket(); bindSecs(c); var _sb=document.getElementById("sharechamp"); if(_sb)_sb.onclick=shareChampion; return; }
     if(DATA.matches.filter(function(m){return m.reel;}).length>=DATA.matches.length)
       html+='<div class="phase-done">✅ <b>Phase de groupe terminée</b> — cap sur les <b>phases finales</b> (onglet ci-dessus).</div>';
     html+=grpButtons();
