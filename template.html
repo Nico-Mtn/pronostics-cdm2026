@@ -152,6 +152,7 @@
   .b-today{font-size:8.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;
     background:var(--gold);color:#3a2b00;padding:2px 8px;border-radius:20px;display:inline-flex;align-items:center;gap:4px}
   .b-grp{font-size:8.5px;font-weight:800;color:#fff;padding:2px 8px;border-radius:20px}
+  .b-num{font-size:8.5px;font-weight:800;color:var(--mut);background:var(--card2);border:1px solid var(--line);padding:2px 8px;border-radius:20px}
   .meta{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line2);display:flex;flex-direction:column;gap:8px}
   .style{display:flex;align-items:flex-start;gap:8px}
   .style .lbl{font-size:9px;color:var(--mut);width:50px;flex-shrink:0;text-transform:uppercase;letter-spacing:.5px;padding-top:1px}
@@ -458,18 +459,23 @@ function koFeedCard(m){
   var host_h=m.host_h?hostBadge():''; var host_a=m.host_a?hostBadge():'';
   var dt='<span class="dt">'+m.date+(m.heure?' <span class="h">'+m.heure+'</span>':'')+'</span>';
   var phase='<span class="b-grp" style="background:var(--accent)">'+m.phase+'</span>';
-  var badges=m.today ? '<span class="b-today">● Match du jour</span><div style="margin-top:5px">'+phase+'</div>' : phase;
-  // En mode Réel, on n'invente pas l'affiche des tours non encore tirés : "Vainqueur [tour précédent]".
-  var tbd = (!isProno()) && !m.real;
-  var hTeam, aTeam;
-  if(tbd){
-    var lbl='Vainqueur '+(m.prev||'tour précédent');
-    hTeam='<span class="n tbd-name">'+lbl+'</span>';
-    aTeam='<span class="n tbd-name">'+lbl+'</span>';
-  } else {
-    hTeam='<span class="n tlink" data-team="'+m.home+'">'+m.home+'</span> '+host_h+' '+flagImg(m.ch);
-    aTeam=flagImg(m.ca)+' '+host_a+' <span class="n tlink" data-team="'+m.away+'">'+m.away+'</span>';
+  var numb=(m.num!=null)?'<span class="b-num">Match '+m.num+'</span>':'';
+  var badges=(m.today ? '<span class="b-today">● Match du jour</span><div style="margin-top:5px">'+phase+'</div>' : phase)+' '+numb;
+  // Slot par slot. En mode Réel : équipe RÉELLEMENT qualifiée si connue (propagation),
+  // sinon "Vainqueur match N" (N = match nourricier) pour suivre les oppositions.
+  function side(real, projHome){
+    var t = isProno() ? (projHome?m.home:m.away) : (real || null);
+    var code = isProno() ? (projHome?m.ch:m.ca) : ((projHome?m.rch:m.rca)||'');
+    var host = projHome?host_h:host_a;
+    if(t){
+      var nm='<span class="n tlink" data-team="'+t+'">'+t+'</span>';
+      return projHome ? (nm+' '+host+' '+flagImg(code)) : (flagImg(code)+' '+host+' '+nm);
+    }
+    var fn = projHome?m.prevA:m.prevB;
+    var lbl = fn ? ('Vainqueur match '+fn) : ('Vainqueur '+(m.prev||'tour préc.'));
+    return '<span class="n tbd-name">'+lbl+'</span>';
   }
+  var hTeam=side(m.reel_home,true), aTeam=side(m.reel_away,false);
   var sc;
   if(m.reel){
     var nul=(m.reel[0]===m.reel[1]);
@@ -675,7 +681,7 @@ function matchCard(m){
     var rh = m.heure ? ('<span class="h">'+m.heure+(m.heure_note?' <span class="hn">'+m.heure_note+'</span>':'')+'</span>') : '';
     var rdt='<span class="dt">'+m.date+rh+'</span>';
     var rgrp='<span class="b-grp" style="background:'+GRP_COL[m.grp]+'">Groupe '+m.grp+'</span>';
-    var rbadges = m.today ? '<span class="b-today">● Match du jour</span><div style="margin-top:5px">'+rgrp+'</div>' : rgrp;
+    var rbadges = (m.today ? '<span class="b-today">● Match du jour</span><div style="margin-top:5px">'+rgrp+'</div>' : rgrp)+' <span class="b-num">Match '+m.id+'</span>';
     var rsc = m.reel
       ? '<div class="sc"><div class="sc-real-lbl">Score final</div><div class="score">'+m.reel[0]+' – '+m.reel[1]+'</div></div>'
       : '<div class="sc"><div class="tag avenir">À venir</div></div>';
@@ -710,7 +716,7 @@ function matchCard(m){
   var dt='<span class="dt">'+m.date+hpart+'</span>';
   // badges
   var grpb='<span class="b-grp" style="background:'+GRP_COL[m.grp]+'">Groupe '+m.grp+'</span>';
-  var badges = m.today ? '<span class="b-today">\u25CF Match du jour</span><div style="margin-top:5px">'+grpb+'</div>' : grpb;
+  var badges = (m.today ? '<span class="b-today">\u25CF Match du jour</span><div style="margin-top:5px">'+grpb+'</div>' : grpb)+' <span class="b-num">Match '+m.id+'</span>';
   // dynamique
   var dyn="";
   if(!m.reel){

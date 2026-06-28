@@ -1079,15 +1079,25 @@ def build_knockout_real(real_standings, datetimes=None, ko_fixtures=None):
     """Bracket 'Reel' : affiches et scores REELS de l'API quand disponibles ; sinon 16es
     provisoires d'apres le classement reel, tours suivants a definir."""
     thirds_sorted, qual_groups, slot_team = _assign_thirds(real_standings)
+    feeders={mid:(a,b) for mid,a,b in KO_NEXT}
+    real_winners={}   # PROPAGATION : dès qu'une équipe gagne réellement, elle alimente le tour suivant
     def mk(mid, fb_home=None, fb_away=None):
         home,away,sh,sa,rwin,tab,played,d,h=_ko_real(mid,ko_fixtures,datetimes,fb_home,fb_away)
+        if rwin: real_winners[mid]=rwin
         return {"id":mid,"home":home,"away":away,"sh":sh,"sa":sa,"winner":rwin,"tab":tab,
                 "ch":FLAG_CODES.get(home,""),"ca":FLAG_CODES.get(away,""),"date":d,"heure":h}
     r32=[]
     for mid,ra,rb in KO_R32:
         fbh=_resolve_ref(ra,real_standings,slot_team); fba=_resolve_ref(rb,real_standings,slot_team)
         r32.append(mk(mid,fbh,fba))
-    def later(ids,key): return {"key":key,"name":KO_NAMES[key],"matches":[mk(i) for i in ids]}
+    # Tours suivants : on remplit chaque slot avec le VAINQUEUR RÉEL du match précédent
+    # (si déjà joué) -> ex. Canada bat son 16e -> apparaît immédiatement en 8e.
+    def later(ids,key):
+        arr=[]
+        for i in ids:
+            a,b=feeders.get(i,(None,None))
+            arr.append(mk(i, real_winners.get(a), real_winners.get(b)))
+        return {"key":key,"name":KO_NAMES[key],"matches":arr}
     rounds=[{"key":"r32","name":KO_NAMES["r32"],"matches":r32},
             later([89,90,91,92,93,94,95,96],"r16"),
             later([97,98,99,100],"qf"), later([101,102],"sf"), later([104],"final")]
@@ -1118,7 +1128,8 @@ def build_knockout(standings, momentum, datetimes=None, form=None, ko_fixtures=N
             pred_fav=pred.get("fav") or pred.get("winner")
             res={"home":home,"away":away,"sh":sh,"sa":sa,"winner":winner,"tab":tab,
                  "hit":(pred_fav==winner) if winner else None,
-                 "conf":pred.get("conf"),"proba":pred.get("proba"),"pred_winner":pred_fav}
+                 "conf":pred.get("conf"),"proba":pred.get("proba"),"pred_winner":pred_fav,
+                 "pred_score":[pred.get("sh"),pred.get("sa")]}
         else:
             # affiche reelle (ou reconstruite) mais match a venir : on PREDIT le score
             res=_ko_match(home,away,momentum,form,tier)
@@ -1402,6 +1413,23 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
     real_standings=build_real_standings(rint)
     knockout_real=build_knockout_real(real_standings, datetimes, ko_fixtures)
 
+    # ── Compteur : INCLURE les phases finales jouées (pas seulement les poules) ──
+    # Pour chaque match KO réellement joué, on confronte le prono du modèle au réel
+    # (même logique exact / bon / raté que les poules), à partir du bracket Prono.
+    ko_joue=0
+    for rd in knockout["rounds"]:
+        for m in rd["matches"]:
+            if m.get("hit") is None: continue          # uniquement les matchs KO joués
+            ko_joue+=1
+            ps=m.get("pred_score") or [None,None]
+            if ps[0] is not None and ps[0]==m.get("sh") and ps[1]==m.get("sa"):
+                n_exact+=1
+            elif m.get("hit"):
+                n_bon+=1
+            else:
+                n_rate+=1
+    n_joue_total=len(rint)+ko_joue
+
     # ── Matchs de phase finale pour le LIVE FEED (affiches réelles : du jour + à venir + joués)
     def _iso_paris(utc):
         try:
@@ -1411,6 +1439,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
             return None,None
     ko_feed=[]
     PREV_ROUND={"r16":"16es de finale","qf":"8es de finale","sf":"quarts de finale","final":"demi-finales"}
+    KO_FEEDERS={mid:(a,b) for mid,a,b in KO_NEXT}   # match -> (match nourricier dom, ext)
     realmap={m["id"]:m for rd in knockout_real["rounds"] for m in rd["matches"]}
     for rd in knockout["rounds"]:
         prevlbl=PREV_ROUND.get(rd.get("key"),"")
@@ -1420,12 +1449,16 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
             rm=realmap.get(mid,{}); played=rm.get("sh") is not None
             fx=(ko_fixtures or {}).get(str(mid)) or {}
             is_real=bool(fx.get("home") and fx.get("away"))   # affiche réellement connue (tirage)
+            fa,fb=KO_FEEDERS.get(mid,(None,None))
             ko_feed.append({
-                "id":mid,"phase":rd["name"],"date":m.get("date",""),"heure":m.get("heure",""),
+                "id":mid,"num":mid,"phase":rd["name"],"date":m.get("date",""),"heure":m.get("heure",""),
                 "iso":iso or "","sort":sort_key or (m.get("date","")+"~"),
                 "today":(iso==today_iso) if iso else False,
                 "home":m["home"],"away":m["away"],"ch":m.get("ch",""),"ca":m.get("ca",""),
-                "real":is_real,"prev":prevlbl,
+                "real":is_real,"prev":prevlbl,"prevA":fa,"prevB":fb,
+                # affiche RÉELLE propagée (équipe déjà qualifiée pour ce tour), sinon None
+                "reel_home":rm.get("home"),"reel_away":rm.get("away"),
+                "rch":rm.get("ch",""),"rca":rm.get("ca",""),
                 "reel":[rm["sh"],rm["sa"]] if played else None,
                 "prono":[m["sh"],m["sa"]] if (not played and m.get("sh") is not None) else None,
                 "winner":rm.get("winner") if played else None,
@@ -1435,7 +1468,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
         "maj":(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(hours=2)).strftime("%d/%m/%Y à %H:%M")+" (Paris)",
         "today":datetime.date.today().isoformat(),
         "version":MODEL_VERSION,
-        "stats":{"joue":len(rint),"exact":n_exact,"bon":n_bon,"rate":n_rate,"total":104,"today":n_today},
+        "stats":{"joue":n_joue_total,"exact":n_exact,"bon":n_bon,"rate":n_rate,"total":104,"today":n_today},
         "matches":matches,"standings":standings,"momentum":mom_list,"knockout":knockout,
         "knockout_real":knockout_real,
         "ko_feed":ko_feed,
