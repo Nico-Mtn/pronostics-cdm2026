@@ -364,23 +364,23 @@
     "60": "2026-06-28T02:00:00Z",
     "59": "2026-06-28T02:00:00Z",
     "73": "2026-06-28T19:00:00Z",
-    "74": "2026-06-29T17:00:00Z",
-    "75": "2026-06-29T20:30:00Z",
-    "76": "2026-06-30T01:00:00Z",
-    "77": "2026-06-30T17:00:00Z",
-    "78": "2026-06-30T21:00:00Z",
+    "74": "2026-06-29T20:30:00Z",
+    "75": "2026-06-30T01:00:00Z",
+    "76": "2026-06-29T17:00:00Z",
+    "77": "2026-06-30T21:00:00Z",
+    "78": "2026-06-30T17:00:00Z",
     "79": "2026-07-01T01:00:00Z",
     "80": "2026-07-01T16:00:00Z",
-    "81": "2026-07-01T20:00:00Z",
-    "82": "2026-07-02T00:00:00Z",
-    "83": "2026-07-02T19:00:00Z",
-    "84": "2026-07-02T23:00:00Z",
+    "81": "2026-07-02T00:00:00Z",
+    "82": "2026-07-01T20:00:00Z",
+    "83": "2026-07-02T23:00:00Z",
+    "84": "2026-07-02T19:00:00Z",
     "85": "2026-07-03T03:00:00Z",
-    "86": "2026-07-03T18:00:00Z",
-    "87": "2026-07-03T22:00:00Z",
-    "88": "2026-07-04T01:30:00Z",
-    "89": "2026-07-04T17:00:00Z",
-    "90": "2026-07-04T21:00:00Z",
+    "86": "2026-07-03T22:00:00Z",
+    "87": "2026-07-04T01:30:00Z",
+    "88": "2026-07-03T18:00:00Z",
+    "89": "2026-07-04T21:00:00Z",
+    "90": "2026-07-04T17:00:00Z",
     "91": "2026-07-05T20:00:00Z",
     "92": "2026-07-06T00:00:00Z",
     "93": "2026-07-06T19:00:00Z",
@@ -405,14 +405,6 @@
       "winner": null
     },
     "74": {
-      "home": "Brésil",
-      "away": "Japon",
-      "hs": null,
-      "as": null,
-      "status": "TIMED",
-      "winner": null
-    },
-    "75": {
       "home": "Allemagne",
       "away": "Paraguay",
       "hs": null,
@@ -420,7 +412,7 @@
       "status": "TIMED",
       "winner": null
     },
-    "76": {
+    "75": {
       "home": "Pays-Bas",
       "away": "Maroc",
       "hs": null,
@@ -428,17 +420,25 @@
       "status": "TIMED",
       "winner": null
     },
+    "76": {
+      "home": "Brésil",
+      "away": "Japon",
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
     "77": {
-      "home": "Côte d'Ivoire",
-      "away": "Norvège",
+      "home": "France",
+      "away": "Suède",
       "hs": null,
       "as": null,
       "status": "TIMED",
       "winner": null
     },
     "78": {
-      "home": "France",
-      "away": "Suède",
+      "home": "Côte d'Ivoire",
+      "away": "Norvège",
       "hs": null,
       "as": null,
       "status": "TIMED",
@@ -461,14 +461,6 @@
       "winner": null
     },
     "81": {
-      "home": "Belgique",
-      "away": "Sénégal",
-      "hs": null,
-      "as": null,
-      "status": "TIMED",
-      "winner": null
-    },
-    "82": {
       "home": "États-Unis",
       "away": "Bosnie-Herzégovine",
       "hs": null,
@@ -476,17 +468,25 @@
       "status": "TIMED",
       "winner": null
     },
+    "82": {
+      "home": "Belgique",
+      "away": "Sénégal",
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
     "83": {
-      "home": "Espagne",
-      "away": "Autriche",
+      "home": "Portugal",
+      "away": "Croatie",
       "hs": null,
       "as": null,
       "status": "TIMED",
       "winner": null
     },
     "84": {
-      "home": "Portugal",
-      "away": "Croatie",
+      "home": "Espagne",
+      "away": "Autriche",
       "hs": null,
       "as": null,
       "status": "TIMED",
@@ -501,14 +501,6 @@
       "winner": null
     },
     "86": {
-      "home": "Australie",
-      "away": "Égypte",
-      "hs": null,
-      "as": null,
-      "status": "TIMED",
-      "winner": null
-    },
-    "87": {
       "home": "Argentine",
       "away": "Cap-Vert",
       "hs": null,
@@ -516,9 +508,17 @@
       "status": "TIMED",
       "winner": null
     },
-    "88": {
+    "87": {
       "home": "Colombie",
       "away": "Ghana",
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "88": {
+      "home": "Australie",
+      "away": "Égypte",
       "hs": null,
       "as": null,
       "status": "TIMED",
