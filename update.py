@@ -541,12 +541,24 @@ def fetch_from_api():
     for fx in payload.get("matches", []):
         st=(fx.get("stage") or "").upper()
         if st in KO_STAGE_IDS and fx.get("utcDate"):
-            by_stage.setdefault(st,[]).append((fx["utcDate"], fx.get("id") or 0))
+            sc=fx.get("score") or {}; ft=sc.get("fullTime") or {}
+            hn=map_team((fx.get("homeTeam") or {}).get("name"), (fx.get("homeTeam") or {}).get("tla"))
+            an=map_team((fx.get("awayTeam") or {}).get("name"), (fx.get("awayTeam") or {}).get("tla"))
+            by_stage.setdefault(st,[]).append((fx["utcDate"], fx.get("id") or 0, hn, an,
+                                               ft.get("home"), ft.get("away"),
+                                               fx.get("status",""), sc.get("winner")))
+    ko_fixtures={}
     for st,ids in KO_STAGE_IDS.items():
-        for i,(utc,_id) in enumerate(sorted(by_stage.get(st,[]))):
-            if i<len(ids): datetimes[str(ids[i])]=utc
+        for i,row in enumerate(sorted(by_stage.get(st,[]), key=lambda r:(r[0], r[1]))):
+            if i>=len(ids): break
+            utc,_id,hn,an,hs,as_,status,winner=row
+            mid=str(ids[i]); datetimes[mid]=utc
+            ko_fixtures[mid]={"home":hn,"away":an,
+                              "hs":(int(hs) if hs is not None else None),
+                              "as":(int(as_) if as_ is not None else None),
+                              "status":status,"winner":winner}
 
-    return results, datetimes
+    return results, datetimes, ko_fixtures
 
 def fetch_scorers():
     """Récupère les meilleurs buteurs du tournoi (endpoint /scorers, dispo en gratuit).
@@ -590,7 +602,7 @@ def load_results():
     Retourne (results, datetimes)."""
     out=fetch_from_api()
     if out is not None:
-        api, datetimes = out
+        api, datetimes, ko_fixtures = out
         if len(api)>0 or len(datetimes)>0:
             if len(api)>0:
                 print(f"[OK] {len(api)} résultat(s) récupéré(s) via football-data.org")
@@ -598,10 +610,10 @@ def load_results():
                 print(f"[OK] {len(datetimes)} horaire(s) officiel(s) récupéré(s)")
             manual=load_manual()
             merged=dict(manual); merged.update(api)
-            save_manual(merged, datetimes)
-            return merged, load_datetimes(datetimes)
+            save_manual(merged, datetimes, ko_fixtures)
+            return merged, load_datetimes(datetimes), load_ko_fixtures(ko_fixtures)
     print("[INFO] API indisponible ou vide → repli sur les données locales")
-    return load_manual(), load_datetimes({})
+    return load_manual(), load_datetimes({}), load_ko_fixtures({})
 
 def load_manual():
     p=os.path.join(ROOT,"data","results_manual.json")
@@ -620,17 +632,28 @@ def load_datetimes(fresh):
     merged=dict(stored); merged.update(fresh or {})
     return merged
 
-def save_manual(results, datetimes=None):
+def load_ko_fixtures(fresh):
+    """Fusionne les affiches de phase finale fraîchement récupérées avec celles stockées."""
+    stored={}
     p=os.path.join(ROOT,"data","results_manual.json")
-    os.makedirs(os.path.dirname(p),exist_ok=True)
-    prev_h={}
     if os.path.exists(p):
         with open(p,"r",encoding="utf-8") as f:
-            prev_h=json.load(f).get("horaires",{})
+            stored=json.load(f).get("ko_affiches",{})
+    merged=dict(stored); merged.update(fresh or {})
+    return merged
+
+def save_manual(results, datetimes=None, ko_fixtures=None):
+    p=os.path.join(ROOT,"data","results_manual.json")
+    os.makedirs(os.path.dirname(p),exist_ok=True)
+    prev_h={}; prev_k={}
+    if os.path.exists(p):
+        with open(p,"r",encoding="utf-8") as f:
+            _d=json.load(f); prev_h=_d.get("horaires",{}); prev_k=_d.get("ko_affiches",{})
     horaires=dict(prev_h); horaires.update(datetimes or {})
+    ko=dict(prev_k); ko.update(ko_fixtures or {})
     with open(p,"w",encoding="utf-8") as f:
         json.dump({"derniere_maj":datetime.date.today().isoformat(),
-                   "resultats":results,"horaires":horaires},f,ensure_ascii=False,indent=2)
+                   "resultats":results,"horaires":horaires,"ko_affiches":ko},f,ensure_ascii=False,indent=2)
 
 # ─── TABLEAU FINAL (PHASES FINALES) ──────────────────────────────────────────
 # Slots "meilleur 3e" : groupes autorisés par match (Annexe C FIFA).
@@ -750,23 +773,39 @@ def build_real_standings(rint):
         standings[grp]=[{"team":t,"code":FLAG_CODES.get(t,""),"host":t in HOST_NATIONS,**st} for t,st in ranked]
     return standings
 
-def build_knockout_real(real_standings, datetimes=None):
-    """Bracket 'Réel' : 16es remplis selon le classement réel actuel (qualifiés provisoires),
-    sans prédiction des vainqueurs. Les tours suivants restent à définir."""
+def _ko_real(mid, ko_fixtures, datetimes, fb_home=None, fb_away=None):
+    """Construit un match KO en privilegiant l'AFFICHE REELLE de l'API (ko_fixtures) ;
+    repli sur fb_home/fb_away (reconstruction) si l'equipe n'est pas encore connue.
+    Renvoie aussi (sh,sa,winner_side,tab) si le match est reellement termine."""
+    fx=(ko_fixtures or {}).get(str(mid)) or {}
+    home=fx.get("home") or fb_home
+    away=fx.get("away") or fb_away
+    played=fx.get("status") in ("FINISHED","AWARDED") and fx.get("hs") is not None and fx.get("as") is not None
+    sh=sa=None; rwin=None; tab=False
+    if home and away and played:
+        sh,sa=fx["hs"],fx["as"]
+        w=fx.get("winner")
+        rwin = home if w=="HOME_TEAM" else (away if w=="AWAY_TEAM" else None)
+        tab = (sh==sa)
+    d,h=_ko_date_fr(datetimes,mid)
+    return home,away,sh,sa,rwin,tab,played,d,h
+
+def build_knockout_real(real_standings, datetimes=None, ko_fixtures=None):
+    """Bracket 'Reel' : affiches et scores REELS de l'API quand disponibles ; sinon 16es
+    provisoires d'apres le classement reel, tours suivants a definir."""
     thirds_sorted, qual_groups, slot_team = _assign_thirds(real_standings)
+    def mk(mid, fb_home=None, fb_away=None):
+        home,away,sh,sa,rwin,tab,played,d,h=_ko_real(mid,ko_fixtures,datetimes,fb_home,fb_away)
+        return {"id":mid,"home":home,"away":away,"sh":sh,"sa":sa,"winner":rwin,"tab":tab,
+                "ch":FLAG_CODES.get(home,""),"ca":FLAG_CODES.get(away,""),"date":d,"heure":h}
     r32=[]
     for mid,ra,rb in KO_R32:
-        home=_resolve_ref(ra,real_standings,slot_team); away=_resolve_ref(rb,real_standings,slot_team)
-        d,h=_ko_date_fr(datetimes,mid)
-        r32.append({"id":mid,"home":home,"away":away,"sh":None,"sa":None,"winner":None,"tab":False,
-                    "ch":FLAG_CODES.get(home,""),"ca":FLAG_CODES.get(away,""),"date":d,"heure":h})
-    def empty(ids,key):
-        return {"key":key,"name":KO_NAMES[key],"matches":[
-            {"id":i,"home":None,"away":None,"sh":None,"sa":None,"winner":None,"tab":False,
-             "ch":"","ca":"","date":"","heure":""} for i in ids]}
+        fbh=_resolve_ref(ra,real_standings,slot_team); fba=_resolve_ref(rb,real_standings,slot_team)
+        r32.append(mk(mid,fbh,fba))
+    def later(ids,key): return {"key":key,"name":KO_NAMES[key],"matches":[mk(i) for i in ids]}
     rounds=[{"key":"r32","name":KO_NAMES["r32"],"matches":r32},
-            empty([89,90,91,92,93,94,95,96],"r16"),
-            empty([97,98,99,100],"qf"), empty([101,102],"sf"), empty([104],"final")]
+            later([89,90,91,92,93,94,95,96],"r16"),
+            later([97,98,99,100],"qf"), later([101,102],"sf"), later([104],"final")]
     order_map=_bracket_orders()
     for rd in rounds:
         om=order_map.get(rd["key"])
@@ -777,39 +816,47 @@ def build_knockout_real(real_standings, datetimes=None):
                   "qualified":t[0] in qual_groups} for t in thirds_sorted]
     return {"rounds":rounds,"thirds":thirds_rank}
 
-def build_knockout(standings, momentum, datetimes=None, form=None):
+def build_knockout(standings, momentum, datetimes=None, form=None, ko_fixtures=None):
     thirds_sorted, qual_groups, slot_team = _assign_thirds(standings)
     winners={}; rounds=[]
+    def make(mid, fb_home, fb_away):
+        home,away,sh,sa,rwin,tab,played,d,h=_ko_real(mid,ko_fixtures,datetimes,fb_home,fb_away)
+        if not home or not away:
+            res={"home":home,"away":away,"sh":None,"sa":None,"winner":None,"tab":False}
+        elif played:
+            # match reellement joue : on affiche le vrai resultat
+            winner=rwin
+            if winner is None:
+                _,_,diff=compute(home,away,momentum,None,form); winner=home if diff>=0 else away
+            res={"home":home,"away":away,"sh":sh,"sa":sa,"winner":winner,"tab":tab}
+        else:
+            # affiche reelle (ou reconstruite) mais match a venir : on PREDIT le score
+            res=_ko_match(home,away,momentum,form)
+        res["id"]=mid; res["ch"]=FLAG_CODES.get(res["home"],""); res["ca"]=FLAG_CODES.get(res["away"],"")
+        winners[mid]=res["winner"]
+        return res
     r32=[]
     for mid,ra,rb in KO_R32:
-        home=_resolve_ref(ra,standings,slot_team); away=_resolve_ref(rb,standings,slot_team)
-        res=_ko_match(home,away,momentum,form); winners[mid]=res["winner"]
-        res["id"]=mid; res["ch"]=FLAG_CODES.get(res["home"],""); res["ca"]=FLAG_CODES.get(res["away"],"")
-        r32.append(res)
+        r32.append(make(mid,_resolve_ref(ra,standings,slot_team),_resolve_ref(rb,standings,slot_team)))
     rounds.append({"key":"r32","name":KO_NAMES["r32"],"matches":r32})
     def play(idset,key):
         arr=[]
         for mid,a,b in KO_NEXT:
             if mid not in idset: continue
-            home=winners.get(a); away=winners.get(b)
-            res=_ko_match(home,away,momentum,form); winners[mid]=res["winner"]
-            res["id"]=mid; res["ch"]=FLAG_CODES.get(res["home"],""); res["ca"]=FLAG_CODES.get(res["away"],"")
-            arr.append(res)
+            arr.append(make(mid, winners.get(a), winners.get(b)))
         rounds.append({"key":key,"name":KO_NAMES[key],"matches":arr})
     play({89,90,91,92,93,94,95,96},"r16")
     play({97,98,99,100},"qf")
     play({101,102},"sf")
     play({104},"final")
-    # Réordonner chaque tour selon l'arbre officiel pour un tracé de branches correct
     order_map=_bracket_orders()
     for rd in rounds:
         om=order_map.get(rd["key"])
         if om:
             pos={mid:i for i,mid in enumerate(om)}
             rd["matches"].sort(key=lambda m: pos.get(m["id"], 999))
-        # Date + heure officielles (Paris) par match, si disponibles
         for m in rd["matches"]:
-            m["date"],m["heure"]=_ko_date_fr(datetimes, m["id"])
+            if not m.get("date"): m["date"],m["heure"]=_ko_date_fr(datetimes, m["id"])
     champion = winners.get(104)
     thirds_rank=[{"team":t[4],"code":FLAG_CODES.get(t[4],""),"grp":t[0],"Pts":t[1],"GD":t[2],"GF":t[3],
                   "qualified":t[0] in qual_groups} for t in thirds_sorted]
@@ -817,11 +864,12 @@ def build_knockout(standings, momentum, datetimes=None, form=None):
             "champion_code":FLAG_CODES.get(champion,"")}
 
 # ─── CONSTRUCTION DES DONNÉES DE LA PAGE ─────────────────────────────────────
-def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=None, assists_top=None):
+def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=None, assists_top=None, ko_fixtures=None):
     from collections import defaultdict
     scorers_by_team = scorers_by_team or {}
     scorers_top = scorers_top or []
     assists_top = assists_top or []
+    ko_fixtures = ko_fixtures or {}
     datetimes = datetimes or {}
     results={str(k):v for k,v in results.items()}
     momentum,detail=compute_momentum(results)
@@ -951,9 +999,9 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
     mom_list=sorted(({"team":t,"code":FLAG_CODES.get(t,""),"mom":round(v,2),"detail":" · ".join(detail.get(t,[]))}
                      for t,v in momentum.items()), key=lambda x:-x["mom"])
 
-    knockout=build_knockout(standings, momentum, datetimes, form)
+    knockout=build_knockout(standings, momentum, datetimes, form, ko_fixtures)
     real_standings=build_real_standings(rint)
-    knockout_real=build_knockout_real(real_standings, datetimes)
+    knockout_real=build_knockout_real(real_standings, datetimes, ko_fixtures)
 
     return {
         "maj":(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(hours=2)).strftime("%d/%m/%Y à %H:%M")+" (Paris)",
@@ -973,11 +1021,11 @@ def render_html(payload):
     return tpl.replace("/*__DATA__*/null", data_json)
 
 def main():
-    results, datetimes = load_results()
+    results, datetimes, ko_fixtures = load_results()
     scorers, scorers_top, assists_top = fetch_scorers()
     if scorers:
         print(f"[OK] Buteurs récupérés pour {len(scorers)} équipe(s) ; {len(scorers_top)} buteur(s) classés")
-    payload=build_payload(results, scorers, datetimes, scorers_top, assists_top)
+    payload=build_payload(results, scorers, datetimes, scorers_top, assists_top, ko_fixtures)
     html=render_html(payload)
     out=os.path.join(ROOT,"index.html")
     with open(out,"w",encoding="utf-8") as f:
