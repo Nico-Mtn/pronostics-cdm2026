@@ -399,10 +399,10 @@
     "73": {
       "home": "Afrique du Sud",
       "away": "Canada",
-      "hs": null,
-      "as": null,
-      "status": "TIMED",
-      "winner": null
+      "hs": 0,
+      "as": 0,
+      "status": "IN_PLAY",
+      "winner": "DRAW"
     },
     "74": {
       "home": "Allemagne",
