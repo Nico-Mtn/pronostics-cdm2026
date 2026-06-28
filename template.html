@@ -313,6 +313,10 @@
   .ko-match{position:relative;width:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;
     box-shadow:var(--shadow);overflow:hidden}
   .ko-conf{float:right;color:var(--accent2);font-weight:800;letter-spacing:0}
+  .ko-conf.ko-upset{color:var(--rate)}
+  .ko-second{font-size:9.5px;color:var(--mut);padding:5px 10px;border-top:1px dashed var(--line2);display:flex;align-items:center;gap:4px;background:var(--bg2)}
+  .ko-second .p2{color:var(--accent2);font-weight:700}
+  .ko-second .flag.sm{width:14px}
   .ko-mdate{font-size:8px;color:var(--mut);font-weight:700;letter-spacing:.2px;
     padding:5px 10px 4px;border-bottom:1px solid var(--line2);text-transform:uppercase;background:var(--bg2)}
   .ko-line{display:flex;align-items:center;gap:7px;padding:7px 10px;transition:background .15s}
@@ -765,14 +769,18 @@ function koLine(name, code, sc, isWinner, tabFlag){
     + '<span class="ko-sc">'+(sc==null?'\u2013':sc)+tab+'</span></div>';
 }
 function koMatch(m){
-  var confChip = (isProno() && m.conf) ? '<span class="ko-conf" title="Probabilité de qualification (modèle Elo + Dixon-Coles)">'+m.conf+'%</span>' : '';
+  var confChip = (isProno() && m.conf) ? '<span class="ko-conf'+(m.upset?' ko-upset':'')+'" title="'+(m.upset?'Surprise projetée — ':'')+'Probabilité de qualification du qualifié affiché (Elo + Dixon-Coles)">'+(m.upset?'\u26A1 ':'')+m.conf+'%</span>' : '';
   var d = (m.date||confChip) ? '<div class="ko-mdate">'+(m.date?m.date+(m.heure?' · '+m.heure:''):'')+confChip+'</div>' : '';
   var hit = (m.hit===true)?'<span class="ko-hit ok" title="Vainqueur correctement prédit">✓ prono</span>'
           : (m.hit===false)?'<span class="ko-hit ko" title="Vainqueur non prévu">✗ prono</span>':'';
+  var second = (isProno() && m.second) ? '<div class="ko-second" title="2e sc\u00e9nario possible (confiance < 65%)">\uD83D\uDD00 2e sc\u00e9nario : '
+        + flagImg(m.second.code,'sm') + ' <span class="tlink" data-team="'+m.second.team+'">'+m.second.team+'</span> '
+        + m.second.sh+'\u2013'+m.second.sa+' <span class="p2">('+m.second.p+'%)</span></div>' : '';
   return '<div class="ko-match'+(m.winner?' done':'')+'">'
     + hit + d
     + koLine(m.home,m.ch,m.sh,m.winner&&m.winner===m.home,m.tab)
     + koLine(m.away,m.ca,m.sa,m.winner&&m.winner===m.away,m.tab)
+    + second
     + '</div>';
 }
 var KO_PERIODS={r32:"28 juin \u2013 3 juil.",r16:"4 \u2013 7 juil.",qf:"9 \u2013 11 juil.",sf:"14 \u2013 15 juil.",final:"19 juil."};

@@ -8,7 +8,7 @@ Lancé quotidiennement par GitHub Actions. Fonctionne aussi sans clé API
 (mode repli) en lisant data/results_manual.json.
 """
 
-import os, json, sys, datetime, urllib.request, urllib.error
+import os, json, sys, datetime, urllib.request, urllib.error, hashlib
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 API_KEY = os.environ.get("FOOTBALLDATA_KEY", "").strip()
@@ -20,7 +20,7 @@ WC_CODE = "WC"        # football-data.org : code compétition FIFA World Cup
 #             · 2.2 variation réaliste des scores (distribution CM 2010-2022, graine par affiche)
 #             · 2.3 ajustement dynamique conservateur : forme off/déf réelle, tendance de buts du
 #                   tournoi, pondération récence, blend force FIFA ↔ performances observées
-MODEL_VERSION = "3.3"
+MODEL_VERSION = "3.4"
 
 # ─── DONNÉES ÉQUIPES (force, tendance, style, surprise) ──────────────────────
 TEAM_DATA = {
@@ -83,6 +83,7 @@ ELO = load_elo()
 # Rend les projections KO auto-entretenues au fil des rencontres (déterministe/reproductible).
 LIVE_ELO = {}
 LIVE_FORM = {}   # forme (att/déf) mise à jour par les buts réels du tournoi
+LIVE_MOM = {}    # surcouche momentum (récence + victoire de prestige), en points Elo
 ELO_DEFAULT = 1700.0
 HOST_ELO_BONUS = 60.0   # avantage hôte exprimé en points Elo
 
@@ -282,6 +283,23 @@ def style_bonus(s1,s2):
 # Ouverture du jeu par style (effet sur le total de buts attendu d'un match KO) :
 # pressing/possession -> plus ouvert ; bloc bas/médian -> plus fermé.
 STYLE_OPEN = {"pressing": 0.18, "possession": 0.12, "contre": 0.00, "bloc_moyen": -0.10, "bloc_bas": -0.20}
+
+# Expérience des grands matchs (pedigree tournoi, 0..1) : compte surtout dans les tours
+# décisifs (gestion de la pression, parcours profonds récents). Distinct de l'Elo courant
+# (ex. Croatie / Maroc surperforment leur niveau dans les grands rendez-vous).
+EXPERIENCE = {
+    "Argentine":0.95,"Brésil":0.92,"Allemagne":0.92,"France":0.90,"Espagne":0.88,
+    "Angleterre":0.85,"Pays-Bas":0.85,"Portugal":0.84,"Uruguay":0.82,"Croatie":0.85,
+    "Belgique":0.78,"Mexique":0.75,"Maroc":0.78,"Suisse":0.70,"États-Unis":0.68,
+    "Japon":0.68,"Corée du Sud":0.66,"Colombie":0.68,"Suède":0.64,"Sénégal":0.66,
+    "Australie":0.62,"Ghana":0.62,"Norvège":0.55,"Autriche":0.60,"Écosse":0.55,
+    "Turquie":0.60,"Égypte":0.60,"Algérie":0.60,"Côte d'Ivoire":0.62,"Iran":0.60,
+    "Paraguay":0.58,"Équateur":0.60,"Tunisie":0.58,"Canada":0.52,"Tchéquie":0.62,
+    "Cap-Vert":0.45,"RD Congo":0.50,"Ouzbékistan":0.42,"Afrique du Sud":0.52,
+    "Arabie Saoudite":0.52,"Irak":0.48,"Jordanie":0.42,"Curaçao":0.40,"Haïti":0.40,
+    "Nouvelle-Zélande":0.45,"Panama":0.45,"Bosnie-Herzégovine":0.55,"Qatar":0.48,
+}
+def experience(team): return EXPERIENCE.get(team, 0.55)
 
 def _score_from_diff(diff, home, away, hs, as_, asur, ko=False, ko_tier=0):
     """Score réaliste AVEC variation, calé sur la distribution des scores des Coupes
@@ -827,11 +845,15 @@ def _resolve_ref(ref, standings, slot_team):
 _DC_RHO = -0.13   # corrélation faible-score (Dixon-Coles)
 
 def _ko_lambdas(home, away, tier=0):
-    eh = team_elo(home); ea = team_elo(away)
+    # Elo live + surcouche MOMENTUM (récence + prestige)
+    eh = team_elo(home) + LIVE_MOM.get(home, 0.0)
+    ea = team_elo(away) + LIVE_MOM.get(away, 0.0)
     if home in HOST_NATIONS: eh += HOST_ELO_BONUS
     if away in HOST_NATIONS: ea += HOST_ELO_BONUS
     d = eh - ea
-    sup = max(-2.0, min(2.0, d / 240.0))          # suprématie bornée (évite les blowouts irréalistes en KO)
+    sup = max(-2.0, min(2.0, d / 240.0))
+    # EXPÉRIENCE des grands matchs : nudge croissant avec l'enjeu du tour (R32 -> finale)
+    sup += (experience(home) - experience(away)) * (0.22 + 0.18 * min(max(tier, 0), 2))          # suprématie bornée (évite les blowouts irréalistes en KO)
     # Total de buts attendu CALIBRÉ sur les CdM récentes (~2.7/match ; phase finale 2018/2022 ~2.8),
     # se resserre par tour. Relevé vs v3.0 pour réduire l'excès de 1-0 (plus de 2-1/2-0/3-1).
     mu = [2.95, 2.80, 2.64][min(max(tier,0),2)]
@@ -877,6 +899,11 @@ def _dc_grid(lh, la, maxg=8):
     for k in g: g[k] /= tot
     return g
 
+def _unit(key):
+    """Tirage déterministe uniforme dans [0,1) à partir d'une chaîne (hash stable)."""
+    h = hashlib.md5(key.encode("utf-8")).hexdigest()
+    return int(h[:8], 16) / 0xFFFFFFFF
+
 def _pick_score(cands, seed):
     """Tirage DÉTERMINISTE pondéré par la probabilité Dixon-Coles parmi les scores
     plausibles (top 5). Reproduit la VARIÉTÉ réelle des scores (2-1, 3-1, 2-0, 1-0…)
@@ -901,30 +928,46 @@ def _ko_predict(home, away, tier=0):
     # Probabilité de QUALIFICATION (les nuls se décident aux t.a.b. ~50/50)
     advH = pV + 0.5 * pN
     advA = pD + 0.5 * pN
-    winner = home if advH >= advA else away
-    conf = int(round(100 * max(advH, advA)))
-    # Score affiché : on PRIVILÉGIE un résultat DÉCISIF pour le qualifié. Le nul + tirs
-    # au but n'est affiché QUE pour les matchs vraiment indécis (anti-excès de nuls :
-    # un 90 min sur deux ne finit pas 1-1). Seuil sur la proba de qualification.
-    TAB_THRESHOLD = 54   # < seuil = match couperet -> nul + t.a.b. plausible ; sinon score décisif
-    seed = 0
-    for ch in (home + "~" + away): seed = (seed * 131 + ord(ch)) & 0xffffffff
-    if winner == home:
-        decisive = {k: v for k, v in g.items() if k[0] > k[1]}
-    else:
-        decisive = {k: v for k, v in g.items() if k[0] < k[1]}
+    fav = home if advH >= advA else away          # favori mathématique (sert à la JUSTESSE/hit)
+    # ÉQUILIBRE CALIBRÉ rigueur <-> surprise : le qualifié projeté est TIRÉ de façon
+    # déterministe et UNIFORME, pondéré par la proba de qualification. Un favori à 85 %
+    # passe quasi toujours ; un 52/48 bascule parfois -> upsets au taux réel, reproductible.
+    u = _unit(home + "~" + away)
+    winner = home if u < advH else away
+    conf = int(round(100 * (advH if winner == home else advA)))   # confiance dans le qualifié AFFICHÉ
+    upset = (winner != fav)
+    seed = int(_unit(away + "#" + home) * 100000)                 # graine (découplée) pour le score
+    # Score : le qualifié tiré l'emporte de façon DÉCISIVE ; le nul + t.a.b. n'est montré
+    # que pour un vrai 50/50 (match couperet), indépendamment de QUI est tiré.
+    coinflip = abs(advH - 0.5) < 0.06
     draws = {k: v for k, v in g.items() if k[0] == k[1]}
-    if conf < TAB_THRESHOLD and draws:
-        (sx, sy) = _pick_score(draws, seed)        # quasi 50/50 -> nul (t.a.b.)
-        tab = True
+    if coinflip and draws:
+        (sx, sy) = _pick_score(draws, seed); tab = True
     else:
-        (sx, sy) = _pick_score(decisive, seed)     # vainqueur, score tiré selon la distribution DC
-        tab = False
+        if winner == home:
+            decisive = {k: v for k, v in g.items() if k[0] > k[1]}
+        else:
+            decisive = {k: v for k, v in g.items() if k[0] < k[1]}
+        (sx, sy) = _pick_score(decisive, seed); tab = False
+    # 2e SCÉNARIO (mécanique "second choix") quand la confiance < 65 % : on présente le
+    # qualifié ALTERNATIF (l'autre équipe) avec un score décisif plausible et sa proba.
+    second = None
+    if conf < 65:
+        other = away if winner == home else home
+        if other == home:
+            oc = {k: v for k, v in g.items() if k[0] > k[1]}
+        else:
+            oc = {k: v for k, v in g.items() if k[0] < k[1]}
+        if oc:
+            ox, oy = _pick_score(oc, int(_unit(home + "@" + away) * 100000))
+            second = {"team": other, "sh": ox, "sa": oy, "p": 100 - conf,
+                      "code": FLAG_CODES.get(other, "")}
     # Distribution : top 4 scores (orientés home-away) pour l'affichage
     dist = [{"s": [x, y], "p": int(round(p * 100))}
             for (x, y), p in sorted(g.items(), key=lambda kv: kv[1], reverse=True)[:4]]
     return {"home": home, "away": away, "sh": sx, "sa": sy, "winner": winner, "tab": tab,
-            "conf": conf, "proba": {"v": int(round(pV*100)), "n": int(round(pN*100)), "d": int(round(pD*100))},
+            "conf": conf, "fav": fav, "upset": upset, "second": second,
+            "proba": {"v": int(round(pV*100)), "n": int(round(pN*100)), "d": int(round(pD*100))},
             "dist": dist, "lh": round(lh, 2), "la": round(la, 2),
             "eh": int(round(team_elo(home))), "ea": int(round(team_elo(away)))}
 
@@ -1052,9 +1095,10 @@ def build_knockout(standings, momentum, datetimes=None, form=None, ko_fixtures=N
                 _,_,diff=compute(home,away,momentum,None,form); winner=home if diff>=0 else away
             # justesse du prono KO (cote Prono uniquement) : vainqueur predit vs vainqueur reel
             pred=_ko_match(home,away,momentum,form,tier)
+            pred_fav=pred.get("fav") or pred.get("winner")
             res={"home":home,"away":away,"sh":sh,"sa":sa,"winner":winner,"tab":tab,
-                 "hit":(pred.get("winner")==winner) if winner else None,
-                 "conf":pred.get("conf"),"proba":pred.get("proba"),"pred_winner":pred.get("winner")}
+                 "hit":(pred_fav==winner) if winner else None,
+                 "conf":pred.get("conf"),"proba":pred.get("proba"),"pred_winner":pred_fav}
         else:
             # affiche reelle (ou reconstruite) mais match a venir : on PREDIT le score
             res=_ko_match(home,away,momentum,form,tier)
@@ -1090,6 +1134,37 @@ def build_knockout(standings, momentum, datetimes=None, form=None, ko_fixtures=N
             "champion_code":FLAG_CODES.get(champion,"")}
 
 # ─── CONSTRUCTION DES DONNÉES DE LA PAGE ─────────────────────────────────────
+def compute_momentum_overlay(results, ko_fixtures, datetimes=None):
+    """Surcouche MOMENTUM (en points Elo, bornée) ajoutée à l'Elo live pour les
+    projections KO. Capte ce que l'Elo « plat » lisse mal :
+      • RÉCENCE : le dernier match pèse plus (le début de compétition est du rodage) ;
+      • VICTOIRE DE PRESTIGE : battre un adversaire nettement mieux classé est amplifié
+        (un exploit en J3 lance une vraie dynamique) ; mal finir pénalise.
+    Bornée (-32..+42) pour rester une nuance, pas un bouleversement du niveau réel."""
+    ev = _tournament_events(results, ko_fixtures, datetimes)
+    per = {}
+    for iso, h, a, hs, as_ in ev:
+        per.setdefault(h, []).append((iso, _base_elo(h), _base_elo(a), hs, as_))
+        per.setdefault(a, []).append((iso, _base_elo(a), _base_elo(h), as_, hs))
+    out = {}
+    for team, lst in per.items():
+        lst.sort(key=lambda x: x[0])
+        n = len(lst)
+        if n == 0: continue
+        num = den = 0.0
+        for i, (iso, own, opp, gf, ga) in enumerate(lst):
+            recency = 0.5 + 0.5 * (i / (n - 1) if n > 1 else 1)   # 0.5 (J1) -> 1.0 (dernier)
+            we = 1.0 / (1.0 + 10 ** (-(own - opp) / 400.0))
+            res = 1.0 if gf > ga else (0.5 if gf == ga else 0.0)
+            perf = res - we
+            amp = 1.0
+            if res == 1.0 and opp > own:                          # victoire de prestige (upset)
+                amp = 1.0 + min(0.9, (opp - own) / 250.0)
+            num += recency * perf * amp; den += recency
+        avg = num / den if den else 0.0
+        out[team] = max(-32.0, min(42.0, avg * 135.0))
+    return out
+
 def _base_elo(team):
     if team in ELO: return ELO[team]
     base = TEAM_DATA.get(team, (6.0,))[0]
@@ -1172,6 +1247,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
     # tournoi (auto-entretenu à chaque run). Pilote les projections de phase finale.
     LIVE_ELO.clear();  LIVE_ELO.update(compute_live_elo(results, ko_fixtures, datetimes))
     LIVE_FORM.clear(); LIVE_FORM.update(compute_live_form(results, ko_fixtures, datetimes))
+    LIVE_MOM.clear();  LIVE_MOM.update(compute_momentum_overlay(results, ko_fixtures, datetimes))
     qualif_states=compute_qualif_states(results)
     rint={int(k):v for k,v in results.items()}
     today_iso = datetime.date.today().isoformat()
