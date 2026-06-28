@@ -939,7 +939,7 @@ def _ko_predict(home, away, tier=0):
     seed = int(_unit(away + "#" + home) * 100000)                 # graine (découplée) pour le score
     # Score : le qualifié tiré l'emporte de façon DÉCISIVE ; le nul + t.a.b. n'est montré
     # que pour un vrai 50/50 (match couperet), indépendamment de QUI est tiré.
-    coinflip = abs(advH - 0.5) < 0.06
+    coinflip = abs(advH - 0.5) < 0.025   # KO : un vainqueur quasi toujours -> t.a.b. réservé aux vrais 50/50
     draws = {k: v for k, v in g.items() if k[0] == k[1]}
     if coinflip and draws:
         (sx, sy) = _pick_score(draws, seed); tab = True
