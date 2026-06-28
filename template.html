@@ -110,8 +110,11 @@
   .sc .tag{font-size:8px;padding:2px 8px;border-radius:20px;font-weight:700;letter-spacing:.3px;white-space:nowrap}
   .tag.exact{background:var(--winbg);color:var(--win)}.tag.bon{background:var(--drawbg);color:var(--draw)}
   .tag.rate{background:var(--ratebg);color:var(--rate)}.tag.avenir{background:var(--line2);color:var(--mut)}
-  .phase-done{background:var(--winbg);color:var(--win);border:1px solid var(--win);border-radius:12px;
-    padding:11px 14px;text-align:center;font-size:13px;margin:0 0 14px;line-height:1.4}
+  .phase-done{background:linear-gradient(90deg,var(--card2),transparent);border-left:3px solid var(--accent2);
+    color:var(--txt2);border-radius:10px;padding:10px 15px;font-size:12.5px;margin:0 0 14px;
+    line-height:1.45;letter-spacing:.2px;display:flex;align-items:center;gap:8px}
+  .phase-done b{color:var(--accent2);font-weight:700}
+  .phase-done .pd-ico{font-size:15px;opacity:.9}
   @keyframes pbpulse{0%{opacity:1}50%{opacity:.55}100%{opacity:1}}
   .b-today{animation:pbpulse 1.8s ease-in-out infinite}
   .tbd-name{font-style:italic;color:var(--dim);font-size:11.5px}
@@ -1069,7 +1072,7 @@ function render(){
     function card(x){ return x.ko?koFeedCard(x.o):matchCard(x.o); }
     var html="";
     if(DATA.matches.filter(function(m){return m.reel;}).length>=DATA.matches.length)
-      html+='<div class="phase-done">✅ <b>Phase de groupe terminée</b> — place aux phases finales !</div>';
+      html+='<div class="phase-done"><span class="pd-ico">\ud83c\udfc6</span><span><b>Phase de groupes terminée</b> \u00b7 place aux phases finales</span></div>';
     if(played.length){
       html+='<div class="accordion">'
         +'<button class="acc-head'+(oldOpen?' open':'')+'" id="accbtn">'
@@ -1120,7 +1123,7 @@ function render(){
     html+=phaseTabs("standings");
     if(subPhase.standings==="finales"){ c.innerHTML=html+renderBracket(); bindSecs(c); var _sb=document.getElementById("sharechamp"); if(_sb)_sb.onclick=shareChampion; var _bb=document.getElementById("sharebracket"); if(_bb)_bb.onclick=shareBracket; return; }
     if(DATA.matches.filter(function(m){return m.reel;}).length>=DATA.matches.length)
-      html+='<div class="phase-done">✅ <b>Phase de groupe terminée</b> — cap sur les <b>phases finales</b> (onglet ci-dessus).</div>';
+      html+='<div class="phase-done"><span class="pd-ico">\ud83c\udfc6</span><span><b>Phase de groupes terminée</b> \u00b7 cap sur les <b>phases finales</b> (onglet ci-dessus)</span></div>';
     html+=grpButtons();
     var qualifBody='<div class="qrules" style="margin:0"><ul>'
       +'<li><span class="dot d1"></span><span>Les <b>2 premiers de chaque groupe</b> (12 groupes) sont qualifies directement pour les 1/16e de finale, soit <b>24 equipes</b>.</span></li>'
