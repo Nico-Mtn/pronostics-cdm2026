@@ -207,7 +207,7 @@ def style_bonus(s1,s2):
     if s1=="possession" and s2=="contre": return (-0.2,0.3)
     return (0,0)
 
-def _score_from_diff(diff, home, away, hs, as_, asur):
+def _score_from_diff(diff, home, away, hs, as_, asur, ko=False, ko_tier=0):
     """Score réaliste AVEC variation, calé sur la distribution des scores des Coupes
     du Monde récentes (1-0, 2-1, 2-0, 1-1, 0-0, 3-1… cf. stats FIFA 2010-2022).
     Le résultat (vainqueur/nul) suit l'écart de force ; le SCORE exact est tiré d'un
@@ -215,7 +215,25 @@ def _score_from_diff(diff, home, away, hs, as_, asur):
     retrouve une vraie diversité (2-1, 2-0, 3-1, 0-0…) reproductible d'un run à l'autre.
     Paniers exprimés (buts favori, buts adverse)."""
     ad=abs(diff)
-    if   ad>=3.2: pool=[(4,0),(3,0),(3,1),(5,0),(4,1),(2,0)]   # écrasant
+    if ko:
+        # Phases finales : plus fermé, moins de buts (étude CM 2010-2022), se resserre par tour
+        # (ko_tier : 0 = 16es/8es, 1 = quarts/demies, 2 = finale).
+        if ko_tier>=2:
+            if   ad>=2.4: pool=[(2,0),(1,0),(2,1)]
+            elif ad>=1.2: pool=[(1,0),(2,1),(1,1),(0,0)]
+            else:         pool=[(0,0),(1,1),(1,0)]
+        elif ko_tier==1:
+            if   ad>=2.4: pool=[(2,0),(2,1),(1,0),(3,1)]
+            elif ad>=1.2: pool=[(1,0),(2,1),(2,0),(1,1)]
+            elif ad>=0.45:pool=[(1,0),(1,1),(2,1),(0,0)]
+            else:         pool=[(0,0),(1,1),(1,0)]
+        else:
+            if   ad>=2.8: pool=[(3,0),(2,0),(2,1),(3,1)]
+            elif ad>=1.6: pool=[(2,0),(2,1),(1,0),(3,1)]
+            elif ad>=0.9: pool=[(2,1),(1,0),(2,0),(1,1)]
+            elif ad>=0.45:pool=[(1,0),(2,1),(1,1),(0,0)]
+            else:         pool=[(1,0),(1,1),(0,0),(2,1)]
+    elif   ad>=3.2: pool=[(4,0),(3,0),(3,1),(5,0),(4,1),(2,0)]   # écrasant
     elif ad>=2.4: pool=[(3,0),(2,0),(3,1),(4,1),(2,1)]         # très net
     elif ad>=1.6: pool=[(2,0),(3,1),(2,1),(3,0),(1,0)]         # net
     elif ad>=0.9: pool=[(2,1),(2,0),(1,0),(3,1),(2,2)]         # favori clair
@@ -259,7 +277,7 @@ def _adjust_goals(h, a, diff, home, away, dyn):
         elif h == a and h >= 1: h -= 1; a -= 1
     return h, a
 
-def compute(home,away,momentum=None,qualif=None,dyn=None):
+def compute(home,away,momentum=None,qualif=None,dyn=None,ko=False,ko_tier=0):
     mo=momentum or {}; qz=qualif or {}; dy=dyn or {}
     hf0,ht,hs,hsur=TEAM_DATA[home]; af0,at,as_,asur=TEAM_DATA[away]
     tb={"up":0.4,"down":-0.4,"stable":0}
@@ -270,12 +288,16 @@ def compute(home,away,momentum=None,qualif=None,dyn=None):
     # une équipe qui joue sa survie est galvanisée, une équipe éliminée est démobilisée.
     qb={"qualified":-0.35,"alive":0.20,"eliminated":-0.25,None:0.0}
     hF+=qb.get(qz.get(home),0.0); aF+=qb.get(qz.get(away),0.0)
-    sbh,sba=style_bonus(hs,as_); hF+=sbh; aF+=sba
+    # Tactiques OBSERVÉES en phase de groupe (proxy buts marqués/encaissés) : si disponibles,
+    # elles priment sur le style théorique pour le clash tactique.
+    sty=dy.get("styles",{})
+    hs_eff=sty.get(home) or hs; as_eff=sty.get(away) or as_
+    sbh,sba=style_bonus(hs_eff,as_eff); hF+=sbh; aF+=sba
     # v2.3 — blend force FIFA <-> niveau réel observé (conservateur, plafonné dans compute_form)
     lvl=dy.get("level",{})
     hF+=lvl.get(home,0.0); aF+=lvl.get(away,0.0)
     diff=hF-aF
-    h,a=_score_from_diff(diff, home, away, hs, as_, asur)
+    h,a=_score_from_diff(diff, home, away, hs, as_, asur, ko, ko_tier)
     h,a=_adjust_goals(h, a, diff, home, away, dy)
     return h,a,diff
 
@@ -482,8 +504,16 @@ def compute_form(results):
         n=pl[t]; off[t]=gs[t]/n; dfn[t]=gc[t]/n
         raw=((pts[t]/n)-1.0)*0.20 + ((gs[t]-gc[t])/n)*0.10
         level[t]=max(-0.35,min(0.35,raw))*min(1.0,n/2.0)
+    styles={}
+    for t in pl:
+        if pl[t]>=2:                      # assez de matchs pour lire la tactique
+            gf=off[t]; ga=dfn[t]
+            if   gf<1.1 and ga<1.0:  styles[t]="bloc_bas"     # ferme, peu de buts des deux cotes
+            elif gf>=1.7 and ga<=1.0: styles[t]="possession"  # domine et controle
+            elif gf>=1.6 and ga>=1.3: styles[t]="pressing"    # joue haut, match ouvert
+            elif gf<=1.2 and ga>=1.4: styles[t]="contre"      # subit, joue en contre
     tg=(tot_goals/tot_matches) if tot_matches else 0.0
-    return {"off":off,"def_":dfn,"level":level,"tg":tg,"n":tot_matches}
+    return {"off":off,"def_":dfn,"level":level,"tg":tg,"n":tot_matches,"styles":styles}
 
 # ─── RÉCUPÉRATION DES RÉSULTATS ──────────────────────────────────────────────
 def fetch_from_api():
@@ -707,9 +737,9 @@ def _resolve_ref(ref, standings, slot_team):
     if kind=="3": return slot_team.get(key)
     return None
 
-def _ko_match(home, away, momentum, form=None):
+def _ko_match(home, away, momentum, form=None, tier=0):
     if not home or not away: return {"home":home,"away":away,"sh":None,"sa":None,"winner":None,"tab":False}
-    h,a,diff=compute(home,away,momentum,None,form)   # pas de facteur qualification en phase finale
+    h,a,diff=compute(home,away,momentum,None,form,ko=True,ko_tier=tier)   # phase finale : pas de facteur qualif, paniers KO
     if h==a:
         winner = home if diff>=0 else away; tab=True   # nul -> tirs au but, le favori passe
     else:
@@ -819,7 +849,7 @@ def build_knockout_real(real_standings, datetimes=None, ko_fixtures=None):
 def build_knockout(standings, momentum, datetimes=None, form=None, ko_fixtures=None):
     thirds_sorted, qual_groups, slot_team = _assign_thirds(standings)
     winners={}; rounds=[]
-    def make(mid, fb_home, fb_away):
+    def make(mid, fb_home, fb_away, tier=0):
         home,away,sh,sa,rwin,tab,played,d,h=_ko_real(mid,ko_fixtures,datetimes,fb_home,fb_away)
         if not home or not away:
             res={"home":home,"away":away,"sh":None,"sa":None,"winner":None,"tab":False}
@@ -831,24 +861,24 @@ def build_knockout(standings, momentum, datetimes=None, form=None, ko_fixtures=N
             res={"home":home,"away":away,"sh":sh,"sa":sa,"winner":winner,"tab":tab}
         else:
             # affiche reelle (ou reconstruite) mais match a venir : on PREDIT le score
-            res=_ko_match(home,away,momentum,form)
+            res=_ko_match(home,away,momentum,form,tier)
         res["id"]=mid; res["ch"]=FLAG_CODES.get(res["home"],""); res["ca"]=FLAG_CODES.get(res["away"],"")
         winners[mid]=res["winner"]
         return res
     r32=[]
     for mid,ra,rb in KO_R32:
-        r32.append(make(mid,_resolve_ref(ra,standings,slot_team),_resolve_ref(rb,standings,slot_team)))
+        r32.append(make(mid,_resolve_ref(ra,standings,slot_team),_resolve_ref(rb,standings,slot_team),0))
     rounds.append({"key":"r32","name":KO_NAMES["r32"],"matches":r32})
-    def play(idset,key):
+    def play(idset,key,tier=0):
         arr=[]
         for mid,a,b in KO_NEXT:
             if mid not in idset: continue
-            arr.append(make(mid, winners.get(a), winners.get(b)))
+            arr.append(make(mid, winners.get(a), winners.get(b), tier))
         rounds.append({"key":key,"name":KO_NAMES[key],"matches":arr})
-    play({89,90,91,92,93,94,95,96},"r16")
-    play({97,98,99,100},"qf")
-    play({101,102},"sf")
-    play({104},"final")
+    play({89,90,91,92,93,94,95,96},"r16",0)
+    play({97,98,99,100},"qf",1)
+    play({101,102},"sf",1)
+    play({104},"final",2)
     order_map=_bracket_orders()
     for rd in rounds:
         om=order_map.get(rd["key"])
@@ -1003,6 +1033,30 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
     real_standings=build_real_standings(rint)
     knockout_real=build_knockout_real(real_standings, datetimes, ko_fixtures)
 
+    # ── Matchs de phase finale pour le LIVE FEED (affiches réelles : du jour + à venir + joués)
+    def _iso_paris(utc):
+        try:
+            dt=datetime.datetime.fromisoformat(utc.replace("Z","+00:00"))+datetime.timedelta(hours=2)
+            return dt.strftime("%Y-%m-%d"), dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        except Exception:
+            return None,None
+    ko_feed=[]
+    realmap={m["id"]:m for rd in knockout_real["rounds"] for m in rd["matches"]}
+    for rd in knockout["rounds"]:
+        for m in rd["matches"]:
+            if not m.get("home") or not m.get("away"): continue
+            mid=m["id"]; utc=datetimes.get(str(mid)); iso,sort_key=_iso_paris(utc)
+            rm=realmap.get(mid,{}); played=rm.get("sh") is not None
+            ko_feed.append({
+                "id":mid,"phase":rd["name"],"date":m.get("date",""),"heure":m.get("heure",""),
+                "iso":iso or "","sort":sort_key or (m.get("date","")+"~"),
+                "today":(iso==today_iso) if iso else False,
+                "home":m["home"],"away":m["away"],"ch":m.get("ch",""),"ca":m.get("ca",""),
+                "reel":[rm["sh"],rm["sa"]] if played else None,
+                "prono":[m["sh"],m["sa"]] if (not played and m.get("sh") is not None) else None,
+                "winner":rm.get("winner") if played else None,
+                "host_h":m["home"] in HOST_NATIONS,"host_a":m["away"] in HOST_NATIONS})
+
     return {
         "maj":(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(hours=2)).strftime("%d/%m/%Y à %H:%M")+" (Paris)",
         "today":datetime.date.today().isoformat(),
@@ -1010,6 +1064,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
         "stats":{"joue":len(rint),"exact":n_exact,"bon":n_bon,"rate":n_rate,"total":104,"today":n_today},
         "matches":matches,"standings":standings,"momentum":mom_list,"knockout":knockout,
         "knockout_real":knockout_real,
+        "ko_feed":ko_feed,
         "scorers":scorers_top,
         "assists":assists_top,
     }

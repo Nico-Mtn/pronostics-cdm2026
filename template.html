@@ -108,6 +108,10 @@
   .sc .tag{font-size:8px;padding:2px 8px;border-radius:20px;font-weight:700;letter-spacing:.3px;white-space:nowrap}
   .tag.exact{background:var(--winbg);color:var(--win)}.tag.bon{background:var(--drawbg);color:var(--draw)}
   .tag.rate{background:var(--ratebg);color:var(--rate)}.tag.avenir{background:var(--line2);color:var(--mut)}
+  .phase-done{background:var(--winbg);color:var(--win);border:1px solid var(--win);border-radius:12px;
+    padding:11px 14px;text-align:center;font-size:13px;margin:0 0 14px;line-height:1.4}
+  @keyframes pbpulse{0%{opacity:1}50%{opacity:.55}100%{opacity:1}}
+  .b-today{animation:pbpulse 1.8s ease-in-out infinite}
   .b-surprise{display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:3px 9px;border-radius:999px;
     font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:#fff;
     background:linear-gradient(135deg,#f59e0b,#ef4444);box-shadow:0 1px 5px rgba(239,68,68,.45);white-space:nowrap}
@@ -395,6 +399,26 @@ let activeGrp = "A";
 let oldOpen = false;
 let mode = "reel";   // "reel" = factuel uniquement · "prono" = avec projections IA
 try{ mode = localStorage.getItem("cdm_mode") || "reel"; }catch(e){}
+function koFeedCard(m){
+  var host_h=m.host_h?hostBadge():''; var host_a=m.host_a?hostBadge():'';
+  var dt='<span class="dt">'+m.date+(m.heure?' <span class="h">'+m.heure+'</span>':'')+'</span>';
+  var phase='<span class="b-grp" style="background:var(--accent)">'+m.phase+'</span>';
+  var badges=m.today ? '<span class="b-today">● Match du jour</span><div style="margin-top:5px">'+phase+'</div>' : phase;
+  var sc;
+  if(m.reel){
+    var nul=(m.reel[0]===m.reel[1]);
+    sc='<div class="sc"><div class="sc-real-lbl">Score'+(nul?' (nul)':'')+'</div><div class="score">'+m.reel[0]+' – '+m.reel[1]+'</div>'+(nul?'<div class="sc-prono">tirs au but</div>':'')+'</div>';
+  } else if(isProno() && m.prono){
+    sc='<div class="sc"><div class="sc-prono-lbl">Pronostic</div><div class="score prono">'+m.prono[0]+' – '+m.prono[1]+'</div></div>';
+  } else {
+    sc='<div class="sc"><div class="tag avenir">À venir</div></div>';
+  }
+  return '<div class="match'+(m.today?' is-today':'')+'"><div class="match-main"><div class="match-row1">'+dt
+    +'<span class="tm r"><span class="n tlink" data-team="'+m.home+'">'+m.home+'</span> '+host_h+' '+flagImg(m.ch)+'</span>'
+    + sc
+    +'<span class="tm l">'+flagImg(m.ca)+' '+host_a+' <span class="n tlink" data-team="'+m.away+'">'+m.away+'</span></span>'
+    +'</div><div class="badges">'+badges+'</div></div></div>';
+}
 function isProno(){ return mode==="prono"; }
 function applyMode(m){
   mode = m;
@@ -847,34 +871,37 @@ function render(){
 
   if(view==="feed"){
     renderGrpSel(false);
-    // tri chronologique global
-    var sorted=DATA.matches.slice().sort(function(a,b){return a.sort<b.sort?-1:(a.sort>b.sort?1:a.id-b.id);});
-    var played=sorted.filter(function(m){return m.reel;});
-    var upcoming=sorted.filter(function(m){return !m.reel;});
+    // Fusion groupes + phases finales (affiches reelles) : du jour, a venir, joues
+    var grp=DATA.matches.map(function(m){return {sort:m.sort,date:m.date,today:m.today,reel:m.reel,o:m,ko:false};});
+    var kof=(DATA.ko_feed||[]).map(function(m){return {sort:m.sort,date:m.date,today:m.today,reel:m.reel,o:m,ko:true};});
+    var all=grp.concat(kof).sort(function(a,b){return a.sort<b.sort?-1:(a.sort>b.sort?1:0);});
+    var played=all.filter(function(x){return x.reel;});
+    var upcoming=all.filter(function(x){return !x.reel;});
+    function card(x){ return x.ko?koFeedCard(x.o):matchCard(x.o); }
     var html="";
-    // dépliant Anciens matchs (en haut)
+    if(DATA.matches.filter(function(m){return m.reel;}).length>=DATA.matches.length)
+      html+='<div class="phase-done">✅ <b>Phase de groupe terminée</b> — place aux phases finales !</div>';
     if(played.length){
       html+='<div class="accordion">'
         +'<button class="acc-head'+(oldOpen?' open':'')+'" id="accbtn">'
-        +'\uD83D\uDCC1 Anciens matchs <span class="count">'+played.length+'</span>'
-        +'<span class="chev">\u25BC</span></button>'
+        +'📁 Anciens matchs <span class="count">'+played.length+'</span>'
+        +'<span class="chev">▼</span></button>'
         +'<div id="accbody" style="display:'+(oldOpen?'block':'none')+'">'
-        +'<div class="card">'+played.slice().reverse().map(matchCard).join("")+'</div></div></div>';
+        +'<div class="card">'+played.slice().reverse().map(card).join("")+'</div></div></div>';
     }
-    // matchs à venir, groupés par jour
     if(upcoming.length){
       var lastDay="";
-      upcoming.forEach(function(m){
-        if(m.date!==lastDay){
+      upcoming.forEach(function(x){
+        if(x.date!==lastDay){
           if(lastDay!=="") html+='</div>';
-          html+='<div class="feed-day">'+m.date+(m.today?' \u00b7 aujourd\'hui':'')+'</div><div class="card">';
-          lastDay=m.date;
+          html+='<div class="feed-day">'+x.date+(x.today?' · aujourd\'hui':'')+'</div><div class="card">';
+          lastDay=x.date;
         }
-        html+=matchCard(m);
+        html+=card(x);
       });
       if(lastDay!=="") html+='</div>';
     } else {
-      html+='<div class="empty">Tous les matchs de groupe ont ete joues.</div>';
+      html+='<div class="empty">Tous les matchs sont joués.</div>';
     }
     c.innerHTML=html;
     var ab=document.getElementById("accbtn");
@@ -901,6 +928,8 @@ function render(){
     html+=collapsible('assists','🎯 Meilleurs passeurs (toute la compétition)', renderAssists());
     html+=phaseTabs("standings");
     if(subPhase.standings==="finales"){ c.innerHTML=html+renderBracket(); return; }
+    if(DATA.matches.filter(function(m){return m.reel;}).length>=DATA.matches.length)
+      html+='<div class="phase-done">✅ <b>Phase de groupe terminée</b> — cap sur les <b>phases finales</b> (onglet ci-dessus).</div>';
     html+=grpButtons();
     var qualifBody='<div class="qrules" style="margin:0"><ul>'
       +'<li><span class="dot d1"></span><span>Les <b>2 premiers de chaque groupe</b> (12 groupes) sont qualifies directement pour les 1/16e de finale, soit <b>24 equipes</b>.</span></li>'

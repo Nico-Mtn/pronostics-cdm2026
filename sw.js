@@ -41,14 +41,25 @@ self.addEventListener('fetch', function(e){
    construit ici à partir de data.json (résultats réels + statut du pronostic noté). */
 function digestHier(){
   return fetch('./data.json', {cache:'no-store'}).then(function(r){ return r.json(); }).then(function(data){
-    var d=new Date(); d.setDate(d.getDate()-1);
-    var iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-    var y=(data.matches||[]).filter(function(m){ return m.reel && m.iso===iso; });
-    if(!y.length) return { title:'⚽ Pronostix', body:"Pas de match hier — place aux matchs du jour !" };
-    var scores=y.slice(0,5).map(function(m){ return m.home+' '+m.reel[0]+'-'+m.reel[1]+' '+m.away; }).join(' / ');
-    var ok=y.filter(function(m){ return m.statut==='exact'||m.statut==='bon'; }).length;
-    return { title:'⚽ Résultats du jour', body:scores+' — '+ok+'/'+y.length+' pronos réussis ✅' };
-  }).catch(function(){ return { title:'⚽ Pronostix', body:"Les résultats du jour sont disponibles." }; });
+    function isoOf(off){ var d=new Date(); d.setDate(d.getDate()+off);
+      return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+    var yiso=isoOf(-1), tiso=isoOf(0);
+    var all=(data.matches||[]).concat(data.ko_feed||[]);
+    var y=all.filter(function(m){ return m.reel && m.iso===yiso; });
+    var todays=all.filter(function(m){ return !m.reel && m.iso===tiso; });
+    var parts=[];
+    if(y.length){
+      var scores=y.slice(0,5).map(function(m){ return m.home+' '+m.reel[0]+'-'+m.reel[1]+' '+m.away; }).join(' / ');
+      var ok=y.filter(function(m){ return m.statut==='exact'||m.statut==='bon'; }).length;
+      parts.push('Hier : '+scores+(ok?' ('+ok+'/'+y.length+' pronos ✅)':''));
+    }
+    if(todays.length){
+      var tl=todays.slice(0,6).map(function(m){ return m.home+'–'+m.away+(m.heure?' '+m.heure:''); }).join(' / ');
+      parts.push('📅 Aujourd\'hui : '+tl);
+    }
+    if(!parts.length) return { title:'⚽ Pronostix', body:"Pas de match hier ni aujourd'hui — à bientôt !" };
+    return { title:'⚽ Pronostix — résultats & matchs du jour', body:parts.join('   •   ') };
+  }).catch(function(){ return { title:'⚽ Pronostix', body:"Résultats et matchs du jour disponibles." }; });
 }
 self.addEventListener('push', function(e){
   e.waitUntil(digestHier().then(function(msg){
