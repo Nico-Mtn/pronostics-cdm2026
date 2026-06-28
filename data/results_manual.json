@@ -394,5 +394,255 @@
     "101": "2026-07-14T19:00:00Z",
     "102": "2026-07-15T19:00:00Z",
     "104": "2026-07-19T19:00:00Z"
+  },
+  "ko_affiches": {
+    "73": {
+      "home": "Afrique du Sud",
+      "away": "Canada",
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "74": {
+      "home": "Brésil",
+      "away": "Japon",
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "75": {
+      "home": "Allemagne",
+      "away": "Paraguay",
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "76": {
+      "home": "Pays-Bas",
+      "away": "Maroc",
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "77": {
+      "home": "Côte d'Ivoire",
+      "away": "Norvège",
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "78": {
+      "home": "France",
+      "away": "Suède",
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "79": {
+      "home": "Mexique",
+      "away": "Équateur",
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "80": {
+      "home": "Angleterre",
+      "away": "RD Congo",
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "81": {
+      "home": "Belgique",
+      "away": "Sénégal",
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "82": {
+      "home": "États-Unis",
+      "away": "Bosnie-Herzégovine",
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "83": {
+      "home": "Espagne",
+      "away": "Autriche",
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "84": {
+      "home": "Portugal",
+      "away": "Croatie",
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "85": {
+      "home": "Suisse",
+      "away": "Algérie",
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "86": {
+      "home": "Australie",
+      "away": "Égypte",
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "87": {
+      "home": "Argentine",
+      "away": "Cap-Vert",
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "88": {
+      "home": "Colombie",
+      "away": "Ghana",
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "89": {
+      "home": null,
+      "away": null,
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "90": {
+      "home": null,
+      "away": null,
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "91": {
+      "home": null,
+      "away": null,
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "92": {
+      "home": null,
+      "away": null,
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "93": {
+      "home": null,
+      "away": null,
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "94": {
+      "home": null,
+      "away": null,
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "95": {
+      "home": null,
+      "away": null,
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "96": {
+      "home": null,
+      "away": null,
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "97": {
+      "home": null,
+      "away": null,
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "98": {
+      "home": null,
+      "away": null,
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "99": {
+      "home": null,
+      "away": null,
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "100": {
+      "home": null,
+      "away": null,
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "101": {
+      "home": null,
+      "away": null,
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "102": {
+      "home": null,
+      "away": null,
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    },
+    "104": {
+      "home": null,
+      "away": null,
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
+    }
   }
 }
