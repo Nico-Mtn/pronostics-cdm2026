@@ -312,6 +312,7 @@
   .ko-finalcell::after{content:"";position:absolute;left:100%;top:50%;width:calc(var(--g)/2 + 8px);height:2px;background:var(--line)}
   .ko-match{position:relative;width:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;
     box-shadow:var(--shadow);overflow:hidden}
+  .ko-conf{float:right;color:var(--accent2);font-weight:800;letter-spacing:0}
   .ko-mdate{font-size:8px;color:var(--mut);font-weight:700;letter-spacing:.2px;
     padding:5px 10px 4px;border-bottom:1px solid var(--line2);text-transform:uppercase;background:var(--bg2)}
   .ko-line{display:flex;align-items:center;gap:7px;padding:7px 10px;transition:background .15s}
@@ -735,7 +736,7 @@ function openStatDetail(cat){
   document.getElementById("modal-bg").onclick=function(e){if(e.target.id==="modal-bg")close();};
 }
 
-var subPhase={matches:"groupes", standings:"groupes"};
+var subPhase={matches:"finales", standings:"finales"};   // phase de groupes terminee : on ouvre les phases finales par defaut
 var dynFilter="top";
 // Sous-onglets Phase de groupes / Phases finales (communs à Matchs et Classements)
 function phaseTabs(v){
@@ -764,7 +765,8 @@ function koLine(name, code, sc, isWinner, tabFlag){
     + '<span class="ko-sc">'+(sc==null?'\u2013':sc)+tab+'</span></div>';
 }
 function koMatch(m){
-  var d = m.date ? '<div class="ko-mdate">'+m.date+(m.heure?' · '+m.heure:'')+'</div>' : '';
+  var confChip = (isProno() && m.conf) ? '<span class="ko-conf" title="Probabilité de qualification (modèle Elo + Dixon-Coles)">'+m.conf+'%</span>' : '';
+  var d = (m.date||confChip) ? '<div class="ko-mdate">'+(m.date?m.date+(m.heure?' · '+m.heure:''):'')+confChip+'</div>' : '';
   var hit = (m.hit===true)?'<span class="ko-hit ok" title="Vainqueur correctement prédit">✓ prono</span>'
           : (m.hit===false)?'<span class="ko-hit ko" title="Vainqueur non prévu">✗ prono</span>':'';
   return '<div class="ko-match'+(m.winner?' done':'')+'">'

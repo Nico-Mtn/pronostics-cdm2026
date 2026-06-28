@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Pronostics IA — Coupe du Monde 2026
-Récupère les scores réels via API-Football, calcule la dynamique (momentum)
+Récupère les scores réels via football-data.org, calcule la dynamique (momentum)
 des sélections, met à jour les pronostics des matchs à venir et génère index.html.
 
 Lancé quotidiennement par GitHub Actions. Fonctionne aussi sans clé API
@@ -20,7 +20,7 @@ WC_CODE = "WC"        # football-data.org : code compétition FIFA World Cup
 #             · 2.2 variation réaliste des scores (distribution CM 2010-2022, graine par affiche)
 #             · 2.3 ajustement dynamique conservateur : forme off/déf réelle, tendance de buts du
 #                   tournoi, pondération récence, blend force FIFA ↔ performances observées
-MODEL_VERSION = "2.3"
+MODEL_VERSION = "3.0"
 
 # ─── DONNÉES ÉQUIPES (force, tendance, style, surprise) ──────────────────────
 TEAM_DATA = {
@@ -63,6 +63,30 @@ FLAG_CODES = {
     "Norvège":"no","Argentine":"ar","Algérie":"dz","Autriche":"at","Jordanie":"jo","Portugal":"pt",
     "RD Congo":"cd","Ouzbékistan":"uz","Colombie":"co","Angleterre":"gb-eng","Croatie":"hr","Ghana":"gh","Panama":"pa",
 }
+
+
+# ─── RATINGS ELO RÉELS (Lot 1 — V3) ──────────────────────────────────────────
+# Forces de base des pronos de PHASE FINALE issues des World Football Elo Ratings
+# (eloratings.net), figées au coup d'envoi dans data/elo_snapshot.json (aucune
+# dépendance réseau à l'exécution). La phase de groupes (notée, gelée) n'est PAS
+# affectée : elle continue d'utiliser TEAM_DATA via compute().
+def load_elo():
+    try:
+        with open(os.path.join(ROOT, "data", "elo_snapshot.json"), encoding="utf-8") as fh:
+            return {k: float(v) for k, v in json.load(fh).get("elo", {}).items()}
+    except Exception as e:
+        print(f"[ELO] snapshot indisponible ({e}) — repli sur TEAM_DATA*180+1300", file=sys.stderr)
+        return {}
+ELO = load_elo()
+ELO_DEFAULT = 1700.0
+HOST_ELO_BONUS = 60.0   # avantage hôte exprimé en points Elo
+
+def team_elo(team):
+    """Elo figé d'une équipe ; repli déterministe dérivé de TEAM_DATA si absent."""
+    if team in ELO: return ELO[team]
+    base = TEAM_DATA.get(team, (6.0,))[0]
+    return 1300.0 + base * 90.0   # mappe ~3.8→1642 .. 9.1→2119 (ordre conservé)
+
 
 
 # ─── CORRESPONDANCE NOMS API (anglais) → NOMS FR ─────────────────────────────
@@ -760,14 +784,75 @@ def _resolve_ref(ref, standings, slot_team):
     if kind=="3": return slot_team.get(key)
     return None
 
-def _ko_match(home, away, momentum, form=None, tier=0):
-    if not home or not away: return {"home":home,"away":away,"sh":None,"sa":None,"winner":None,"tab":False}
-    h,a,diff=compute(home,away,momentum,None,form,ko=True,ko_tier=tier)   # phase finale : pas de facteur qualif, paniers KO
-    if h==a:
-        winner = home if diff>=0 else away; tab=True   # nul -> tirs au but, le favori passe
+# ─── MODÈLE DE BUTS DIXON-COLES (Lot 3 — V3) — pronos de PHASE FINALE ─────────
+# λ d'attaque/défense initialisés depuis l'Elo (prior fort), avantage hôte limité,
+# correction τ de Dixon-Coles sur les faibles scores (0-0,1-0,0-1,1-1). Sortie :
+# probabilités V/N/D, distribution de scores, score le plus probable, et la
+# probabilité de QUALIFICATION (issue régulière + 50 % des nuls -> tirs au but).
+_DC_RHO = -0.13   # corrélation faible-score (Dixon-Coles)
+
+def _ko_lambdas(home, away, tier=0):
+    eh = team_elo(home); ea = team_elo(away)
+    if home in HOST_NATIONS: eh += HOST_ELO_BONUS
+    if away in HOST_NATIONS: ea += HOST_ELO_BONUS
+    d = eh - ea
+    sup = max(-2.6, min(2.6, d / 200.0))          # ~200 pts Elo ≈ 1 but de suprématie (borné)
+    mu = [2.55, 2.35, 2.20][min(max(tier,0),2)]   # total de buts attendu, se resserre par tour (CM 2010-2022)
+    lam_h = max(0.16, (mu + sup) / 2.0)
+    lam_a = max(0.16, (mu - sup) / 2.0)
+    return lam_h, lam_a
+
+def _pois(k, lam):
+    return math.exp(-lam) * (lam ** k) / math.factorial(k)
+
+def _dc_tau(x, y, lh, la, rho=_DC_RHO):
+    if x == 0 and y == 0: return 1.0 - lh * la * rho
+    if x == 0 and y == 1: return 1.0 + lh * rho
+    if x == 1 and y == 0: return 1.0 + la * rho
+    if x == 1 and y == 1: return 1.0 - rho
+    return 1.0
+
+def _dc_grid(lh, la, maxg=8):
+    g = {}
+    for x in range(maxg + 1):
+        for y in range(maxg + 1):
+            g[(x, y)] = _pois(x, lh) * _pois(y, la) * _dc_tau(x, y, lh, la)
+    tot = sum(g.values()) or 1.0
+    for k in g: g[k] /= tot
+    return g
+
+def _ko_predict(home, away, tier=0):
+    """Renvoie un dict complet de prédiction KO Elo+Dixon-Coles."""
+    lh, la = _ko_lambdas(home, away, tier)
+    g = _dc_grid(lh, la)
+    pV = sum(p for (x, y), p in g.items() if x > y)
+    pN = sum(p for (x, y), p in g.items() if x == y)
+    pD = sum(p for (x, y), p in g.items() if x < y)
+    # Probabilité de QUALIFICATION (les nuls se décident aux t.a.b. ~50/50)
+    advH = pV + 0.5 * pN
+    advA = pD + 0.5 * pN
+    winner = home if advH >= advA else away
+    conf = int(round(100 * max(advH, advA)))
+    # Score affiché : le plus probable COHÉRENT avec le qualifié (décisif, sinon nul + t.a.b.)
+    if winner == home:
+        cand = {k: v for k, v in g.items() if k[0] >= k[1]}
     else:
-        winner = home if h>a else away; tab=False
-    return {"home":home,"away":away,"sh":h,"sa":a,"winner":winner,"tab":tab}
+        cand = {k: v for k, v in g.items() if k[0] <= k[1]}
+    (sx, sy) = max(cand.items(), key=lambda kv: kv[1])[0]
+    tab = (sx == sy)
+    # Distribution : top 4 scores (orientés home-away) pour l'affichage
+    dist = [{"s": [x, y], "p": int(round(p * 100))}
+            for (x, y), p in sorted(g.items(), key=lambda kv: kv[1], reverse=True)[:4]]
+    return {"home": home, "away": away, "sh": sx, "sa": sy, "winner": winner, "tab": tab,
+            "conf": conf, "proba": {"v": int(round(pV*100)), "n": int(round(pN*100)), "d": int(round(pD*100))},
+            "dist": dist, "lh": round(lh, 2), "la": round(la, 2),
+            "eh": int(round(team_elo(home))), "ea": int(round(team_elo(away)))}
+
+def _ko_match(home, away, momentum, form=None, tier=0):
+    # V3 : pronostic de phase finale piloté par l'Elo réel + Dixon-Coles
+    # (remplace l'ancien chemin compute()/paniers ; la phase de groupes n'est pas touchée).
+    if not home or not away: return {"home":home,"away":away,"sh":None,"sa":None,"winner":None,"tab":False}
+    return _ko_predict(home, away, tier)
 
 KO_NAMES={"r32":"16es de finale","r16":"8es de finale","qf":"Quarts de finale","sf":"Demi-finales","final":"Finale"}
 
@@ -888,7 +973,8 @@ def build_knockout(standings, momentum, datetimes=None, form=None, ko_fixtures=N
             # justesse du prono KO (cote Prono uniquement) : vainqueur predit vs vainqueur reel
             pred=_ko_match(home,away,momentum,form,tier)
             res={"home":home,"away":away,"sh":sh,"sa":sa,"winner":winner,"tab":tab,
-                 "hit":(pred.get("winner")==winner) if winner else None}
+                 "hit":(pred.get("winner")==winner) if winner else None,
+                 "conf":pred.get("conf"),"proba":pred.get("proba"),"pred_winner":pred.get("winner")}
         else:
             # affiche reelle (ou reconstruite) mais match a venir : on PREDIT le score
             res=_ko_match(home,away,momentum,form,tier)
