@@ -1,4 +1,12 @@
 # -*- coding: utf-8 -*-
+# ============================================================================
+#  Pronostix — Pronostics IA Coupe du Monde 2026
+#  Auteur / Author : Nico-Mtn — https://github.com/Nico-Mtn
+#  Projet gratuit, sans publicité, sans paris.
+#  Réutilisation libre : un CRÉDIT au créateur (Nico-Mtn) serait grandement
+#  apprécié. / If you reuse this model or code, a credit to the creator
+#  (Nico-Mtn) would be greatly appreciated.
+# ============================================================================
 """
 Pronostics IA — Coupe du Monde 2026
 Récupère les scores réels via football-data.org, calcule la dynamique (momentum)

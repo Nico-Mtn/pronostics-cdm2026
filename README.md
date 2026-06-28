@@ -1,183 +1,81 @@
-# ⚽ Pronostix — Pronostics IA, Coupe du Monde 2026
+# Pronostix — Pronostics IA · Coupe du Monde 2026 ⚽🤖
 
-Page web **gratuite, partageable et auto-actualisée chaque jour** : pronostics IA de la Coupe du Monde 2026, mis à jour avec les vrais scores récupérés via football-data.org. La dynamique (momentum) de chaque sélection est recalculée à partir des résultats réels et réinjectée dans les pronostics des matchs à venir.
+> **Auteur : Nico-Mtn** — https://github.com/Nico-Mtn
+> Application web **gratuite, sans publicité, sans paris**, qui pronostique les matchs de
+> la Coupe du Monde 2026 et se met à jour automatiquement au fil des résultats réels.
+> 🟢 **Réutilisation libre — un crédit au créateur (Nico-Mtn) serait grandement apprécié.**
 
-**Le tout tourne tout seul, gratuitement, via GitHub Actions + GitHub Pages.**
+Démo : https://nico-mtn.github.io/pronostics-cdm2026/
 
 ---
 
-## 🚀 Mise en place (≈ 10 minutes, une seule fois)
+## Ce que fait Pronostix
 
-### 1. Créer le dépôt
-- Crée un nouveau dépôt GitHub (public, c'est requis pour GitHub Pages gratuit).
-- Téléverse tous ces fichiers en respectant l'arborescence :
+- **Deux modes** : *Réel* (résultats et qualifiés factuels) et *Prono de Nono* (projections IA).
+- **Phase de groupes** : prono par match, indice de confiance, dynamique, classements, buteurs & passeurs.
+- **Phases finales** : tableau **format FIFA** (finale au centre), projections de parcours,
+  indice de confiance par match, **2ᵉ scénario** quand la confiance < 65 %, champion projeté, partage.
+- **PWA** installable, hors-ligne, **notification matinale** (récap de la veille + matchs du jour).
+- **Auto-update** : un cron (Cloudflare) déclenche le workflow GitHub toutes les 25 min.
+
+## Le modèle de prédiction (v3.5)
+
+Le moteur est documenté en détail dans [`MODELE.md`](MODELE.md). En résumé :
+
+| Brique | Rôle |
+|---|---|
+| **Elo réel** (`data/elo_snapshot.json`) | Force de base des équipes (eloratings.net, figé au coup d'envoi) |
+| **Elo + forme LIVE** | Recalculés à chaque run depuis les vrais résultats → le modèle s'affûte dans le temps |
+| **Dixon-Coles** | Modèle de buts (λ depuis l'Elo, correction faible-score) → probas V/N/D, scores |
+| **Forme** (`data/team_form.json`) | Attaque/défense récente (~50 matchs) |
+| **Confrontations directes** (`data/h2h.json`) | Tendances des duels |
+| **Style tactique** | Confrontation (contre/possession…) + ouverture du match |
+| **Momentum + prestige** | Récence pondérée, exploit récent valorisé |
+| **Expérience des grands matchs** | Pèse dans les tours décisifs |
+| **Surprise calibrée** | Le qualifié principal est toujours le plus probable ; la surprise reste prévisible |
+| **Calibration apprise** (`data/calibration.json`) | Paramètres auto-ajustés par `learn.py` |
+
+**Fiabilité** : phase de groupes mesurée à **62,5 %** ; cible réaliste **73-76 %** sur l'issue
+1/N/2 (plafond du sport ~75-78 %). Le score exact n'est pas l'objectif — c'est la **direction**.
+
+## Apprentissage continu
+
+Le modèle **apprend au fil du temps** : à chaque exécution, l'Elo et la forme intègrent les
+résultats réels. La boucle d'**auto-calibration** affine les paramètres :
 
 ```
-.
-├── update.py                      moteur : fetch scores + pronostics + génération
-├── template.html                  gabarit de la SPA (modes, PWA, push)
-├── index.html                     page générée (publiée sur Pages)
-├── data.json                      payload complet généré (lu par le service worker)
-├── manifest.webmanifest           manifeste PWA
-├── sw.js                          service worker (offline + notifications push)
-├── logo.png · icon-192.png · icon-512.png · apple-touch-icon.png
-├── data/
-│   └── results_manual.json        filet de sécurité / historique des scores
-├── notify/                        infra notifications (Cloudflare + envoi)
-│   ├── worker.js                  Worker : abonnements push + Cron Triggers
-│   ├── send.mjs                   envoi des push (web-push)
-│   ├── notify.yml                 → à placer dans .github/workflows/
-│   └── wrangler.toml
-├── .github/
-│   └── workflows/
-│       ├── update.yml             mise à jour + déploiement Pages
-│       └── notify.yml             notification matinale
-├── NOTIFICATIONS.md               guide de mise en place des notifications
-├── SECURITY.md                    politique de signalement de vulnérabilité
-└── README.md
+python3 learn.py        # ajuste data/calibration.json (validation croisée anti-surapprentissage)
 ```
 
-### 2. Obtenir une clé football-data.org (gratuit)
-- Crée un compte sur **https://www.football-data.org/** (offre **Free**, valable « Forever »).
-- La compétition **`WC` | FIFA World Cup est incluse dans le plan gratuit**.
-- Récupère ta clé (token) dans ton compte.
-- Test rapide (remplace TA_CLE) :
-  `curl -H "X-Auth-Token: TA_CLE" https://api.football-data.org/v4/competitions/WC/matches`
+> Le **prono noté est figé** (on ne réécrit jamais le passé). L'apprentissage sert aux **futurs**
+> pronos (phases finales en cours, phases de groupes des prochaines éditions).
 
-### 3. Enregistrer la clé comme secret GitHub
-- Dépôt → **Settings → Secrets and variables → Actions → New repository secret**
-- Nom : `FOOTBALLDATA_KEY`
-- Valeur : ton token football-data.org
-- ⚠️ Ne mets **jamais** la clé en clair dans le code.
+## Scripts (offline, hors `update.py`)
 
-### 4. Activer GitHub Pages
-- Dépôt → **Settings → Pages**
-- Source : **GitHub Actions**
+| Script | Rôle |
+|---|---|
+| `backtest.py` | Mesure la fiabilité (direction, Brier, log-loss) + analyse d'erreurs, CdM 2010-2022 |
+| `build_stats.py` | Régénère `team_form.json` / `h2h.json` + calibration des buts depuis le dataset CC0 |
+| `learn.py` | Boucle d'auto-calibration → `data/calibration.json` |
+| `benchmark_versions.py` | Compare la fiabilité des versions du modèle (2.3 → 3.5) |
 
-### 5. Lancer une première fois
-- Onglet **Actions** → workflow « Mise à jour quotidienne des pronostics » → **Run workflow**.
-- Une fois terminé, ta page est en ligne à :
-  `https://TON-PSEUDO.github.io/NOM-DU-DEPOT/`
+## Architecture
 
-C'est cette **URL que tu partages**. Elle se met à jour toute seule.
+- Site **statique** (GitHub Pages). `update.py` (sans dépendance) génère `index.html` depuis
+  `template.html` + les données.
+- Données : **football-data.org** (scores, buteurs, affiches KO) ; repli `data/results_manual.json`.
+- Notifications & cron : **Cloudflare Worker** → workflows GitHub Actions.
 
----
+## Sources de données
 
-## 🔄 Fonctionnement automatique
+- World Football Elo Ratings — eloratings.net
+- Dataset CC0 « International football results 1872→présent » (martj42) — backtest & stats
+- football-data.org — résultats live
 
-**Toutes les 2 heures**, le pipeline :
-  1. interroge football-data.org pour les matchs **terminés** (statut FINISHED) ;
-  2. mappe les noms d'équipes (anglais → français) et réoriente les scores ;
-  3. calcule la **dynamique** de chaque sélection ;
-  4. recalcule les pronostics des matchs **à venir** ;
-  5. régénère `index.html` + `data.json` et les publie sur GitHub Pages.
+## Licence & crédit
 
-Tu n'as **rien à faire**. Déclenchement manuel possible via **Actions → Run workflow**.
+Projet personnel de **Nico-Mtn**, sans but lucratif, **sans publicité ni paris**.
+Vous pouvez vous en inspirer ou le réutiliser : **merci de créditer le créateur, Nico-Mtn**
+(https://github.com/Nico-Mtn). Un simple lien suffit et fait toujours plaisir. 🙏
 
-### Qui déclenche quoi ? (architecture)
-
-Le **cron natif de GitHub Actions n'est pas fiable** : les exécutions planifiées
-sont « best-effort » et régulièrement ignorées la nuit. Pour garantir des mises à
-jour et des notifications **à l'heure**, c'est un **Cloudflare Worker** (dont les
-Cron Triggers sont fiables) qui pilote les workflows GitHub via l'API
-(`workflow_dispatch`) :
-
-| Cron Cloudflare (UTC) | Action | Workflow GitHub appelé |
-|---|---|---|
-| `0 */2 * * *` | Mise à jour de la page | `update.yml` |
-| `5 6 * * *` (08h05 Paris l'été) | Notification matinale | `notify.yml` |
-
-Le Worker utilise un **token GitHub fine-grained** (secret Cloudflare `GH_TOKEN`,
-permission *Actions: read/write* sur ce dépôt uniquement). Les workflows GitHub
-n'ont donc **plus de `schedule`** : seulement `workflow_dispatch` (Cloudflare + manuel).
-
-> ⚠️ **Pas de trigger `push`** sur `update.yml` : le job committe lui-même
-> `index.html` (dont l'horodatage change à chaque run), donc un déclenchement sur
-> `push` relancerait le workflow en boucle. Les commits du bot portent `[skip ci]`.
-
----
-
-## 🛟 Mode repli (sans API)
-
-Si la clé API est absente, le quota épuisé ou la compétition indisponible, le script lit `data/results_manual.json`.
-Tu peux y saisir/corriger des scores à la main :
-
-```json
-{
-  "derniere_maj": "2026-06-12",
-  "resultats": {
-    "1": { "h": 2, "a": 0 },
-    "2": { "h": 2, "a": 1 }
-  }
-}
-```
-
-La clé est le **numéro du match** (id de 1 à 72, ordre des matchs de groupe), `h` = buts équipe 1, `a` = buts équipe 2. Les résultats récupérés via l'API sont aussi sauvegardés ici automatiquement (historique + filet de sécurité).
-
----
-
-## 🧠 Le moteur de pronostics
-
-Chaque pronostic combine : **force FIFA**, **tendance de forme** (15 derniers matchs), **clash tactique** (bloc bas vs pressing, contre vs possession), **léger avantage pays-hôte** (USA/Canada/Mexique — terrain neutre partout ailleurs) et un **facteur surprise** pour les dark horses.
-
-Chaque match affiche :
-- un **indice de confiance en %** (issu de l'écart de force via une courbe logistique : ~50 % = issue ouverte, 90 %+ = favori net) ;
-- l'**analyse de style** (ex. « Contre-attaque vs Possession ») avec une note tactique.
-
-**Dynamique (momentum)** : à partir des vrais résultats, chaque équipe gagne ou perd de la « forme » (victoire +0,30 / défaite −0,30, bonus d'écart de buts, effet exploit/contre-performance, plafonné à ±1,2). Cette forme ajustée recalcule les pronostics des matchs suivants.
-
-**Notation** : le pronostic noté est celui du **modèle initial** (pré-tournoi). ✓ score exact · ~ bon résultat · ✗ raté.
-
-## 🎨 Interface (page web)
-
-- **Mode clair par défaut**, bouton 🌙/☀️ pour basculer en **mode sombre** (préférence mémorisée).
-- **Logo** de l'événement, **drapeaux en images** (via flagcdn.com — gère correctement Écosse et Angleterre).
-- Badge **🏟️ pays-hôte** sur les nations organisatrices.
-- 4 vues : Live feed, Matchs (confiance + style + **phases finales en bracket arborescent**), Classements (avec **top buteurs**), Dynamique.
-- **Fiche équipe** : un clic sur n'importe quel nom d'équipe ouvre son parcours (matchs joués + à venir, dynamique, projection en phase finale).
-- **Top buteurs** : classement des 5 meilleurs buteurs réels (et passes décisives), récupéré via football-data.org, dans l'onglet Classements.
-- **Bracket arborescent** : tableau final en branches avec connecteurs, défilement horizontal, vainqueur projeté en tête.
-
----
-
-## 🔀 Deux modes : Réel & Prono de Nono
-
-Un sélecteur global bascule l'ensemble du site entre :
-
-- **Réel** (par défaut) : uniquement les faits — scores réels, classements réels,
-  bracket des qualifiés provisoires. Aucun pronostic affiché.
-- **Prono de Nono** : les pronostics du modèle (confiance, style, scores prédits,
-  projection du tableau final).
-
-## 📱 Application mobile (PWA) & notifications
-
-Le site est une **PWA** : sur mobile, il peut être **installé sur l'écran d'accueil**
-(« Ajouter à l'écran d'accueil ») et fonctionne **hors-ligne** (mise en cache des
-dernières données via un *service worker*).
-
-Les visiteurs sur mobile peuvent **activer une notification matinale** (08h05 Paris) :
-elle résume les **résultats de la veille** et la **justesse des pronostics** de
-Pronostix. L'abonnement est anonyme et désactivable à tout moment.
-
-> Détails d'implémentation : voir [`NOTIFICATIONS.md`](./NOTIFICATIONS.md).
-
----
-
-## ⚙️ Personnalisation
-
-- **Forces des équipes** : dict `TEAM_DATA` dans `update.py`.
-- **Apparence** : variables CSS `:root` en haut de `template.html`.
-- **Fréquence des mises à jour / heure de notification** : **Cron Triggers** du
-  Worker Cloudflare (`pronobot-push`), section *Settings → Trigger events*.
-
----
-
-## 📋 Limites à connaître
-
-- L'offre gratuite football-data.org limite le débit (environ 10 requêtes/minute) ; une mise à jour quotidienne reste très largement dans les clous. La Coupe du Monde (WC) est incluse dans le plan gratuit.
-- GitHub Pages nécessite un dépôt **public** pour l'offre gratuite.
-- Seule la **phase de groupes** (72 matchs) est pronostiquée ; les matchs à élimination dépendent des qualifiés.
-
----
-
-*Scores réels : football-data.org. Pronostics : modèle maison. Hébergement & automatisation : GitHub (gratuit).*
+🤖 Conçu et itéré avec l'assistance de Claude (Cowork), relu et validé par Nico-Mtn.

@@ -1,157 +1,94 @@
-# Pronostix — Fonctionnement du modèle de prédiction des matchs
+# Pronostix — Modèle de prédiction (v3.5)
 
-> Document technique destiné à étudier la faisabilité d'évolutions du moteur.
-> Code de référence : `update.py` (Python, sans dépendance externe). Version actuelle : **MODEL_VERSION = 2.3**.
-> Site statique : GitHub Pages ; régénération toutes les 25 min via un Cloudflare Worker qui
-> déclenche le workflow GitHub (`workflow_dispatch`). Données : **football-data.org** (offre gratuite).
-
----
-
-## 1. Vue d'ensemble
-
-Pour chaque match, le moteur calcule une **force** par équipe, en dérive un **écart de force** `diff = forceDom − forceExt`, puis en tire :
-- l'**issue** (victoire dom / nul / victoire ext) selon le signe de `diff` ;
-- un **indice de confiance** (%) via une courbe logistique sur `|diff|` ;
-- un **score exact** tiré d'un panier de scores réalistes (déterministe par affiche), puis légèrement ajusté par la forme observée.
-
-Deux jeux de pronostics coexistent :
-- **`prono_initial`** : calculé **sans aucune donnée dynamique** (`compute(home, away, None)`) → c'est le prono **figé pré-tournoi**, celui qui est **noté** (✓ exact / ~ bon résultat / ✗ raté).
-- **prono affiché** (matchs à venir) : `compute(home, away, momentum, qualif, form)` → intègre toute la dynamique et **évolue** au fil de la compétition.
-
-Cette séparation garantit que les améliorations dynamiques **ne faussent jamais la notation**.
+> **Auteur : Nico-Mtn** — https://github.com/Nico-Mtn
+> Document de référence du moteur de pronostics. Projet gratuit, sans pub, sans paris.
+> 🟢 **Réutilisation libre — un crédit au créateur (Nico-Mtn) serait grandement apprécié.**
 
 ---
 
-## 2. Données & pipeline
+## 0. Principes
 
-- `fetch_from_api()` : récupère via `GET /v4/competitions/WC/matches` les **scores** (matchs FINISHED), les **horaires** officiels, et les **affiches réelles de phase finale** (équipes + scores + vainqueur, par `stage`, mappées aux identifiants 73–104). `fetch_scorers()` : `GET /scorers?limit=50` → buteurs + passeurs.
-- Repli : si l'API est indisponible, lecture de `data/results_manual.json` (résultats, horaires et `ko_affiches` mémorisés).
-- `build_payload()` : assemble tout dans un dictionnaire sérialisé en JSON et **injecté dans `index.html`** (placeholder `/*__DATA__*/`). Le front (`template.html`) ne fait que **lire `DATA`** ; aucun calcul de prono côté client.
-- Sorties clés de `DATA` : `matches` (72 matchs de groupe), `standings`, `momentum`, `knockout` (projection Prono), `knockout_real` (réel), `ko_feed` (matchs KO pour le live feed), `scorers`, `assists`, `stats`.
+- Métrique visée : **fiabilité directionnelle** = (exact + bon) / joués sur l'issue 1/N/2.
+- **Prono noté FIGÉ** : le prono de référence d'un match de poule = `compute(home, away, None)`,
+  calculé pré-tournoi, jamais réécrit. Les évolutions ci-dessous ne modifient **pas** les grades passés.
+- **Déterministe / reproductible** : aucune dépendance réseau à l'exécution ; tout dérive de
+  snapshots committés + des vrais résultats.
+- Distinction **phase de groupes** (un nul est une issue) vs **phases finales** (il y a toujours
+  un vainqueur : prolongation / tirs au but).
 
----
+## 1. Phase de groupes (moteur historique, inchangé depuis la 2.3)
 
-## 3. Calcul de la force — `compute(home, away, momentum, qualif, dyn, ko, ko_tier)`
+`compute()` : force de base `TEAM_DATA` + tendance + momentum observé + facteur qualification
+(3ᵉ match) + avantage hôte + clash de styles + blend force↔niveau réel observé. Le score est
+tiré d'un panier réaliste calé sur les CdM 2010-2022 (graine stable par affiche).
+Fiabilité mesurée : **62,5 %** (4 exacts / 41 bons / 27 ratés sur 72 matchs).
 
-Force d'une équipe = somme des composantes :
+## 2. Phases finales (V3 — refonte Elo + Dixon-Coles)
 
-| Composante | Détail | Valeur |
-|---|---|---|
-| **Force FIFA de base** | `TEAM_DATA[équipe] = (force, tendance, style, outsider)`. `force` ≈ échelle 3.8–9.1 (saisie manuelle). | ex. Argentine 9.1, Curaçao 3.8 |
-| **Tendance statique** | `tendance ∈ {up, down, stable}` | +0.4 / −0.4 / 0 |
-| **Momentum (dynamique)** | forme réelle réinjectée (voir §6) | plafonné ±1.2 |
-| **Avantage pays-hôte** | USA / Canada / Mexique | +0.25 |
-| **Facteur qualification** (3e match de poule) | équipe déjà qualifiée (turnover) / en survie / éliminée | −0.35 / +0.20 / −0.25 |
-| **Clash de style** | bonus selon l'opposition tactique (voir §7) | de −0.3 à +0.4 |
-| **Blend FIFA ↔ réel** (v2.3) | niveau réel observé (voir §5) | plafonné ±0.35 |
+### 2.1 Ratings Elo réels (Lot 1)
+Force de base = **World Football Elo** figé dans `data/elo_snapshot.json` (daté du coup d'envoi).
+Avantage hôte = +60 pts Elo. Repli déterministe dérivé de `TEAM_DATA` si une équipe manque.
 
-`diff = forceDom − forceExt` → passé à la confiance et à la génération de score.
+### 2.2 Elo + forme LIVE (dynamique — v3.2)
+À chaque run, on **rejoue chronologiquement tous les vrais résultats** du tournoi (groupes + KO
+joués) pour mettre à jour l'Elo (poids tournoi + marge de victoire) et la forme (buts réels
+blendés). Le modèle **s'affûte donc dans le temps**, sans réécrire le passé noté.
 
----
+### 2.3 Modèle de buts Dixon-Coles (Lot 3)
+`λ_dom / λ_ext` dérivés de l'écart Elo (suprématie bornée) et d'un **total de buts calibré**
+(`ko_mu` par tour, ~2,5-2,9). Correction τ de Dixon-Coles sur les faibles scores. Sortie :
+**P(V) / P(N) / P(D)**, distribution, score le plus probable.
 
-## 4. Génération du score — `_score_from_diff(diff, ..., ko, ko_tier)`
+### 2.4 Surcouches
+- **Forme** (`team_form.json`) : prolificité attaque × faille défensive adverse.
+- **H2H** (`h2h.json`) : nudge léger suprématie + total selon le bilan des duels.
+- **Style** : confrontation tactique (`style_bonus`) + ouverture du match (`STYLE_OPEN`).
+- **Momentum + prestige** : performance récente pondérée ; une **victoire de prestige** récente
+  (battre un mieux classé) est amplifiée. Borné ±~40 pts Elo.
+- **Expérience des grands matchs** : nudge croissant avec l'enjeu du tour (R32 → finale).
 
-- Le score est tiré d'un **panier** `(buts_favori, buts_adverse)` choisi selon `|diff|`, via une **graine déterministe par affiche** (`seed = Σ ord(c)` sur `home|away`) → diversité réaliste **reproductible**.
-- **Phase de groupes** : paniers calés sur la distribution des CM 2010-2022 (1-0, 2-1, 2-0, 3-1, 0-0…).
-- **Phase finale** (`ko=True`) : paniers **plus bas et plus serrés**, **resserrés par tour** via `ko_tier` (0 = 16es/8es, 1 = quarts/demies, 2 = finale). Calibré sur l'étude des 4 dernières CM (les KO sont plus fermés ; le 1-0 domine ; finale ≈ 1 but). Conséquence : davantage de nuls → tirs au but (le favori passe).
-- Orientation finale du score selon le signe de `diff`. Léger resserrement « outsider » sur match serré.
+### 2.5 Issue, qualifié, score affiché
+- Qualification : `advH = P(V) + ½·P(N)`, `advA = P(D) + ½·P(N)` (les nuls se décident aux t.a.b.).
+- **Qualifié principal = toujours le plus probable** (plus haute confiance). Pas de tirage
+  aléatoire : une « surprise » n'apparaît que si les signaux du modèle (forme, momentum, style,
+  H2H, expérience) la **justifient** — une surprise *prévisible*.
+- **2ᵉ scénario** affiché quand la confiance < 65 % (qualifié alternatif + score + probabilité).
+- Score décisif pour le qualifié ; **nul + t.a.b. réservé aux vrais 50/50** (`ko_coinflip`).
+- **Justesse (✓/✗ prono)** mesurée sur le favori mathématique, côté Prono uniquement.
 
----
+## 3. Calibration apprise (`data/calibration.json`)
 
-## 5. Ajustement dynamique & forme observée
+Paramètres auto-ajustés par `learn.py` : `ko_sup_div`, `ko_mu`, `ko_coinflip`, poids d'expérience,
+`group_draw_band` (bande de nul pour les matchs de poule **à venir**). `update.py` lit ce fichier ;
+défauts = comportement actuel. La bande de nul ne s'applique **jamais** aux matchs déjà joués.
 
-`compute_form(results)` calcule, à partir des vrais résultats de groupe :
-- `off[équipe]` = buts marqués / match ; `def_[équipe]` = buts encaissés / match ;
-- `level[équipe]` = `clamp(((pts/n − 1.0)·0.20 + (diffButs/n)·0.10), ±0.35) · min(1, n/2)` → **blend FIFA ↔ niveau réel** (monte en confiance après 2 matchs) ;
-- `tg` = buts moyens / match du **tournoi** (tendance de scoring) ;
-- `styles[équipe]` = **tactique observée** déduite des buts (voir §7).
+## 4. Apprentissage continu
 
-`_adjust_goals(...)` (appliqué aux matchs à venir, ≥ 4 matchs joués) ajuste le score d'**au plus 1 but**, en **préservant le vainqueur**, selon :
-- l'attaque/défense observée des deux équipes : `buts_attendus = 0.6·1.2 + 0.2·off(soi) + 0.2·def_(adverse)` ;
-- l'**environnement de scoring** du tournoi : `env = clamp(tg/2.4, 0.85..1.15)`.
+`learn.py` ajuste les paramètres depuis les résultats accumulés avec **validation croisée**
+(leave-one-group-out) pour éviter le sur-apprentissage. Exemple mesuré : la bande de nul calibrée
+ferait passer la fiabilité des poules de 62,5 % à ~66,7 % (à valider hors-échantillon).
+Cible réaliste globale : **73-76 %** ; plafond du sport ~75-78 % (l'aléa et les nuls serrés sont
+en grande partie irréductibles).
 
----
+## 5. Données & fichiers
 
-## 6. Momentum — `compute_momentum(results)` (pondération récence)
+| Fichier | Contenu |
+|---|---|
+| `data/elo_snapshot.json` | Elo figé par équipe |
+| `data/team_form.json` | Forme attaque/défense (~50 matchs) |
+| `data/h2h.json` | Bilans des confrontations directes |
+| `data/calibration.json` | Paramètres apprenables |
+| `data/results_manual.json` | Repli résultats + affiches KO |
+| `update.py` | Moteur + génération de `index.html` |
+| `learn.py` / `backtest.py` / `build_stats.py` / `benchmark_versions.py` | Outils offline |
 
-Pour chaque match joué : Victoire **+0.30** / Défaite **−0.30** / Nul 0, + bonus d'écart `marge·0.07`, + effet exploit/contre-perf `écartForce·0.10` (0.05 pour un nul). Les matchs d'une équipe sont **pondérés par récence** (rampe douce 0.85 → 1.15, le dernier match pèse plus). Somme **plafonnée ±1.2**.
+## 6. Historique des versions
 
----
-
-## 7. Style / tactiques — `style_bonus(s1, s2)` + tactiques observées
-
-Bonus de clash tactique (styles ∈ bloc_bas, pressing, contre, possession) :
-`bloc_bas vs pressing → (+0.3, −0.3)` ; `contre vs possession → (+0.4, −0.2)` ; `pressing vs bloc_bas → (−0.2, +0.1)` ; `possession vs contre → (−0.2, +0.3)`.
-
-**v2.3 — tactiques OBSERVÉES** : si une équipe a ≥ 2 matchs, son style est **redéduit de son jeu réel** (proxy buts marqués/encaissés) et **prime** sur le style théorique pour le clash :
-- gf<1.1 & ga<1.0 → `bloc_bas` ; gf≥1.7 & ga≤1.0 → `possession` ; gf≥1.6 & ga≥1.3 → `pressing` ; gf≤1.2 & ga≥1.4 → `contre`.
-
-> Limite : pas de données de formation/possession/xG en gratuit → c'est un **proxy** basé sur les buts.
-
----
-
-## 8. Indice de confiance — `confidence_pct(diff)`
-
-`p = 1/(1+e^(−1.35·|diff|))` ; `pct = 38 + (p−0.5)/0.5·56` ; `pct −= 3` ; borné **[28, 92]**. Moyenne cible ~75 %, plancher ~30 % pour les matchs indécis.
-
----
-
-## 9. Badge « Surprise »
-
-Un match porte `surprise = True` si : match joué, **confiance > 85 %** sur le vainqueur prédit, mais ce favori **ne gagne pas** (défaite **ou** nul). Calculé sur `prono_initial` (figé) → indépendant de la dynamique.
-
----
-
-## 10. Phase finale — brackets
-
-- **Affiches réelles** : dès que l'API publie le tirage, `ko_fixtures` fournit les vraies équipes/scores/vainqueurs ; les brackets les utilisent (repli sur reconstruction `_resolve_ref` tant qu'inconnues). Identifiants 73–104 alignés sur la numérotation officielle FIFA.
-- **`knockout` (Prono)** : vraies affiches + **score prédit** pour les matchs à venir ; **vrai score** pour les matchs joués ; propagation du vainqueur ; `champion` projeté. Chaque match joué porte `hit` = (vainqueur prédit == vainqueur réel) → badge ✓/✗ **côté Prono uniquement**.
-- **`knockout_real` (Réel)** : vraies affiches + vrais scores (sans prédiction).
-- Score KO généré avec `ko=True` + `ko_tier` croissant (voir §4).
+2.3 base · 3.0 Elo + Dixon-Coles · 3.1 forme/H2H/calibration buts · 3.2 Elo & forme LIVE ·
+3.3 style tactique · 3.4 momentum + expérience + surprise calibrée + 2ᵉ scénario ·
+**3.5 calibration apprise + qualifié = plus haute confiance + KO sans nuls superflus.**
 
 ---
 
-## 11. Constantes principales (où régler le modèle)
-
-- `TEAM_DATA` (force/tendance/style/outsider par équipe) — `update.py`.
-- `HOST_BONUS = 0.25`, `HOST_NATIONS`.
-- Momentum : ±0.30, marge·0.07, exploit·0.10, cap ±1.2, récence 0.85→1.15.
-- Qualification : −0.35 / +0.20 / −0.25.
-- `style_bonus` (matrice).
-- Confiance : pente 1.35, remappe 38→94, abattement −3, bornes 28/92.
-- `level` (blend) : 0.20 / 0.10, cap ±0.35.
-- `_adjust_goals` : poids 0.6/0.2/0.2, `env` ±15 %, seuil n≥4, ±1 but.
-- Paniers de score (groupe & KO par tier) dans `_score_from_diff`.
-
----
-
-## 12. Limites connues
-
-- **Pas de modèle de buts probabiliste** : le score vient d'un panier + graine (pas de probabilités 1/N/2 ni distribution).
-- **Pas de probabilités de parcours** : la projection du bracket est déterministe (le favori passe).
-- **Forces de base manuelles & statiques** (`TEAM_DATA`).
-- **Confiance calibrée à la main** (non backtestée).
-- **Pas d'xG, ni blessures/suspensions, ni cotes** (indisponibles en gratuit). Le « style » est un proxy de buts.
-- **Notation limitée** à la phase de groupes.
-
----
-
-## 13. Pistes d'évolution à étudier (faisabilité)
-
-1. **Modèle de Poisson bivarié / Dixon-Coles** : ratings d'attaque/défense par équipe (initialisés depuis `TEAM_DATA`, mis à jour sur résultats réels), avantage terrain, correction faible-score → **probabilités** V/N/D, score le plus probable, distribution. Remplacerait les paniers + la courbe de confiance ad hoc.
-2. **Simulation Monte-Carlo** (~10 000 tirages) sur le bracket → **% de qualification / finale / titre** par équipe.
-3. **Initialisation par Elo** (ex. World Football Elo) au lieu d'une force manuelle.
-4. **Backtest hors-ligne** sur CM passées : **Brier score**, log-loss, courbe de calibration → réglage objectif des hyperparamètres.
-5. **Intégration de données contextuelles** si une source (même payante) devient disponible : xG, repos/voyage, absences.
-
-Contraintes à respecter pour toute évolution : rester **gratuit, sans paris, sans pub** ; conserver la **compatibilité GitHub Pages/Actions** ; **ne pas casser le format de `data.json`** (ajouter des champs, n'en retirer aucun) ; garder la distinction **prono noté figé vs prono affiché dynamique** ; rester **déterministe/reproductible** d'un run à l'autre.
-
----
-
-## 14. Fichiers
-
-- `update.py` — moteur (tout ce qui précède) + génération de `index.html` et `data.json`.
-- `template.html` — front (lecture de `DATA`, rendu, PWA, push, bracket).
-- `data/results_manual.json` — filet de secours (résultats, horaires, `ko_affiches`).
-- `sw.js` — service worker (offline + notification matinale).
-- `.github/workflows/update.yml` — régénération + déploiement Pages (déclenché par le Cron Trigger Cloudflare).
+🤖 Conçu et itéré avec l'assistance de Claude (Cowork), relu et validé par **Nico-Mtn**.
+Réutilisation : **merci de créditer le créateur, Nico-Mtn** (https://github.com/Nico-Mtn). 🙏

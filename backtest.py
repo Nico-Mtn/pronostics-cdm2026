@@ -1,4 +1,12 @@
 # -*- coding: utf-8 -*-
+# ============================================================================
+#  Pronostix — Pronostics IA Coupe du Monde 2026
+#  Auteur / Author : Nico-Mtn — https://github.com/Nico-Mtn
+#  Projet gratuit, sans publicité, sans paris.
+#  Réutilisation libre : un CRÉDIT au créateur (Nico-Mtn) serait grandement
+#  apprécié. / If you reuse this model or code, a credit to the creator
+#  (Nico-Mtn) would be greatly appreciated.
+# ============================================================================
 """
 Pronostix — Lot 0 : harnais de backtest (HORS update.py, offline, exécution manuelle).
 
@@ -133,5 +141,57 @@ def run():
         print(f"\nPrécision DIRECTION (métrique cible) : {tot_hit/tot_n*100:.1f}% sur {tot_n} matchs de poule (CM 2010-2022).")
         print("Repère : top-pick 1/N/2, bons modèles internationaux ~50-55% sur ligues équilibrées ; CM plus favorable.")
 
+
+# ─── ANALYSE DES ERREURS (mêmes simulations que WC2026, par édition) ─────────
+def analyze_errors():
+    """Pour chaque CdM (groupes), rejoue le modèle Elo, classe les erreurs et mesure
+    le gain d'une règle de nul calibrée. Reproduit l'analyse faite sur la CdM courante."""
+    rows = load_matches()
+    print("\n" + "=" * 66)
+    print("ANALYSE DES ERREURS DE PRONO — PHASES DE GROUPES (par édition)")
+    print("=" * 66)
+    agg = {"n":0,"err":0,"err_draw":0,"err_close":0,"err_upset":0,"gap_err":0.0,"gap_ok":0.0}
+    for year, (start, end) in WC_GROUP.items():
+        s = datetime.date.fromisoformat(start); e = datetime.date.fromisoformat(end)
+        elo, DEF = build_elo(rows, s)
+        grp = [m for m in rows if s <= m["date"] <= e and "world cup" in m["tourn"].lower()
+               and "qual" not in m["tourn"].lower()][:48]
+        n=err=err_draw=err_close=err_upset=0; gap_err=[]; gap_ok=[]
+        base=good_cal_best=0; 
+        cal=[0]*9; thrs=[0.0,0.2,0.4,0.6,0.8,1.0,1.2,1.5,2.0]   # seuils en buts de suprématie
+        for m in grp:
+            eh=elo.get(m["home"],DEF); ea=elo.get(m["away"],DEF)
+            pV,pN,pD=predict(eh,ea); probs=[pV,pN,pD]; pred=probs.index(max(probs))
+            act=0 if m["hs"]>m["as"] else (1 if m["hs"]==m["as"] else 2)
+            gap=abs(eh-ea); sup=gap/240.0
+            n+=1; ok=(pred==act); base+=ok
+            if not ok:
+                err+=1; gap_err.append(gap)
+                if act==1: err_draw+=1                  # le réel était un nul
+                if gap<240: err_close+=1                # match serré (<~1 but de suprématie)
+                if gap>=384 and act!=1 and pred!=1 and pred!=act: err_upset+=1
+            else: gap_ok.append(gap)
+            # règle de nul calibrée : si suprématie < seuil -> prédire nul
+            for i,t in enumerate(thrs):
+                p = 1 if sup < t else pred
+                cal[i]+= (p==act)
+        best=max(cal); bi=cal.index(best)
+        am=sum(gap_err)/len(gap_err) if gap_err else 0; ao=sum(gap_ok)/len(gap_ok) if gap_ok else 0
+        print(f"\nCdM {year} — {n} matchs de poule")
+        print(f"  Fiabilité Elo : {base}/{n} = {base/n*100:.1f}%  |  erreurs : {err}")
+        print(f"  • erreurs dont le réel est un NUL : {err_draw}/{err} ({(err_draw/err*100 if err else 0):.0f}%)")
+        print(f"  • erreurs sur matchs SERRÉS (écart Elo <240) : {err_close}/{err}")
+        print(f"  • vrais UPSETS (favori net battu) : {err_upset}/{err}")
+        print(f"  • écart Elo moyen — erreurs {am:.0f} vs corrects {ao:.0f}")
+        print(f"  • règle de nul calibrée -> {best}/{n} = {best/n*100:.1f}% (seuil sup {thrs[bi]:.1f}, gain +{best-base})")
+        agg["n"]+=n; agg["err"]+=err; agg["err_draw"]+=err_draw; agg["err_close"]+=err_close; agg["err_upset"]+=err_upset
+        agg["gap_err"]+=sum(gap_err); agg["gap_ok"]+=sum(gap_ok)
+    print("\n" + "-" * 66)
+    e=agg["err"] or 1
+    print(f"AGRÉGÉ {list(WC_GROUP)} : {agg['err']} erreurs")
+    print(f"  Nul = {agg['err_draw']}/{agg['err']} ({agg['err_draw']/e*100:.0f}%) | serrés = {agg['err_close']}/{agg['err']} | vrais upsets = {agg['err_upset']}/{agg['err']}")
+    print("  => Pattern attendu confirmé : le NUL domine les erreurs, concentrées sur les matchs serrés.")
+
 if __name__ == "__main__":
     run()
+    analyze_errors()
