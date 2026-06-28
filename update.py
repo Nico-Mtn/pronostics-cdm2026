@@ -20,7 +20,7 @@ WC_CODE = "WC"        # football-data.org : code compétition FIFA World Cup
 #             · 2.2 variation réaliste des scores (distribution CM 2010-2022, graine par affiche)
 #             · 2.3 ajustement dynamique conservateur : forme off/déf réelle, tendance de buts du
 #                   tournoi, pondération récence, blend force FIFA ↔ performances observées
-MODEL_VERSION = "3.0"
+MODEL_VERSION = "3.1"
 
 # ─── DONNÉES ÉQUIPES (force, tendance, style, surprise) ──────────────────────
 TEAM_DATA = {
@@ -86,6 +86,30 @@ def team_elo(team):
     if team in ELO: return ELO[team]
     base = TEAM_DATA.get(team, (6.0,))[0]
     return 1300.0 + base * 90.0   # mappe ~3.8→1642 .. 9.1→2119 (ordre conservé)
+
+# ─── FORME RÉCENTE (≈50 matchs) + CONFRONTATIONS DIRECTES (V3.1) ──────────────
+# Profils offensifs/défensifs figés (data/team_form.json) et bilans des duels
+# (data/h2h.json), committés, sans dépendance réseau. Régénérables via build_stats.py.
+def _load_json(name, key):
+    try:
+        with open(os.path.join(ROOT, "data", name), encoding="utf-8") as fh:
+            return json.load(fh).get(key, {})
+    except Exception as e:
+        print(f"[{name}] indisponible ({e})", file=sys.stderr)
+        return {}
+FORM = _load_json("team_form.json", "form")
+H2H  = _load_json("h2h.json", "h2h")
+AVG_FORM = 1.45   # buts/match de référence (attaque ET défense)
+
+def team_form(team):
+    fm = FORM.get(team)
+    if fm: return fm.get("gf", AVG_FORM), fm.get("ga", AVG_FORM)
+    # repli : dérive un profil de la force TEAM_DATA (fort -> marque +, encaisse -)
+    base = TEAM_DATA.get(team, (6.0,))[0]
+    return AVG_FORM * (0.75 + base/24.0), AVG_FORM * (1.25 - base/24.0)
+
+def h2h_nudge(home, away):
+    return H2H.get("|".join(sorted([home, away])))
 
 
 
@@ -796,10 +820,24 @@ def _ko_lambdas(home, away, tier=0):
     if home in HOST_NATIONS: eh += HOST_ELO_BONUS
     if away in HOST_NATIONS: ea += HOST_ELO_BONUS
     d = eh - ea
-    sup = max(-2.6, min(2.6, d / 200.0))          # ~200 pts Elo ≈ 1 but de suprématie (borné)
-    mu = [2.55, 2.35, 2.20][min(max(tier,0),2)]   # total de buts attendu, se resserre par tour (CM 2010-2022)
-    lam_h = max(0.16, (mu + sup) / 2.0)
-    lam_a = max(0.16, (mu - sup) / 2.0)
+    sup = max(-2.0, min(2.0, d / 240.0))          # suprématie bornée (évite les blowouts irréalistes en KO)
+    # Total de buts attendu CALIBRÉ sur les CdM récentes (~2.7/match ; phase finale 2018/2022 ~2.8),
+    # se resserre par tour. Relevé vs v3.0 pour réduire l'excès de 1-0 (plus de 2-1/2-0/3-1).
+    mu = [2.72, 2.58, 2.48][min(max(tier,0),2)]
+    # Confrontations directes : nudge LÉGER sur la suprématie (vers le favori du duel) et le total.
+    hh = h2h_nudge(home, away)
+    if hh:
+        e = hh.get("edge", 0.0)
+        if hh.get("fav") == home: sup += e
+        elif hh.get("fav") == away: sup -= e
+        mu += hh.get("goals", 0.0)
+    sup = max(-2.8, min(2.8, sup))
+    # Forme récente : module la prolificité de chaque équipe (attaque propre × faille défensive adverse).
+    gf_h, ga_h = team_form(home); gf_a, ga_a = team_form(away)
+    mult_h = max(0.78, min(1.32, ((gf_h / AVG_FORM) * (ga_a / AVG_FORM)) ** 0.5))
+    mult_a = max(0.78, min(1.32, ((gf_a / AVG_FORM) * (ga_h / AVG_FORM)) ** 0.5))
+    lam_h = min(2.85, max(0.30, (mu + sup) / 2.0 * mult_h))   # plafond : pas de 4-0/5-0 systématiques en KO
+    lam_a = min(2.85, max(0.30, (mu - sup) / 2.0 * mult_a))
     return lam_h, lam_a
 
 def _pois(k, lam):
@@ -821,6 +859,20 @@ def _dc_grid(lh, la, maxg=8):
     for k in g: g[k] /= tot
     return g
 
+def _pick_score(cands, seed):
+    """Tirage DÉTERMINISTE pondéré par la probabilité Dixon-Coles parmi les scores
+    plausibles (top 5). Reproduit la VARIÉTÉ réelle des scores (2-1, 3-1, 2-0, 1-0…)
+    au lieu de toujours renvoyer le score modal -> évite la monotonie des 2-0/1-0."""
+    items = sorted(cands.items(), key=lambda kv: kv[1], reverse=True)[:5]
+    total = sum(v for _, v in items) or 1.0
+    r = (seed % 100000) / 100000.0 * total
+    acc = 0.0
+    for sc, v in items:
+        acc += v
+        if r <= acc:
+            return sc
+    return items[0][0]
+
 def _ko_predict(home, away, tier=0):
     """Renvoie un dict complet de prédiction KO Elo+Dixon-Coles."""
     lh, la = _ko_lambdas(home, away, tier)
@@ -837,16 +889,18 @@ def _ko_predict(home, away, tier=0):
     # au but n'est affiché QUE pour les matchs vraiment indécis (anti-excès de nuls :
     # un 90 min sur deux ne finit pas 1-1). Seuil sur la proba de qualification.
     TAB_THRESHOLD = 57   # < seuil = match couperet -> nul + t.a.b. plausible ; sinon score décisif
+    seed = 0
+    for ch in (home + "~" + away): seed = (seed * 131 + ord(ch)) & 0xffffffff
     if winner == home:
         decisive = {k: v for k, v in g.items() if k[0] > k[1]}
     else:
         decisive = {k: v for k, v in g.items() if k[0] < k[1]}
     draws = {k: v for k, v in g.items() if k[0] == k[1]}
     if conf < TAB_THRESHOLD and draws:
-        (sx, sy) = max(draws.items(), key=lambda kv: kv[1])[0]   # quasi 50/50 -> nul (t.a.b.)
+        (sx, sy) = _pick_score(draws, seed)        # quasi 50/50 -> nul (t.a.b.)
         tab = True
     else:
-        (sx, sy) = max(decisive.items(), key=lambda kv: kv[1])[0]  # vainqueur net en 90 min
+        (sx, sy) = _pick_score(decisive, seed)     # vainqueur, score tiré selon la distribution DC
         tab = False
     # Distribution : top 4 scores (orientés home-away) pour l'affichage
     dist = [{"s": [x, y], "p": int(round(p * 100))}
