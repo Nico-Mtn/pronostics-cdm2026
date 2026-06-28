@@ -518,6 +518,54 @@ function shareCard(opt){
     },'image/png');
   }catch(e){ fallback(); }
 }
+
+// ── Partage de l'ENSEMBLE du tableau final en image (capture html2canvas) ──
+function _loadScript(src, cb){
+  if(window.html2canvas){ cb(); return; }
+  var sc=document.createElement('script'); sc.src=src;
+  sc.onload=function(){ cb(); }; sc.onerror=function(){ cb(new Error('load')); };
+  document.head.appendChild(sc);
+}
+function _shareImage(blob, title, text){
+  function dl(){ if(!blob) return; var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='pronostix-tableau.png'; document.body.appendChild(a); a.click(); a.remove(); }
+  try{
+    var file=blob?new File([blob],'pronostix-tableau.png',{type:'image/png'}):null;
+    if(file && navigator.canShare && navigator.canShare({files:[file]})){
+      navigator.share({files:[file],title:title,text:text}).catch(dl);
+    } else dl();
+  }catch(e){ dl(); }
+}
+function shareBracket(){
+  var btn=document.getElementById('sharebracket'); var prev=btn?btn.innerHTML:'';
+  function done(){ if(btn){ btn.innerHTML=prev; btn.disabled=false; } }
+  if(btn){ btn.innerHTML='📸 Capture…'; btn.disabled=true; }
+  var el=document.querySelector('.bracket.fifa');
+  if(!el){ done(); return; }
+  _loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js', function(err){
+    if(err || !window.html2canvas){ alert('Capture indisponible (connexion requise).'); done(); return; }
+    var bg=getComputedStyle(document.body).backgroundColor||'#0b1018';
+    window.html2canvas(el,{useCORS:true, backgroundColor:bg, scale:2, logging:false}).then(function(bc){
+      var champ=(DATA.knockout||{}).champion||'';
+      var S=2, pad=46, headH=140, footH=64;
+      var W=bc.width + pad*2*S, H=bc.height + (headH+footH)*S;
+      var c=document.createElement('canvas'); c.width=W; c.height=H; var x=c.getContext('2d');
+      x.fillStyle=bg; x.fillRect(0,0,W,H);
+      x.fillStyle='#1746a2'; x.fillRect(0,0,W,12*S);
+      x.fillStyle='#5a8fe0'; x.font='bold '+(44*S)+'px system-ui,sans-serif'; x.fillText('Pronostix — Tableau final', pad*S, 68*S);
+      x.fillStyle='#aab4c8'; x.font=(23*S)+'px system-ui,sans-serif';
+      x.fillText('Prono de Nono · Coupe du Monde 2026'+(champ?'  ·  🏆 '+champ:''), pad*S, 106*S);
+      x.drawImage(bc, pad*S, headH*S);
+      x.fillStyle='#aab4c8'; x.font=(21*S)+'px system-ui,sans-serif';
+      x.fillText('Créé par Nico-Mtn · nico-mtn.github.io/pronostics-cdm2026', pad*S, H-24*S);
+      c.toBlob(function(b){
+        _shareImage(b, 'Pronostix — Tableau final',
+          '🏆 Mon tableau final Coupe du Monde 2026 (Prono de Nono)'+(champ?' — champion projeté : '+champ:'')+' · Pronostix');
+        done();
+      },'image/png');
+    }).catch(function(){ alert('Capture impossible sur cet appareil.'); done(); });
+  });
+}
 function isProno(){ return mode==="prono"; }
 function applyMode(m){
   mode = m;
@@ -838,7 +886,8 @@ function renderBracket(){
   if(!ko||!ko.rounds){return '<div class="empty">Tableau final indisponible.</div>';}
   var champ = ko.champion ? ('<div class="champion"><div class="cl">\uD83C\uDFC6 Vainqueur projet\u00e9</div>'
     + '<div class="cn">'+flagImg(ko.champion_code,'sm')+' <b class="tlink" data-team="'+ko.champion+'">'+ko.champion+'</b></div>'
-    + '<button class="shareb" id="sharechamp">📤 Partager mon prono</button></div>') : '';
+    + '<button class="shareb" id="sharechamp">📤 Partager mon prono</button>'
+    + '<button class="shareb" id="sharebracket">📸 Partager le tableau</button></div>') : '';
   var note='<div class="ko-note">\u26A0\uFE0F Projection pr\u00e9visionnelle : le tableau se construit \u00e0 partir des classements '
     + '(r\u00e9els + pronostiqu\u00e9s) et s\u2019actualise au fil de la comp\u00e9tition. Les <b>ratings Elo et la forme '
     + 'sont recalcul\u00e9s apr\u00e8s chaque match r\u00e9el</b> : les projections \u00e9voluent avec les performances du tournoi.</div>';
@@ -1058,6 +1107,7 @@ function render(){
       c.innerHTML=html+scorersBlock()+renderBracket();
       bindSecs(c);
       var _sb=document.getElementById("sharechamp"); if(_sb)_sb.onclick=shareChampion;
+      var _bb=document.getElementById("sharebracket"); if(_bb)_bb.onclick=shareBracket;
     }else{
       var ms=DATA.matches.filter(function(m){return m.grp===activeGrp;});
       c.innerHTML=html+grpButtons()+'<div class="card">'+ms.map(matchCard).join("")+'</div>';
@@ -1068,7 +1118,7 @@ function render(){
     // Top buteurs : toujours en tête, consultable quel que soit le filtre
     var html=scorersBlock();
     html+=phaseTabs("standings");
-    if(subPhase.standings==="finales"){ c.innerHTML=html+renderBracket(); bindSecs(c); var _sb=document.getElementById("sharechamp"); if(_sb)_sb.onclick=shareChampion; return; }
+    if(subPhase.standings==="finales"){ c.innerHTML=html+renderBracket(); bindSecs(c); var _sb=document.getElementById("sharechamp"); if(_sb)_sb.onclick=shareChampion; var _bb=document.getElementById("sharebracket"); if(_bb)_bb.onclick=shareBracket; return; }
     if(DATA.matches.filter(function(m){return m.reel;}).length>=DATA.matches.length)
       html+='<div class="phase-done">✅ <b>Phase de groupe terminée</b> — cap sur les <b>phases finales</b> (onglet ci-dessus).</div>';
     html+=grpButtons();
