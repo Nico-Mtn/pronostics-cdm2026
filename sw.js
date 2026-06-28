@@ -1,5 +1,5 @@
 /* Pronostix — Service Worker (PWA installable + hors-ligne + prêt pour le push) */
-const CACHE = 'pronobot-v3';
+const CACHE = 'pronobot-v4';
 const CORE = ['./', './index.html', './logo.png', './icon-192.png', './icon-512.png', './manifest.webmanifest'];
 
 self.addEventListener('install', function(e){
