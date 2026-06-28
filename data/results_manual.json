@@ -400,9 +400,9 @@
       "home": "Afrique du Sud",
       "away": "Canada",
       "hs": 0,
-      "as": 0,
+      "as": 1,
       "status": "PAUSED",
-      "winner": "DRAW"
+      "winner": "AWAY_TEAM"
     },
     "74": {
       "home": "Allemagne",
