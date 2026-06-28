@@ -20,7 +20,7 @@ WC_CODE = "WC"        # football-data.org : code compétition FIFA World Cup
 #             · 2.2 variation réaliste des scores (distribution CM 2010-2022, graine par affiche)
 #             · 2.3 ajustement dynamique conservateur : forme off/déf réelle, tendance de buts du
 #                   tournoi, pondération récence, blend force FIFA ↔ performances observées
-MODEL_VERSION = "3.1"
+MODEL_VERSION = "3.2"
 
 # ─── DONNÉES ÉQUIPES (force, tendance, style, surprise) ──────────────────────
 TEAM_DATA = {
@@ -78,11 +78,18 @@ def load_elo():
         print(f"[ELO] snapshot indisponible ({e}) — repli sur TEAM_DATA*180+1300", file=sys.stderr)
         return {}
 ELO = load_elo()
+# Elo DYNAMIQUE : recalculé à chaque run depuis le snapshot figé + tous les vrais
+# résultats du tournoi (groupes + phases finales jouées). Rempli par build_payload.
+# Rend les projections KO auto-entretenues au fil des rencontres (déterministe/reproductible).
+LIVE_ELO = {}
+LIVE_FORM = {}   # forme (att/déf) mise à jour par les buts réels du tournoi
 ELO_DEFAULT = 1700.0
 HOST_ELO_BONUS = 60.0   # avantage hôte exprimé en points Elo
 
 def team_elo(team):
-    """Elo figé d'une équipe ; repli déterministe dérivé de TEAM_DATA si absent."""
+    """Elo de l'équipe : version LIVE (mise à jour par les résultats réels) si dispo,
+    sinon snapshot figé, sinon repli déterministe dérivé de TEAM_DATA."""
+    if team in LIVE_ELO: return LIVE_ELO[team]
     if team in ELO: return ELO[team]
     base = TEAM_DATA.get(team, (6.0,))[0]
     return 1300.0 + base * 90.0   # mappe ~3.8→1642 .. 9.1→2119 (ordre conservé)
@@ -102,7 +109,7 @@ H2H  = _load_json("h2h.json", "h2h")
 AVG_FORM = 1.45   # buts/match de référence (attaque ET défense)
 
 def team_form(team):
-    fm = FORM.get(team)
+    fm = LIVE_FORM.get(team) or FORM.get(team)
     if fm: return fm.get("gf", AVG_FORM), fm.get("ga", AVG_FORM)
     # repli : dérive un profil de la force TEAM_DATA (fort -> marque +, encaisse -)
     base = TEAM_DATA.get(team, (6.0,))[0]
@@ -823,7 +830,7 @@ def _ko_lambdas(home, away, tier=0):
     sup = max(-2.0, min(2.0, d / 240.0))          # suprématie bornée (évite les blowouts irréalistes en KO)
     # Total de buts attendu CALIBRÉ sur les CdM récentes (~2.7/match ; phase finale 2018/2022 ~2.8),
     # se resserre par tour. Relevé vs v3.0 pour réduire l'excès de 1-0 (plus de 2-1/2-0/3-1).
-    mu = [2.72, 2.58, 2.48][min(max(tier,0),2)]
+    mu = [2.95, 2.80, 2.64][min(max(tier,0),2)]
     # Confrontations directes : nudge LÉGER sur la suprématie (vers le favori du duel) et le total.
     hh = h2h_nudge(home, away)
     if hh:
@@ -888,7 +895,7 @@ def _ko_predict(home, away, tier=0):
     # Score affiché : on PRIVILÉGIE un résultat DÉCISIF pour le qualifié. Le nul + tirs
     # au but n'est affiché QUE pour les matchs vraiment indécis (anti-excès de nuls :
     # un 90 min sur deux ne finit pas 1-1). Seuil sur la proba de qualification.
-    TAB_THRESHOLD = 57   # < seuil = match couperet -> nul + t.a.b. plausible ; sinon score décisif
+    TAB_THRESHOLD = 54   # < seuil = match couperet -> nul + t.a.b. plausible ; sinon score décisif
     seed = 0
     for ch in (home + "~" + away): seed = (seed * 131 + ord(ch)) & 0xffffffff
     if winner == home:
@@ -1072,6 +1079,74 @@ def build_knockout(standings, momentum, datetimes=None, form=None, ko_fixtures=N
             "champion_code":FLAG_CODES.get(champion,"")}
 
 # ─── CONSTRUCTION DES DONNÉES DE LA PAGE ─────────────────────────────────────
+def _base_elo(team):
+    if team in ELO: return ELO[team]
+    base = TEAM_DATA.get(team, (6.0,))[0]
+    return 1300.0 + base * 90.0
+
+def _elo_mov(gd):
+    gd = abs(gd)
+    if gd <= 1: return 1.0
+    if gd == 2: return 1.5
+    return (11.0 + gd) / 8.0
+
+def _tournament_events(results, ko_fixtures, datetimes=None):
+    """Liste chronologique (iso, home, away, hs, as) de TOUS les vrais résultats du
+    tournoi : phase de groupes + phases finales jouées."""
+    ev = []
+    for mid, grp, date, h, a in GROUP_MATCHES:
+        r = results.get(str(mid))
+        if r is not None:
+            iso = (datetimes or {}).get(str(mid)) or (date + "T00:00:00Z")
+            ev.append((iso, h, a, int(r["h"]), int(r["a"])))
+    for mid, fx in (ko_fixtures or {}).items():
+        if (fx.get("home") and fx.get("away") and fx.get("hs") is not None
+                and fx.get("as") is not None and fx.get("status") in ("FINISHED", "AWARDED")):
+            try: iso = (datetimes or {}).get(str(mid)) or KO_KICKOFF_UTC.get(int(mid), "2026-07-01T00:00:00Z")
+            except Exception: iso = "2026-07-01T00:00:00Z"
+            ev.append((iso, fx["home"], fx["away"], int(fx["hs"]), int(fx["as"])))
+    ev.sort(key=lambda e: e[0])
+    return ev
+
+def compute_live_elo(results, ko_fixtures, datetimes=None):
+    """Elo VIVANT : repart du snapshot Elo figé puis rejoue chronologiquement tous les
+    vrais résultats du tournoi (mise à jour Elo standard : poids tournoi + marge de
+    victoire). DÉTERMINISTE (reproductible) et AUTO-ENTRETENU : chaque nouveau résultat
+    fait évoluer les ratings utilisés pour les projections des tours suivants.
+    N'affecte pas la phase de groupes notée (qui reste figée sur TEAM_DATA)."""
+    elo = {}
+    def E(t):
+        if t not in elo: elo[t] = _base_elo(t)
+        return elo[t]
+    K = 50.0
+    for iso, h, a, hs, as_ in _tournament_events(results, ko_fixtures, datetimes):
+        if h not in TEAM_DATA or a not in TEAM_DATA: continue
+        eh, ea = E(h), E(a)
+        we = 1.0 / (1.0 + 10 ** (-(eh - ea) / 400.0))
+        res = 1.0 if hs > as_ else (0.5 if hs == as_ else 0.0)
+        delta = K * _elo_mov(hs - as_) * (res - we)
+        elo[h] = eh + delta; elo[a] = ea - delta
+    return elo
+
+def compute_live_form(results, ko_fixtures, datetimes=None):
+    """Forme VIVANTE : blende la forme figée (≈50 derniers matchs) avec les buts
+    RÉELS marqués/encaissés dans le tournoi (poids croissant avec le nb de matchs joués)."""
+    agg = {}
+    for iso, h, a, hs, as_ in _tournament_events(results, ko_fixtures, datetimes):
+        for t, gf, ga in ((h, hs, as_), (a, as_, hs)):
+            d = agg.setdefault(t, {"gf": 0, "ga": 0, "n": 0})
+            d["gf"] += gf; d["ga"] += ga; d["n"] += 1
+    live = {}
+    for t, d in agg.items():
+        n = d["n"]
+        if n == 0: continue
+        base = FORM.get(t, {"gf": AVG_FORM, "ga": AVG_FORM})
+        w = n / (n + 4.0)   # 3 matchs -> 0.43 ; 6 -> 0.60 (le tournoi prend le dessus progressivement)
+        gf = (1 - w) * base.get("gf", AVG_FORM) + w * (d["gf"] / n)
+        ga = (1 - w) * base.get("ga", AVG_FORM) + w * (d["ga"] / n)
+        live[t] = {"gf": round(gf, 2), "ga": round(ga, 2)}
+    return live
+
 def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=None, assists_top=None, ko_fixtures=None):
     from collections import defaultdict
     scorers_by_team = scorers_by_team or {}
@@ -1082,6 +1157,10 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
     results={str(k):v for k,v in results.items()}
     momentum,detail=compute_momentum(results)
     form=compute_form(results)   # v2.3 : forme observée (off/déf, niveau réel, tendance de buts)
+    # V3.2 — MODÈLE DYNAMIQUE : Elo + forme RECALCULÉS depuis les vrais résultats du
+    # tournoi (auto-entretenu à chaque run). Pilote les projections de phase finale.
+    LIVE_ELO.clear();  LIVE_ELO.update(compute_live_elo(results, ko_fixtures, datetimes))
+    LIVE_FORM.clear(); LIVE_FORM.update(compute_live_form(results, ko_fixtures, datetimes))
     qualif_states=compute_qualif_states(results)
     rint={int(k):v for k,v in results.items()}
     today_iso = datetime.date.today().isoformat()

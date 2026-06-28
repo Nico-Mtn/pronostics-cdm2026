@@ -823,8 +823,8 @@ function renderBracket(){
     + '<div class="cn">'+flagImg(ko.champion_code,'sm')+' <b class="tlink" data-team="'+ko.champion+'">'+ko.champion+'</b></div>'
     + '<button class="shareb" id="sharechamp">📤 Partager mon prono</button></div>') : '';
   var note='<div class="ko-note">\u26A0\uFE0F Projection pr\u00e9visionnelle : le tableau se construit \u00e0 partir des classements '
-    + '(r\u00e9els + pronostiqu\u00e9s) et s\u2019actualise au fil de la comp\u00e9tition. Tant que les poules ne sont pas '
-    + 'termin\u00e9es, les qualifi\u00e9s restent une estimation.</div>';
+    + '(r\u00e9els + pronostiqu\u00e9s) et s\u2019actualise au fil de la comp\u00e9tition. Les <b>ratings Elo et la forme '
+    + 'sont recalcul\u00e9s apr\u00e8s chaque match r\u00e9el</b> : les projections \u00e9voluent avec les performances du tournoi.</div>';
   var hint='<div class="bracket-hint">\u2194 faites d\u00e9filer · finale au centre, fa\u00e7on FIFA</div>';
   return note + hint + bracketFifa(ko, champ);
 }
