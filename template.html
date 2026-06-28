@@ -280,12 +280,36 @@
   .ko-rname .per{font-size:8.5px;font-weight:600;color:var(--mut);letter-spacing:.2px;text-transform:none}
   .ko-matches{flex:1;display:flex;flex-direction:column}
   .ko-cell{flex:1;display:flex;align-items:center;justify-content:center;position:relative;min-height:64px}
-  /* Connecteurs dessinés côté "receveur" (toutes les manches sauf la 1re) */
-  .ko-round:not(:first-child) .ko-cell::before{content:"";position:absolute;right:100%;top:50%;
+  /* Connecteurs dessinés côté "receveur" (layout linéaire, non-FIFA) */
+  .bracket:not(.fifa) .ko-round:not(:first-child) .ko-cell::before{content:"";position:absolute;right:100%;top:50%;
     width:calc(var(--g)/2);height:2px;background:var(--line)}
-  .ko-round:not(:first-child) .ko-cell::after{content:"";position:absolute;right:calc(100% + var(--g)/2 - 1px);
+  .bracket:not(.fifa) .ko-round:not(:first-child) .ko-cell::after{content:"";position:absolute;right:calc(100% + var(--g)/2 - 1px);
     top:25%;height:50%;width:calc(var(--g)/2);border:2px solid var(--line);border-left:none;
     border-top-right-radius:7px;border-bottom-right-radius:7px}
+  /* ---- Bracket FIFA miroir (finale au centre) ---- */
+  .bracket.fifa{align-items:center;--g:24px}
+  .ko-side{display:flex;gap:var(--g);align-items:stretch}
+  .ko-side .ko-round{width:184px}
+  .ko-center{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+    flex:0 0 auto;width:212px;margin:0 8px;position:relative}
+  .ko-finalname{width:100%}
+  .ko-finalcell{min-height:64px;width:100%;display:flex;align-items:center;position:relative}
+  .ko-finalcell .ko-match{width:100%;border-color:var(--gold);box-shadow:0 0 0 2px rgba(212,160,23,.20),var(--shadow)}
+  /* connecteurs moitié gauche (vers la gauche) */
+  .bracket.fifa .ko-side.left .ko-round:not(:first-child) .ko-cell::before{content:"";position:absolute;right:100%;top:50%;
+    width:calc(var(--g)/2);height:2px;background:var(--line)}
+  .bracket.fifa .ko-side.left .ko-round:not(:first-child) .ko-cell::after{content:"";position:absolute;right:calc(100% + var(--g)/2 - 1px);
+    top:25%;height:50%;width:calc(var(--g)/2);border:2px solid var(--line);border-left:none;
+    border-top-right-radius:7px;border-bottom-right-radius:7px}
+  /* connecteurs moitié droite (miroir, vers la droite) */
+  .bracket.fifa .ko-side.right .ko-round:not(:last-child) .ko-cell::before{content:"";position:absolute;left:100%;top:50%;
+    width:calc(var(--g)/2);height:2px;background:var(--line)}
+  .bracket.fifa .ko-side.right .ko-round:not(:last-child) .ko-cell::after{content:"";position:absolute;left:calc(100% + var(--g)/2 - 1px);
+    top:25%;height:50%;width:calc(var(--g)/2);border:2px solid var(--line);border-right:none;
+    border-top-left-radius:7px;border-bottom-left-radius:7px}
+  /* stubs reliant la finale aux deux demi-finales */
+  .ko-finalcell::before{content:"";position:absolute;right:100%;top:50%;width:calc(var(--g)/2 + 8px);height:2px;background:var(--line)}
+  .ko-finalcell::after{content:"";position:absolute;left:100%;top:50%;width:calc(var(--g)/2 + 8px);height:2px;background:var(--line)}
   .ko-match{position:relative;width:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;
     box-shadow:var(--shadow);overflow:hidden}
   .ko-mdate{font-size:8px;color:var(--mut);font-weight:700;letter-spacing:.2px;
@@ -759,13 +783,37 @@ function bracketCols(ko){
   }).join("");
   return '<div class="bracket-scroll"><div class="bracket">'+cols+'</div></div>';
 }
+
+// ===== Bracket FIFA miroir : finale au centre, deux moitiés en vis-à-vis =====
+var KO_SIDE_ORDER=["r32","r16","qf","sf"];
+function koColumn(r, matches){
+  var cells=matches.map(function(m){return '<div class="ko-cell">'+koMatch(m)+'</div>';}).join("");
+  return '<div class="ko-round"><div class="ko-rname">'+r.name
+    + (KO_PERIODS[r.key]?'<span class="per">'+KO_PERIODS[r.key]+'</span>':'')
+    + '</div><div class="ko-matches">'+cells+'</div></div>';
+}
+function bracketFifa(ko, champHtml){
+  var byKey={}; ko.rounds.forEach(function(r){byKey[r.key]=r;});
+  function half(r,side){var ms=r.matches||[]; var h=Math.ceil(ms.length/2); return side==="L"?ms.slice(0,h):ms.slice(h);}
+  var left=KO_SIDE_ORDER.filter(function(k){return byKey[k];})
+            .map(function(k){return koColumn(byKey[k], half(byKey[k],"L"));}).join("");
+  var right=KO_SIDE_ORDER.slice().reverse().filter(function(k){return byKey[k];})
+            .map(function(k){return koColumn(byKey[k], half(byKey[k],"R"));}).join("");
+  var fin=byKey["final"];
+  var finCard = (fin && fin.matches && fin.matches[0]) ? '<div class="ko-cell ko-finalcell">'+koMatch(fin.matches[0])+'</div>' : '';
+  var center='<div class="ko-center"><div class="ko-rname ko-finalname">Finale'
+    + (KO_PERIODS["final"]?'<span class="per">'+KO_PERIODS["final"]+'</span>':'')+'</div>'
+    + finCard + (champHtml||'') + '</div>';
+  return '<div class="bracket-scroll"><div class="bracket fifa"><div class="ko-side left">'+left+'</div>'
+    + center + '<div class="ko-side right">'+right+'</div></div></div>';
+}
 function renderBracket(){
   if(!isProno()){
     var kor=DATA.knockout_real;
     if(!kor||!kor.rounds){return '<div class="empty">Tableau indisponible.</div>';}
     var rnote='<div class="ko-note">🟢 <b>Qualifiés provisoires</b> selon le classement réel actuel (1ers, 2es et meilleurs 3es). Les 16es se précisent au fil des résultats ; les tours suivants s’afficheront une fois les matchs disputés. Pour la <b>projection IA</b> (vainqueur, parcours), basculez en 🤖 Prono de Nono.</div>';
-    var rhint='<div class="bracket-hint">↔ faites défiler pour parcourir les tours</div>';
-    return rnote + rhint + bracketCols(kor);
+    var rhint='<div class="bracket-hint">↔ faites défiler · finale au centre, façon FIFA</div>';
+    return rnote + rhint + bracketFifa(kor);
   }
   var ko=DATA.knockout;
   if(!ko||!ko.rounds){return '<div class="empty">Tableau final indisponible.</div>';}
@@ -775,8 +823,8 @@ function renderBracket(){
   var note='<div class="ko-note">\u26A0\uFE0F Projection pr\u00e9visionnelle : le tableau se construit \u00e0 partir des classements '
     + '(r\u00e9els + pronostiqu\u00e9s) et s\u2019actualise au fil de la comp\u00e9tition. Tant que les poules ne sont pas '
     + 'termin\u00e9es, les qualifi\u00e9s restent une estimation.</div>';
-  var hint='<div class="bracket-hint">\u2194 faites d\u00e9filer pour parcourir les tours</div>';
-  return note + champ + hint + bracketCols(ko);
+  var hint='<div class="bracket-hint">\u2194 faites d\u00e9filer · finale au centre, fa\u00e7on FIFA</div>';
+  return note + hint + bracketFifa(ko, champ);
 }
 
 // ===== Top buteurs (corps de la carte repliable) =====
