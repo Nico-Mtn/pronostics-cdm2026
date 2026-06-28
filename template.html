@@ -630,7 +630,7 @@ document.getElementById("theme").onclick=function(){
 function renderHeader(){
   var s=DATA.stats;
   var graded=s.exact+s.bon+s.rate;
-  var pct=graded?Math.round((s.exact+s.bon)/graded*100):0;
+  var pct=graded?((s.exact+s.bon)/graded*100).toFixed(1):0;
   var pctBox=document.getElementById("pct").parentNode;
   document.getElementById("maj").textContent="Derniere mise a jour : "+DATA.maj+" \u2014 "+s.joue+"/"+s.total+" matchs joues";
   if(!isProno()){
@@ -785,13 +785,25 @@ function bindResumes(c){
 var STAT_TITLE={exact:"\u2713 Pronostics exacts",bon:"~ Bons resultats",rate:"\u2717 Pronostics rates"};
 function openStatDetail(cat){
   var list=DATA.matches.filter(function(m){return m.reel && m.statut===cat;})
-    .sort(function(a,b){return a.sort<b.sort?-1:1;});
+    .map(function(m){return {date:m.date,sort:m.sort,home:m.home,away:m.away,ch:m.ch,ca:m.ca,reel:m.reel,prono:m.prono,ko:false};});
+  // + phases finales JOUÉES (même barème : exact / bon / raté)
+  ((DATA.knockout&&DATA.knockout.rounds)||[]).forEach(function(r){
+    r.matches.forEach(function(m){
+      if(m.hit==null) return;
+      var ps=m.pred_score||[null,null];
+      var st=(ps[0]!=null && ps[0]===m.sh && ps[1]===m.sa)?'exact':(m.hit?'bon':'rate');
+      if(st!==cat) return;
+      list.push({date:(m.date||''),sort:('z'+(m.id||'')),home:m.home,away:m.away,ch:m.ch,ca:m.ca,
+                 reel:[m.sh,m.sa],prono:(ps[0]!=null?ps:null),ko:true});
+    });
+  });
+  list.sort(function(a,b){return a.sort<b.sort?-1:1;});
   var rows=list.map(function(m){
     return '<div class="mrow">'
       +'<span class="mdate">'+m.date+'</span>'
       +'<span class="mteams">'+flagImg(m.ch,'sm')+' '+m.home+' <b>vs</b> '+m.away+' '+flagImg(m.ca,'sm')+'</span>'
-      +'<span class="mscores"><span class="r">'+m.reel[0]+'\u2013'+m.reel[1]+'</span><br>'
-      +'<span class="p">prono '+m.prono[0]+'\u2013'+m.prono[1]+'</span></span>'
+      +'<span class="mscores"><span class="r">'+m.reel[0]+'\u2013'+m.reel[1]+(m.ko?' <small>(KO)</small>':'')+'</span><br>'
+      +'<span class="p">'+(m.prono?'prono '+m.prono[0]+'\u2013'+m.prono[1]:'')+'</span></span>'
       +'</div>';
   }).join("") || '<div class="empty">Aucun match dans cette categorie pour l\'instant.</div>';
   var html='<div class="modal-bg" id="modal-bg"><div class="modal">'
