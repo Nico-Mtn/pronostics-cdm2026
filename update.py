@@ -20,7 +20,7 @@ WC_CODE = "WC"        # football-data.org : code compétition FIFA World Cup
 #             · 2.2 variation réaliste des scores (distribution CM 2010-2022, graine par affiche)
 #             · 2.3 ajustement dynamique conservateur : forme off/déf réelle, tendance de buts du
 #                   tournoi, pondération récence, blend force FIFA ↔ performances observées
-MODEL_VERSION = "3.2"
+MODEL_VERSION = "3.3"
 
 # ─── DONNÉES ÉQUIPES (force, tendance, style, surprise) ──────────────────────
 TEAM_DATA = {
@@ -278,6 +278,10 @@ def style_bonus(s1,s2):
     if s1=="pressing" and s2=="bloc_bas": return (-0.2,0.1)
     if s1=="possession" and s2=="contre": return (-0.2,0.3)
     return (0,0)
+
+# Ouverture du jeu par style (effet sur le total de buts attendu d'un match KO) :
+# pressing/possession -> plus ouvert ; bloc bas/médian -> plus fermé.
+STYLE_OPEN = {"pressing": 0.18, "possession": 0.12, "contre": 0.00, "bloc_moyen": -0.10, "bloc_bas": -0.20}
 
 def _score_from_diff(diff, home, away, hs, as_, asur, ko=False, ko_tier=0):
     """Score réaliste AVEC variation, calé sur la distribution des scores des Coupes
@@ -838,6 +842,13 @@ def _ko_lambdas(home, away, tier=0):
         if hh.get("fav") == home: sup += e
         elif hh.get("fav") == away: sup -= e
         mu += hh.get("goals", 0.0)
+    # Style tactique (général) : avantage de confrontation + ouverture du match.
+    hs_st = TEAM_DATA.get(home, (0,0,"bloc_moyen"))[2]
+    as_st = TEAM_DATA.get(away, (0,0,"bloc_moyen"))[2]
+    sbh, sba = style_bonus(hs_st, as_st)
+    sup += (sbh - sba) * 0.5                                  # l'edge tactique pèse sur la suprématie
+    mu  += STYLE_OPEN.get(hs_st, 0.0) + STYLE_OPEN.get(as_st, 0.0)   # match ouvert/fermé selon les styles
+    mu   = max(2.0, mu)
     sup = max(-2.8, min(2.8, sup))
     # Forme récente : module la prolificité de chaque équipe (attaque propre × faille défensive adverse).
     gf_h, ga_h = team_form(home); gf_a, ga_a = team_form(away)
