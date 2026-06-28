@@ -858,7 +858,10 @@ def build_knockout(standings, momentum, datetimes=None, form=None, ko_fixtures=N
             winner=rwin
             if winner is None:
                 _,_,diff=compute(home,away,momentum,None,form); winner=home if diff>=0 else away
-            res={"home":home,"away":away,"sh":sh,"sa":sa,"winner":winner,"tab":tab}
+            # justesse du prono KO (cote Prono uniquement) : vainqueur predit vs vainqueur reel
+            pred=_ko_match(home,away,momentum,form,tier)
+            res={"home":home,"away":away,"sh":sh,"sa":sa,"winner":winner,"tab":tab,
+                 "hit":(pred.get("winner")==winner) if winner else None}
         else:
             # affiche reelle (ou reconstruite) mais match a venir : on PREDIT le score
             res=_ko_match(home,away,momentum,form,tier)

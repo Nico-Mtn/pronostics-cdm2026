@@ -258,10 +258,16 @@
   /* Bracket phases finales */
   .ko-note{font-size:10px;color:var(--txt2);background:var(--drawbg);border:1px solid var(--draw);
     border-radius:11px;padding:10px 13px;line-height:1.5;margin-bottom:14px}
-  .champion{text-align:center;background:linear-gradient(135deg,var(--goldbg),transparent);border:1px solid var(--gold);
-    border-radius:14px;padding:13px;margin-bottom:16px}
-  .champion .cl{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);font-weight:800}
-  .champion .cn{font-size:18px;font-weight:900;color:var(--txt);margin-top:4px;display:flex;align-items:center;justify-content:center;gap:8px}
+  .champion{position:relative;overflow:hidden;text-align:center;background:linear-gradient(135deg,var(--goldbg),transparent);border:1px solid var(--gold);
+    border-radius:14px;padding:15px 13px;margin-bottom:16px}
+  .champion .cl{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--gold);font-weight:800;position:relative;z-index:1}
+  .champion .cn{font-size:20px;font-weight:900;color:var(--txt);margin-top:5px;display:flex;align-items:center;justify-content:center;gap:8px;position:relative;z-index:1}
+  .champion .shareb{position:relative;z-index:1;margin-top:10px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;
+    font-family:inherit;font-size:11px;font-weight:700;color:var(--accent);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 13px}
+  .champion .shareb:hover{border-color:var(--accent2)}
+  .champion::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 32%,rgba(255,255,255,.4) 50%,transparent 68%);
+    transform:translateX(-120%);animation:pbshine 3.4s ease-in-out infinite;pointer-events:none}
+  @keyframes pbshine{0%{transform:translateX(-120%)}55%,100%{transform:translateX(120%)}}
   /* Bracket arborescent (branches + connecteurs) */
   .bracket-hint{font-size:9.5px;color:var(--mut);display:flex;align-items:center;justify-content:flex-end;gap:5px;margin:0 2px 6px}
   .bracket-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;padding-bottom:8px}
@@ -279,19 +285,26 @@
   .ko-round:not(:first-child) .ko-cell::after{content:"";position:absolute;right:calc(100% + var(--g)/2 - 1px);
     top:25%;height:50%;width:calc(var(--g)/2);border:2px solid var(--line);border-left:none;
     border-top-right-radius:7px;border-bottom-right-radius:7px}
-  .ko-match{width:100%;background:var(--card2);border:1px solid var(--line);border-radius:12px;
-    padding:6px 9px;box-shadow:var(--shadow)}
-  .ko-mdate{font-size:8px;color:var(--mut);font-weight:700;letter-spacing:.2px;margin-bottom:4px;
-    padding-bottom:4px;border-bottom:1px solid var(--line2);text-transform:uppercase}
-  .ko-line{display:flex;align-items:center;gap:7px;padding:3px 0}
-  .ko-line+.ko-line{border-top:1px dashed var(--line2)}
-  .ko-team{flex:1;display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--txt2);min-width:0}
+  .ko-match{position:relative;width:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;
+    box-shadow:var(--shadow);overflow:hidden}
+  .ko-mdate{font-size:8px;color:var(--mut);font-weight:700;letter-spacing:.2px;
+    padding:5px 10px 4px;border-bottom:1px solid var(--line2);text-transform:uppercase;background:var(--bg2)}
+  .ko-line{display:flex;align-items:center;gap:7px;padding:7px 10px;transition:background .15s}
+  .ko-line+.ko-line{border-top:1px solid var(--line2)}
+  .ko-line.win{background:linear-gradient(90deg,var(--winbg),transparent)}
+  .ko-team{flex:1;display:flex;align-items:center;gap:7px;font-size:12px;color:var(--txt2);min-width:0}
   .ko-team .kn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .ko-team.win{color:var(--txt);font-weight:800}
-  .ko-team.win .kn::after{content:" \2713";color:var(--win);font-size:10px;font-weight:800}
   .ko-team.tbd{color:var(--dim);font-style:italic}
-  .ko-sc{flex-shrink:0;font-size:12.5px;font-weight:800;color:var(--txt);min-width:16px;text-align:right;line-height:1.1}
-  .ko-sc .tab{display:block;font-size:7px;color:var(--mut);font-weight:700;letter-spacing:.3px;text-align:right}
+  .ko-sc{flex-shrink:0;font-size:13px;font-weight:900;color:var(--txt);min-width:18px;text-align:center;line-height:1.05;
+    background:var(--line2);border-radius:6px;padding:2px 6px}
+  .ko-line.win .ko-sc{background:var(--win);color:#fff}
+  .ko-sc .tab{display:block;font-size:6.5px;color:inherit;opacity:.85;font-weight:700;letter-spacing:.3px}
+  .ko-hit{position:absolute;top:0;right:0;font-size:8px;font-weight:800;padding:2px 6px;border-bottom-left-radius:8px;letter-spacing:.3px;z-index:2}
+  .ko-hit.ok{background:var(--winbg);color:var(--win)}
+  .ko-hit.ko{background:var(--ratebg);color:var(--rate)}
+  #content.viewfade{animation:pbfade .2s ease}
+  @keyframes pbfade{from{opacity:.3;transform:translateY(3px)}to{opacity:1;transform:none}}
   /* Lien cliquable sur un nom d'équipe */
   .tlink{cursor:pointer;border-bottom:1px dotted transparent;transition:.12s}
   .tlink:hover{color:var(--accent2);border-bottom-color:var(--accent2)}
@@ -418,6 +431,42 @@ function koFeedCard(m){
     + sc
     +'<span class="tm l">'+flagImg(m.ca)+' '+host_a+' <span class="n tlink" data-team="'+m.away+'">'+m.away+'</span></span>'
     +'</div><div class="badges">'+badges+'</div></div></div>';
+}
+function shareChampion(){
+  var ko=DATA.knockout||{}; var champ=ko.champion||'?';
+  var url=location.origin+location.pathname;
+  shareCard({label:'Champion projeté',big:champ,
+    title:'Pronostix — Champion projeté',
+    text:'🏆 Mon prono Coupe du Monde 2026 sur Pronostix — champion projeté : '+champ+' !',
+    url:url});
+}
+function shareCard(opt){
+  function fallback(){
+    if(navigator.share){ navigator.share({title:opt.title,text:opt.text,url:opt.url}).catch(function(){}); }
+    else if(navigator.clipboard){ navigator.clipboard.writeText(opt.text+' '+opt.url).then(function(){alert('Lien copié dans le presse-papier !');}); }
+    else { prompt('Copiez et partagez :', opt.text+' '+opt.url); }
+  }
+  try{
+    var cv=document.createElement('canvas'); cv.width=1200; cv.height=630; var x=cv.getContext('2d');
+    x.fillStyle='#0b1018'; x.fillRect(0,0,1200,630);
+    x.fillStyle='#1746a2'; x.fillRect(0,0,1200,10);
+    x.fillStyle='#5a8fe0'; x.font='bold 44px system-ui,sans-serif'; x.fillText('Pronostix',60,100);
+    x.fillStyle='#aab4c8'; x.font='26px system-ui,sans-serif'; x.fillText('Pronostics IA · Coupe du Monde 2026',60,145);
+    x.fillStyle='#7aa8e8'; x.font='30px system-ui,sans-serif'; x.fillText((opt.label||'').toUpperCase(),60,320);
+    x.fillStyle='#ffffff'; x.font='bold 96px system-ui,sans-serif'; x.fillText('🏆 '+(opt.big||''),60,420);
+    x.fillStyle='#aab4c8'; x.font='24px system-ui,sans-serif'; x.fillText('nico-mtn.github.io/pronostics-cdm2026',60,575);
+    cv.toBlob(function(b){
+      try{
+        var file=b?new File([b],'pronostix.png',{type:'image/png'}):null;
+        if(file && navigator.canShare && navigator.canShare({files:[file]})){
+          navigator.share({files:[file],title:opt.title,text:opt.text}).catch(fallback);
+        } else if(b){
+          var a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='pronostix.png'; document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(fallback,400);
+        } else fallback();
+      }catch(e){ fallback(); }
+    },'image/png');
+  }catch(e){ fallback(); }
 }
 function isProno(){ return mode==="prono"; }
 function applyMode(m){
@@ -673,15 +722,17 @@ function koLine(name, code, sc, isWinner, tabFlag){
     return '<div class="ko-line"><span class="ko-team tbd"><span class="kn">\u00e0 venir</span></span>'
       + '<span class="ko-sc">\u2013</span></div>';
   }
-  var tab = (tabFlag && isWinner) ? '<span class="tab">tab</span>' : '';
-  return '<div class="ko-line"><span class="ko-team'+(isWinner?' win':'')+'">'+flagImg(code,'sm')
+  var tab = (tabFlag && isWinner) ? '<span class="tab">t.a.b.</span>' : '';
+  return '<div class="ko-line'+(isWinner?' win':'')+'"><span class="ko-team'+(isWinner?' win':'')+'">'+flagImg(code,'sm')
     + ' <span class="kn tlink" data-team="'+name+'">'+name+'</span></span>'
     + '<span class="ko-sc">'+(sc==null?'\u2013':sc)+tab+'</span></div>';
 }
 function koMatch(m){
   var d = m.date ? '<div class="ko-mdate">'+m.date+(m.heure?' · '+m.heure:'')+'</div>' : '';
-  return '<div class="ko-match">'
-    + d
+  var hit = (m.hit===true)?'<span class="ko-hit ok" title="Vainqueur correctement prédit">✓ prono</span>'
+          : (m.hit===false)?'<span class="ko-hit ko" title="Vainqueur non prévu">✗ prono</span>':'';
+  return '<div class="ko-match'+(m.winner?' done':'')+'">'
+    + hit + d
     + koLine(m.home,m.ch,m.sh,m.winner&&m.winner===m.home,m.tab)
     + koLine(m.away,m.ca,m.sa,m.winner&&m.winner===m.away,m.tab)
     + '</div>';
@@ -707,7 +758,8 @@ function renderBracket(){
   var ko=DATA.knockout;
   if(!ko||!ko.rounds){return '<div class="empty">Tableau final indisponible.</div>';}
   var champ = ko.champion ? ('<div class="champion"><div class="cl">\uD83C\uDFC6 Vainqueur projet\u00e9</div>'
-    + '<div class="cn">'+flagImg(ko.champion_code,'sm')+' <b class="tlink" data-team="'+ko.champion+'">'+ko.champion+'</b></div></div>') : '';
+    + '<div class="cn">'+flagImg(ko.champion_code,'sm')+' <b class="tlink" data-team="'+ko.champion+'">'+ko.champion+'</b></div>'
+    + '<button class="shareb" id="sharechamp">📤 Partager mon prono</button></div>') : '';
   var note='<div class="ko-note">\u26A0\uFE0F Projection pr\u00e9visionnelle : le tableau se construit \u00e0 partir des classements '
     + '(r\u00e9els + pronostiqu\u00e9s) et s\u2019actualise au fil de la comp\u00e9tition. Tant que les poules ne sont pas '
     + 'termin\u00e9es, les qualifi\u00e9s restent une estimation.</div>';
@@ -868,6 +920,7 @@ function render(){
     b.classList.toggle("on",b.dataset.v===view);});
   renderGrpSel(false);   // sélecteur autonome masqué : les lettres sont intégrées aux sous-onglets
   var c=document.getElementById("content");
+  if(c){ c.classList.remove("viewfade"); void c.offsetWidth; c.classList.add("viewfade"); }
 
   if(view==="feed"){
     renderGrpSel(false);
@@ -927,7 +980,7 @@ function render(){
     var html=collapsible('scorers','🥅 Meilleurs buteurs (toute la compétition)', renderScorers());
     html+=collapsible('assists','🎯 Meilleurs passeurs (toute la compétition)', renderAssists());
     html+=phaseTabs("standings");
-    if(subPhase.standings==="finales"){ c.innerHTML=html+renderBracket(); return; }
+    if(subPhase.standings==="finales"){ c.innerHTML=html+renderBracket(); var _sb=document.getElementById("sharechamp"); if(_sb)_sb.onclick=shareChampion; return; }
     if(DATA.matches.filter(function(m){return m.reel;}).length>=DATA.matches.length)
       html+='<div class="phase-done">✅ <b>Phase de groupe terminée</b> — cap sur les <b>phases finales</b> (onglet ci-dessus).</div>';
     html+=grpButtons();
