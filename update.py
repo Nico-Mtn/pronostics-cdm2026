@@ -178,6 +178,23 @@ KICKOFF_UTC = {
 # Décalage de jour : matchs dont le coup d'envoi UTC tombe le lendemain de la date "programme".
 KICKOFF_NEXTDAY = {2,19,14,20,4,16,22,28,34,40,58,64,70,52,5,6,23,24,29,35,41,47,53,59,65,71,46}
 
+# ─── Calendrier officiel des matchs à élimination directe (numérotation FIFA) ──
+# utcDate officiel par numéro de match FIFA (M°73 → M°104, + M°103 = 3e place).
+# Source : fifa.com (bracket Canada/Mexique/USA 2026). Les numéros FIFA ne sont PAS
+# chronologiques : ce calendrier sert à (a) mapper chaque fixture de l'API au BON
+# numéro de match (tri par heure officielle, pas par ordre numérique) et (b) afficher
+# une date de repli si l'API ne renvoie pas encore l'horaire.
+KO_KICKOFF_UTC = {
+    73:"2026-06-28T19:00:00Z", 74:"2026-06-29T20:30:00Z", 75:"2026-06-30T01:00:00Z", 76:"2026-06-29T17:00:00Z",
+    77:"2026-06-30T21:00:00Z", 78:"2026-06-30T17:00:00Z", 79:"2026-07-01T01:00:00Z", 80:"2026-07-01T16:00:00Z",
+    81:"2026-07-02T00:00:00Z", 82:"2026-07-01T20:00:00Z", 83:"2026-07-02T23:00:00Z", 84:"2026-07-02T19:00:00Z",
+    85:"2026-07-03T03:00:00Z", 86:"2026-07-03T22:00:00Z", 87:"2026-07-04T01:30:00Z", 88:"2026-07-03T18:00:00Z",
+    89:"2026-07-04T21:00:00Z", 90:"2026-07-04T17:00:00Z", 91:"2026-07-05T20:00:00Z", 92:"2026-07-06T00:00:00Z",
+    93:"2026-07-06T19:00:00Z", 94:"2026-07-07T00:00:00Z", 95:"2026-07-07T16:00:00Z", 96:"2026-07-07T20:00:00Z",
+    97:"2026-07-09T20:00:00Z", 98:"2026-07-10T19:00:00Z", 99:"2026-07-11T21:00:00Z", 100:"2026-07-12T01:00:00Z",
+    101:"2026-07-14T19:00:00Z",102:"2026-07-15T19:00:00Z",103:"2026-07-18T21:00:00Z",104:"2026-07-19T19:00:00Z",
+}
+
 def paris_time_str(hhmm):
     """'HH:MM' UTC -> 'HH:MM' Paris (UTC+2 été)."""
     try:
@@ -579,10 +596,16 @@ def fetch_from_api():
                                                fx.get("status",""), sc.get("winner")))
     ko_fixtures={}
     for st,ids in KO_STAGE_IDS.items():
-        for i,row in enumerate(sorted(by_stage.get(st,[]), key=lambda r:(r[0], r[1]))):
-            if i>=len(ids): break
+        # IMPORTANT : les numéros de match FIFA ne sont PAS chronologiques.
+        # On apparie donc les fixtures triées par heure réelle (API) aux ids du
+        # tour eux-mêmes triés par heure officielle (KO_KICKOFF_UTC) -> chaque
+        # fixture tombe sur le BON numéro de match FIFA.
+        ids_by_time=sorted(ids, key=lambda m: KO_KICKOFF_UTC.get(m, "9999"))
+        rows_by_time=sorted(by_stage.get(st,[]), key=lambda r:(r[0], r[1]))
+        for i,row in enumerate(rows_by_time):
+            if i>=len(ids_by_time): break
             utc,_id,hn,an,hs,as_,status,winner=row
-            mid=str(ids[i]); datetimes[mid]=utc
+            mid=str(ids_by_time[i]); datetimes[mid]=utc
             ko_fixtures[mid]={"home":hn,"away":an,
                               "hs":(int(hs) if hs is not None else None),
                               "as":(int(as_) if as_ is not None else None),
@@ -770,8 +793,12 @@ def _bracket_orders():
     return orders
 
 def _ko_date_fr(datetimes, mid):
-    """(date_fr_courte, heure_paris) pour un match KO depuis son utcDate, sinon ('','')."""
+    """(date_fr_courte, heure_paris) pour un match KO depuis son utcDate, sinon repli
+    sur le calendrier officiel KO_KICKOFF_UTC, sinon ('','')."""
     iso=(datetimes or {}).get(str(mid))
+    if not iso:
+        try: iso=KO_KICKOFF_UTC.get(int(mid))
+        except Exception: iso=None
     if not iso: return ("","")
     try:
         dt=datetime.datetime.fromisoformat(iso.replace("Z","+00:00"))+datetime.timedelta(hours=2)
