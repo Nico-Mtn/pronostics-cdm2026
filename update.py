@@ -20,7 +20,7 @@ WC_CODE = "WC"        # football-data.org : code compétition FIFA World Cup
 #             · 2.2 variation réaliste des scores (distribution CM 2010-2022, graine par affiche)
 #             · 2.3 ajustement dynamique conservateur : forme off/déf réelle, tendance de buts du
 #                   tournoi, pondération récence, blend force FIFA ↔ performances observées
-MODEL_VERSION = "3.4"
+MODEL_VERSION = "3.5"
 
 # ─── DONNÉES ÉQUIPES (force, tendance, style, surprise) ──────────────────────
 TEAM_DATA = {
@@ -78,6 +78,19 @@ def load_elo():
         print(f"[ELO] snapshot indisponible ({e}) — repli sur TEAM_DATA*180+1300", file=sys.stderr)
         return {}
 ELO = load_elo()
+def load_calibration():
+    """Paramètres apprenables (auto-calibrés par learn.py). Repli sur les défauts actuels."""
+    d = {"ko_sup_div":240.0,"ko_mu":[2.95,2.80,2.64],"ko_coinflip":0.025,
+         "exp_w0":0.22,"exp_w1":0.18,"group_draw_band":0.0}
+    try:
+        with open(os.path.join(ROOT,"data","calibration.json"),encoding="utf-8") as fh:
+            j=json.load(fh)
+            for k in d:
+                if k in j: d[k]=j[k]
+    except Exception as e:
+        print(f"[CALIB] défauts ({e})", file=sys.stderr)
+    return d
+CALIB = load_calibration()
 # Elo DYNAMIQUE : recalculé à chaque run depuis le snapshot figé + tous les vrais
 # résultats du tournoi (groupes + phases finales jouées). Rempli par build_payload.
 # Rend les projections KO auto-entretenues au fil des rencontres (déterministe/reproductible).
@@ -853,10 +866,10 @@ def _ko_lambdas(home, away, tier=0):
     d = eh - ea
     sup = max(-2.0, min(2.0, d / 240.0))
     # EXPÉRIENCE des grands matchs : nudge croissant avec l'enjeu du tour (R32 -> finale)
-    sup += (experience(home) - experience(away)) * (0.22 + 0.18 * min(max(tier, 0), 2))          # suprématie bornée (évite les blowouts irréalistes en KO)
+    sup += (experience(home) - experience(away)) * (CALIB["exp_w0"] + CALIB["exp_w1"] * min(max(tier, 0), 2))          # suprématie bornée (évite les blowouts irréalistes en KO)
     # Total de buts attendu CALIBRÉ sur les CdM récentes (~2.7/match ; phase finale 2018/2022 ~2.8),
     # se resserre par tour. Relevé vs v3.0 pour réduire l'excès de 1-0 (plus de 2-1/2-0/3-1).
-    mu = [2.95, 2.80, 2.64][min(max(tier,0),2)]
+    mu = CALIB["ko_mu"][min(max(tier,0),2)]
     # Confrontations directes : nudge LÉGER sur la suprématie (vers le favori du duel) et le total.
     hh = h2h_nudge(home, away)
     if hh:
@@ -938,7 +951,7 @@ def _ko_predict(home, away, tier=0):
     seed = int(_unit(away + "#" + home) * 100000)                 # graine (découplée) pour le score
     # Score : le qualifié tiré l'emporte de façon DÉCISIVE ; le nul + t.a.b. n'est montré
     # que pour un vrai 50/50 (match couperet), indépendamment de QUI est tiré.
-    coinflip = abs(advH - 0.5) < 0.025   # KO : un vainqueur quasi toujours -> t.a.b. réservé aux vrais 50/50
+    coinflip = abs(advH - 0.5) < CALIB["ko_coinflip"]   # KO : t.a.b. réservé aux vrais 50/50 (calibré)
     draws = {k: v for k, v in g.items() if k[0] == k[1]}
     if coinflip and draws:
         (sx, sy) = _pick_score(draws, seed); tab = True
@@ -1267,6 +1280,11 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
         qz = qualif_states if mid in j3_ids else None
         pah,paa,diffaj=compute(home,away,momentum,qz,form)
         joue=mid in rint
+        # Bande de nul calibrée (apprise) : sur un match de groupe À VENIR très serré,
+        # on penche pour le nul (issue la plus probable). N'affecte PAS le prono noté figé
+        # ni les matchs déjà joués -> les grades passés restent intacts.
+        if (not joue) and CALIB["group_draw_band"]>0 and abs(diffaj)<CALIB["group_draw_band"] and pah!=paa:
+            nn=[1,0,2][(sum(ord(c) for c in home+away))%3]; pah=paa=nn
         reel=None; statut="avenir"; resume=""; resume_reel=""
         if joue:
             rh,ra=rint[mid]["h"],rint[mid]["a"]; reel=[rh,ra]
