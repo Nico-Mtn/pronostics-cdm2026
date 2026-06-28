@@ -833,13 +833,21 @@ def _ko_predict(home, away, tier=0):
     advA = pD + 0.5 * pN
     winner = home if advH >= advA else away
     conf = int(round(100 * max(advH, advA)))
-    # Score affiché : le plus probable COHÉRENT avec le qualifié (décisif, sinon nul + t.a.b.)
+    # Score affiché : on PRIVILÉGIE un résultat DÉCISIF pour le qualifié. Le nul + tirs
+    # au but n'est affiché QUE pour les matchs vraiment indécis (anti-excès de nuls :
+    # un 90 min sur deux ne finit pas 1-1). Seuil sur la proba de qualification.
+    TAB_THRESHOLD = 57   # < seuil = match couperet -> nul + t.a.b. plausible ; sinon score décisif
     if winner == home:
-        cand = {k: v for k, v in g.items() if k[0] >= k[1]}
+        decisive = {k: v for k, v in g.items() if k[0] > k[1]}
     else:
-        cand = {k: v for k, v in g.items() if k[0] <= k[1]}
-    (sx, sy) = max(cand.items(), key=lambda kv: kv[1])[0]
-    tab = (sx == sy)
+        decisive = {k: v for k, v in g.items() if k[0] < k[1]}
+    draws = {k: v for k, v in g.items() if k[0] == k[1]}
+    if conf < TAB_THRESHOLD and draws:
+        (sx, sy) = max(draws.items(), key=lambda kv: kv[1])[0]   # quasi 50/50 -> nul (t.a.b.)
+        tab = True
+    else:
+        (sx, sy) = max(decisive.items(), key=lambda kv: kv[1])[0]  # vainqueur net en 90 min
+        tab = False
     # Distribution : top 4 scores (orientés home-away) pour l'affichage
     dist = [{"s": [x, y], "p": int(round(p * 100))}
             for (x, y), p in sorted(g.items(), key=lambda kv: kv[1], reverse=True)[:4]]
