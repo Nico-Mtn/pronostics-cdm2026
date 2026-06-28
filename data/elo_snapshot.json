@@ -2,7 +2,9 @@
   "_meta": {
     "source": "World Football Elo Ratings (eloratings.net)",
     "snapshot_date": "2026-06-11",
-    "note": "Ratings Elo figés au coup d'envoi de la CdM 2026. Ancrages confirmés (juin 2026) : Espagne 2171, Argentine 2113, France 2063. Valeurs gelées et committées : aucune dépendance reseau a l'execution. Utilises pour la force de base des pronos de phase finale (Lot 1). La phase de groupes (notee, figee) n'est pas affectee."
+    "note": "Ratings Elo figés au coup d'envoi de la CdM 2026. Ancrages confirmés (juin 2026) : Espagne 2171, Argentine 2113, France 2063. Valeurs gelées et committées : aucune dépendance reseau a l'execution. Utilises pour la force de base des pronos de phase finale (Lot 1). La phase de groupes (notee, figee) n'est pas affectee.",
+    "author": "Nico-Mtn",
+    "credit": "Auteur : Nico-Mtn (https://github.com/Nico-Mtn). Réutilisation libre, crédit au créateur apprécié."
   },
   "elo": {
     "Espagne": 2171,

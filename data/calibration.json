@@ -3,7 +3,9 @@
     "role": "Paramètres APPRENABLES du modèle, auto-calibrés par learn.py depuis les résultats accumulés (CdM en cours + passées). update.py lit ce fichier ; en son absence, il retombe sur ces valeurs par défaut (= comportement actuel).",
     "updated": "2026-06-28",
     "fitted_on": "72 matchs de poule (CdM courante), validation croisée LOGO",
-    "note": "Plus on accumule de matchs, plus learn.py affine ces valeurs. Cible réaliste de fiabilité directionnelle : 73-76% (plafond du sport ~75-78%)."
+    "note": "Plus on accumule de matchs, plus learn.py affine ces valeurs. Cible réaliste de fiabilité directionnelle : 73-76% (plafond du sport ~75-78%).",
+    "author": "Nico-Mtn",
+    "credit": "Auteur : Nico-Mtn (https://github.com/Nico-Mtn). Réutilisation libre, crédit au créateur apprécié."
   },
   "ko_sup_div": 240.0,
   "ko_mu": [

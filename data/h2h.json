@@ -3,23 +3,85 @@
     "source": "Tendances des confrontations directes (historique des duels).",
     "snapshot_date": "2026-06-11",
     "key": "Clé = noms triés alphabétiquement 'A|B'. fav = équipe historiquement favorisée ; edge = nudge de suprématie (0-0.35) en faveur de fav ; goals = nudge sur le total de buts attendu (-0.3..+0.3).",
-    "note": "Figé/committé. Régénérable depuis le dataset CC0 via build_stats.py (bilan réel des duels). Nudge LÉGER : l'Elo + la forme restent dominants. Phase de groupes non affectée."
+    "note": "Figé/committé. Régénérable depuis le dataset CC0 via build_stats.py (bilan réel des duels). Nudge LÉGER : l'Elo + la forme restent dominants. Phase de groupes non affectée.",
+    "author": "Nico-Mtn",
+    "credit": "Auteur : Nico-Mtn (https://github.com/Nico-Mtn). Réutilisation libre, crédit au créateur apprécié."
   },
   "h2h": {
-    "Argentine|Brésil":      {"fav": "Argentine", "edge": 0.10, "goals": -0.30},
-    "Allemagne|France":      {"fav": "France",    "edge": 0.12, "goals":  0.00},
-    "Brésil|France":         {"fav": "France",    "edge": 0.10, "goals": -0.10},
-    "Angleterre|Argentine":  {"fav": "Argentine", "edge": 0.08, "goals":  0.00},
-    "Argentine|Pays-Bas":    {"fav": "Argentine", "edge": 0.10, "goals":  0.10},
-    "Espagne|Portugal":      {"fav": "Espagne",   "edge": 0.06, "goals":  0.10},
-    "Allemagne|Pays-Bas":    {"fav": "Pays-Bas",  "edge": 0.06, "goals":  0.10},
-    "Croatie|Espagne":       {"fav": "Espagne",   "edge": 0.10, "goals":  0.10},
-    "Angleterre|Allemagne":  {"fav": "Angleterre","edge": 0.06, "goals":  0.00},
-    "Belgique|France":       {"fav": "France",    "edge": 0.10, "goals": -0.10},
-    "Mexique|États-Unis":    {"fav": "États-Unis","edge": 0.06, "goals":  0.10},
-    "Brésil|Croatie":        {"fav": "Brésil",    "edge": 0.10, "goals": -0.10},
-    "Maroc|Portugal":        {"fav": "Maroc",     "edge": 0.05, "goals": -0.10},
-    "Japon|Espagne":         {"fav": "Espagne",   "edge": 0.08, "goals":  0.10},
-    "Colombie|Angleterre":   {"fav": "Angleterre","edge": 0.05, "goals": -0.10}
+    "Argentine|Brésil": {
+      "fav": "Argentine",
+      "edge": 0.1,
+      "goals": -0.3
+    },
+    "Allemagne|France": {
+      "fav": "France",
+      "edge": 0.12,
+      "goals": 0.0
+    },
+    "Brésil|France": {
+      "fav": "France",
+      "edge": 0.1,
+      "goals": -0.1
+    },
+    "Angleterre|Argentine": {
+      "fav": "Argentine",
+      "edge": 0.08,
+      "goals": 0.0
+    },
+    "Argentine|Pays-Bas": {
+      "fav": "Argentine",
+      "edge": 0.1,
+      "goals": 0.1
+    },
+    "Espagne|Portugal": {
+      "fav": "Espagne",
+      "edge": 0.06,
+      "goals": 0.1
+    },
+    "Allemagne|Pays-Bas": {
+      "fav": "Pays-Bas",
+      "edge": 0.06,
+      "goals": 0.1
+    },
+    "Croatie|Espagne": {
+      "fav": "Espagne",
+      "edge": 0.1,
+      "goals": 0.1
+    },
+    "Angleterre|Allemagne": {
+      "fav": "Angleterre",
+      "edge": 0.06,
+      "goals": 0.0
+    },
+    "Belgique|France": {
+      "fav": "France",
+      "edge": 0.1,
+      "goals": -0.1
+    },
+    "Mexique|États-Unis": {
+      "fav": "États-Unis",
+      "edge": 0.06,
+      "goals": 0.1
+    },
+    "Brésil|Croatie": {
+      "fav": "Brésil",
+      "edge": 0.1,
+      "goals": -0.1
+    },
+    "Maroc|Portugal": {
+      "fav": "Maroc",
+      "edge": 0.05,
+      "goals": -0.1
+    },
+    "Japon|Espagne": {
+      "fav": "Espagne",
+      "edge": 0.08,
+      "goals": 0.1
+    },
+    "Colombie|Angleterre": {
+      "fav": "Angleterre",
+      "edge": 0.05,
+      "goals": -0.1
+    }
   }
 }
