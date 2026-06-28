@@ -928,14 +928,13 @@ def _ko_predict(home, away, tier=0):
     # Probabilité de QUALIFICATION (les nuls se décident aux t.a.b. ~50/50)
     advH = pV + 0.5 * pN
     advA = pD + 0.5 * pN
-    fav = home if advH >= advA else away          # favori mathématique (sert à la JUSTESSE/hit)
-    # ÉQUILIBRE CALIBRÉ rigueur <-> surprise : le qualifié projeté est TIRÉ de façon
-    # déterministe et UNIFORME, pondéré par la proba de qualification. Un favori à 85 %
-    # passe quasi toujours ; un 52/48 bascule parfois -> upsets au taux réel, reproductible.
-    u = _unit(home + "~" + away)
-    winner = home if u < advH else away
-    conf = int(round(100 * (advH if winner == home else advA)))   # confiance dans le qualifié AFFICHÉ
-    upset = (winner != fav)
+    # Le qualifié PRINCIPAL est TOUJOURS le plus probable (plus haute confiance) : pas de
+    # paradoxe "2e scénario meilleur que le 1er". La surprise est portée par le 2e scénario
+    # et un indice de confiance bas (la dynamique du sport reste lisible sans tromper).
+    fav = home if advH >= advA else away
+    winner = fav
+    conf = int(round(100 * max(advH, advA)))      # >= 50 % par construction
+    upset = False
     seed = int(_unit(away + "#" + home) * 100000)                 # graine (découplée) pour le score
     # Score : le qualifié tiré l'emporte de façon DÉCISIVE ; le nul + t.a.b. n'est montré
     # que pour un vrai 50/50 (match couperet), indépendamment de QUI est tiré.

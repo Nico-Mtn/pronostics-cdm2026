@@ -279,7 +279,7 @@
     background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:5px 8px;margin-bottom:10px}
   .ko-rname .per{font-size:8.5px;font-weight:600;color:var(--mut);letter-spacing:.2px;text-transform:none}
   .ko-matches{flex:1;display:flex;flex-direction:column}
-  .ko-cell{flex:1;display:flex;align-items:center;justify-content:center;position:relative;min-height:64px}
+  .ko-cell{flex:1;display:flex;align-items:center;justify-content:center;position:relative;min-height:112px}
   /* Connecteurs dessinés côté "receveur" (layout linéaire, non-FIFA) */
   .bracket:not(.fifa) .ko-round:not(:first-child) .ko-cell::before{content:"";position:absolute;right:100%;top:50%;
     width:calc(var(--g)/2);height:2px;background:var(--line)}
@@ -380,7 +380,13 @@
   .tp-mom{margin-left:auto;text-align:right;font-size:9px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
   .tp-mom .mv{font-size:15px;font-weight:800;display:block}
   .tp-sec{font-size:9.5px;font-weight:800;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 6px}
-  .tp-m{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--line2)}
+  .tp-m{display:flex;align-items:center;gap:9px;padding:9px 8px;border-bottom:1px solid var(--line2);border-left:3px solid transparent;border-radius:4px}
+  .tp-m.win{border-left-color:var(--win);background:linear-gradient(90deg,var(--winbg),transparent)}
+  .tp-m.draw{border-left-color:var(--mut)}
+  .tp-m.loss{border-left-color:var(--rate);background:linear-gradient(90deg,var(--ratebg),transparent)}
+  .tp-res.win{color:var(--win)} .tp-res.draw{color:var(--mut)} .tp-res.loss{color:var(--rate)}
+  .tp-issue{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-top:2px}
+  .tp-issue.win{color:var(--win)} .tp-issue.draw{color:var(--mut)} .tp-issue.loss{color:var(--rate)}
   .tp-m:last-child{border-bottom:none}
   .tp-m .tp-d{font-size:9px;color:var(--mut);min-width:46px;flex-shrink:0}
   .tp-m .tp-opp{flex:1;font-size:12px;color:var(--txt);display:flex;align-items:center;gap:6px;min-width:0}
@@ -884,29 +890,33 @@ function openTeamProfile(team){
   if(!ms.length) return;
   var grp=ms[0].grp, code=codeFor(team);
   var mom=null; (DATA.momentum||[]).forEach(function(x){if(x.team===team)mom=x;});
+  function _oc(gf,ga){return gf>ga?"win":(gf<ga?"loss":"draw");}
+  function _ol(gf,ga){return gf>ga?"Victoire":(gf<ga?"D\u00e9faite":"Nul");}
   var rowsHtml=ms.map(function(m){
     var home=m.home===team, opp=home?m.away:m.home, oppCode=home?m.ca:m.ch;
     var lieu=home?'re\u00e7oit':'chez';
-    var res;
+    var rowcls="", res="";
     if(m.reel){
       var gf=home?m.reel[0]:m.reel[1], ga=home?m.reel[1]:m.reel[0];
+      rowcls=_oc(gf,ga);   // couleur de la ligne = résultat RÉEL de l'équipe (V/N/D)
+      res='<span class="tp-res '+_oc(gf,ga)+'">'+gf+'\u2013'+ga+'</span>';
       if(isProno()){
         var pf=home?m.prono[0]:m.prono[1], pg=home?m.prono[1]:m.prono[0];
-        res='<span class="tp-res">'+gf+'\u2013'+ga+'<div class="pr">prono '+pf+'\u2013'+pg+'</div></span>'
+        res+='<div class="tp-issue '+_oc(pf,pg)+'">prono : '+_ol(pf,pg)+'</div>'
           +'<div class="tag '+m.statut+'">'+TAG_LABEL[m.statut]+'</div>';
-      } else {
-        res='<span class="tp-res">'+gf+'\u2013'+ga+'</span>';
       }
     } else {
       if(isProno()){
         var pf2=home?m.prono[0]:m.prono[1], pg2=home?m.prono[1]:m.prono[0];
-        res='<span class="tp-res" style="color:var(--gold)">'+pf2+'\u2013'+pg2+'<div class="pr">'+m.confidence+'% conf.</div></span>'
-          +'<div class="tag avenir">\u00c0 venir</div>';
+        rowcls=_oc(pf2,pg2);   // à venir : couleur = issue PRONOSTIQUÉE
+        res='<span class="tp-res '+_oc(pf2,pg2)+'">'+pf2+'\u2013'+pg2+'</span>'
+          +'<div class="tp-issue '+_oc(pf2,pg2)+'">prono : '+_ol(pf2,pg2)+'</div>'
+          +'<div class="tag avenir">'+m.confidence+'% conf.</div>';
       } else {
         res='<div class="tag avenir">\u00c0 venir</div>';
       }
     }
-    return '<div class="tp-m"><span class="tp-d">'+m.date+'</span>'
+    return '<div class="tp-m '+rowcls+'"><span class="tp-d">'+m.date+'</span>'
       +'<span class="tp-opp"><span class="vs">'+lieu+'</span> '+flagImg(oppCode,'sm')+' <span class="tlink" data-team="'+opp+'">'+opp+'</span></span>'
       +res+'</div>';
   }).join("");
