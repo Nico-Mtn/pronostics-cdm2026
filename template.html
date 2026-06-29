@@ -526,9 +526,10 @@ function koFeedCard(m){
   var altHtml='';
   if(m.second){
     var aid='alt-ko'+m.num;
+    var s2=m.second; var s2lbl=s2.team?('Qualification '+s2.team):'Scénario alternatif';
     altHtml='<div class="alt-bubble" id="'+aid+'" style="display:none">'
       +'<div class="at">⚠️ Pronostic incertain — 2e choix</div>'
-      +'<div>Scénario alternatif le plus crédible : <span class="asc">'+m.second.score[0]+' – '+m.second.score[1]+'</span> &middot; <b>'+m.second.label+'</b></div>'
+      +'<div>Scénario alternatif le plus crédible : <span class="asc">'+s2.sh+' – '+s2.sa+'</span> &middot; <b>'+s2lbl+'</b></div>'
       +'</div>';
   }
   // résumé
