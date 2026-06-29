@@ -423,10 +423,10 @@
     "76": {
       "home": "Brésil",
       "away": "Japon",
-      "hs": 1,
+      "hs": 2,
       "as": 1,
-      "status": "IN_PLAY",
-      "winner": "DRAW"
+      "status": "FINISHED",
+      "winner": "HOME_TEAM"
     },
     "77": {
       "home": "France",
