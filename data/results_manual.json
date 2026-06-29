@@ -408,9 +408,9 @@
       "home": "Allemagne",
       "away": "Paraguay",
       "hs": 2,
-      "as": 1,
-      "status": "PAUSED",
-      "winner": "HOME_TEAM"
+      "as": 2,
+      "status": "IN_PLAY",
+      "winner": null
     },
     "75": {
       "home": "Pays-Bas",
