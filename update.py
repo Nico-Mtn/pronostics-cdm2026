@@ -1450,6 +1450,24 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
             fx=(ko_fixtures or {}).get(str(mid)) or {}
             is_real=bool(fx.get("home") and fx.get("away"))   # affiche réellement connue (tirage)
             fa,fb=KO_FEEDERS.get(mid,(None,None))
+            # ── Enrichissement (mêmes infos que les cartes de groupe) ──
+            ko_style_label, ko_style_note = style_analysis(m["home"], m["away"])
+            ko_pred = m.get("pred_score") if played else (
+                [m["sh"],m["sa"]] if m.get("sh") is not None else None)
+            ko_statut = "avenir"
+            if played:
+                ps = m.get("pred_score") or [None,None]
+                if ps[0] is not None and ps[0]==rm.get("sh") and ps[1]==rm.get("sa"):
+                    ko_statut = "exact"
+                elif m.get("hit"):
+                    ko_statut = "bon"
+                else:
+                    ko_statut = "rate"
+            ko_resume = ko_resume_reel = ""
+            if played:
+                ko_resume, ko_resume_reel = match_summary(
+                    rm.get("home") or m["home"], rm.get("away") or m["away"],
+                    rm["sh"], rm["sa"], ko_statut, momentum, scorers_by_team or {})
             ko_feed.append({
                 "id":mid,"num":mid,"phase":rd["name"],"date":m.get("date",""),"heure":m.get("heure",""),
                 "iso":iso or "","sort":sort_key or (m.get("date","")+"~"),
@@ -1461,6 +1479,13 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
                 "rch":rm.get("ch",""),"rca":rm.get("ca",""),
                 "reel":[rm["sh"],rm["sa"]] if played else None,
                 "prono":[m["sh"],m["sa"]] if (not played and m.get("sh") is not None) else None,
+                # — infos enrichies (confiance, prono vs réel, style, 2e choix, résumé) —
+                "conf":m.get("conf"),"pred_score":ko_pred,"statut":ko_statut,
+                "second":m.get("second"),
+                "style_label":ko_style_label,"style_note":ko_style_note,
+                "resume":ko_resume,"resume_reel":ko_resume_reel,
+                "mom_h":round(momentum.get(m["home"],0.0),2),
+                "mom_a":round(momentum.get(m["away"],0.0),2),
                 "winner":rm.get("winner") if played else None,
                 "host_h":m["home"] in HOST_NATIONS,"host_a":m["away"] in HOST_NATIONS})
 

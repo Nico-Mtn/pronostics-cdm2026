@@ -476,20 +476,85 @@ function koFeedCard(m){
     return '<span class="n tbd-name">'+lbl+'</span>';
   }
   var hTeam=side(m.reel_home,true), aTeam=side(m.reel_away,false);
-  var sc;
-  if(m.reel){
-    var nul=(m.reel[0]===m.reel[1]);
-    sc='<div class="sc"><div class="sc-real-lbl">Score'+(nul?' (nul)':'')+'</div><div class="score">'+m.reel[0]+' – '+m.reel[1]+'</div>'+(nul?'<div class="sc-prono">tirs au but</div>':'')+'</div>';
-  } else if(isProno() && m.prono){
-    sc='<div class="sc"><div class="sc-prono-lbl">Pronostic</div><div class="score prono">'+m.prono[0]+' – '+m.prono[1]+'</div></div>';
-  } else {
-    sc='<div class="sc"><div class="tag avenir">À venir</div></div>';
+
+  // ── Mode Réel : carte factuelle (score + résumé), sans prono/confiance/style ──
+  if(!isProno()){
+    var rsc;
+    if(m.reel){
+      var rnul=(m.reel[0]===m.reel[1]);
+      rsc='<div class="sc"><div class="sc-real-lbl">Score'+(rnul?' (nul)':'')+'</div><div class="score">'+m.reel[0]+' – '+m.reel[1]+'</div>'+(rnul?'<div class="sc-prono">tirs au but</div>':'')+'</div>';
+    } else {
+      rsc='<div class="sc"><div class="tag avenir">À venir</div></div>';
+    }
+    var rres='';
+    if(m.reel && m.resume_reel){
+      var rrid='res-ko'+m.num;
+      rres='<div class="meta"><button class="resume-toggle" data-res="'+rrid+'">💬 Résumé du match</button>'
+        +'<div class="resume-bubble" id="'+rrid+'" style="display:none">'+m.resume_reel+'</div></div>';
+    }
+    return '<div class="match'+(m.today?' is-today':'')+'"><div class="match-main"><div class="match-row1">'+dt
+      +'<span class="tm r">'+hTeam+'</span>'+rsc+'<span class="tm l">'+aTeam+'</span>'
+      +'</div><div class="badges">'+badges+'</div>'+rres+'</div></div>';
   }
-  return '<div class="match'+(m.today?' is-today':'')+'"><div class="match-main"><div class="match-row1">'+dt
-    +'<span class="tm r">'+hTeam+'</span>'
-    + sc
-    +'<span class="tm l">'+aTeam+'</span>'
-    +'</div><div class="badges">'+badges+'</div></div></div>';
+
+  // ── Mode Prono de Nono : mêmes informations que les cartes de groupe ──
+  var scoreHtml, tagHtml;
+  if(m.reel){
+    var pp = m.pred_score ? ('<div class="sc-prono">Prono : '+m.pred_score[0]+'–'+m.pred_score[1]+'</div>') : '';
+    scoreHtml='<div class="sc-real-lbl">Score final réel</div>'
+      +'<div class="score">'+m.reel[0]+' – '+m.reel[1]+'</div>'+pp;
+    var st=m.statut||'bon';
+    tagHtml='<div class="tag '+st+'">'+TAG_LABEL[st]+'</div>';
+  } else if(m.pred_score){
+    scoreHtml='<div class="sc-prono-lbl">Pronostic</div><div class="score prono">'+m.pred_score[0]+' – '+m.pred_score[1]+'</div>';
+    var altBtn = m.second ? '<button class="alt-badge" data-alt="alt-ko'+m.num+'" title="Pronostic incertain : voir le 2e choix">!</button>' : '';
+    tagHtml='<div class="tag avenir">À venir'+altBtn+'</div>';
+  } else {
+    scoreHtml=''; tagHtml='<div class="tag avenir">À venir</div>';
+  }
+  // dynamique (momentum)
+  var dyn='';
+  if(!m.reel){
+    var notes=[];
+    if(m.mom_h>=0.2)notes.push(m.home+" en confiance (+"+m.mom_h+")");
+    else if(m.mom_h<=-0.2)notes.push(m.home+" en difficulté ("+m.mom_h+")");
+    if(m.mom_a>=0.2)notes.push(m.away+" en confiance (+"+m.mom_a+")");
+    else if(m.mom_a<=-0.2)notes.push(m.away+" en difficulté ("+m.mom_a+")");
+    if(notes.length)dyn='<div class="dyn">↻ '+notes.join(" · ")+'</div>';
+  }
+  // bulle 2e choix
+  var altHtml='';
+  if(m.second){
+    var aid='alt-ko'+m.num;
+    altHtml='<div class="alt-bubble" id="'+aid+'" style="display:none">'
+      +'<div class="at">⚠️ Pronostic incertain — 2e choix</div>'
+      +'<div>Scénario alternatif le plus crédible : <span class="asc">'+m.second.score[0]+' – '+m.second.score[1]+'</span> &middot; <b>'+m.second.label+'</b></div>'
+      +'</div>';
+  }
+  // résumé
+  var resumeHtml='';
+  if(m.reel && m.resume){
+    var rid='res-ko'+m.num;
+    resumeHtml='<button class="resume-toggle" data-res="'+rid+'">💬 Résumé du match</button>'
+      +'<div class="resume-bubble" id="'+rid+'" style="display:none">'+m.resume+'</div>';
+  }
+  // style
+  var styleHtml='';
+  if(m.style_label){
+    styleHtml='<div class="style"><span class="lbl">Style</span>'
+      +'<span class="body"><b>'+m.style_label+'</b><div class="note">'+(m.style_note||'')+'</div></span></div>';
+  }
+  return '<div class="match'+(m.today?' is-today':'')+'">'
+    + ((m.conf!=null)?confRing(m.conf):'')
+    + '<div class="match-main">'
+    +   '<div class="match-row1">'+dt
+    +     '<span class="tm r">'+hTeam+'</span>'
+    +     '<div class="sc">'+scoreHtml+tagHtml+'</div>'
+    +     '<span class="tm l">'+aTeam+'</span>'
+    +   '</div>'
+    +   '<div class="badges">'+badges+'</div>'
+    +   '<div class="meta">'+styleHtml+dyn+altHtml+resumeHtml+'</div>'
+    + '</div></div>';
 }
 function shareChampion(){
   var ko=DATA.knockout||{}; var champ=ko.champion||'?';
