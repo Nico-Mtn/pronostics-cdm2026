@@ -407,9 +407,9 @@
     "74": {
       "home": "Allemagne",
       "away": "Paraguay",
-      "hs": 2,
-      "as": 2,
-      "status": "IN_PLAY",
+      "hs": 5,
+      "as": 6,
+      "status": "FINISHED",
       "winner": null
     },
     "75": {
