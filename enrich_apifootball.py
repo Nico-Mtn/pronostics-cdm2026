@@ -194,6 +194,8 @@ def main():
     print("[AF] Enrichissement API-Football…")
     # 1) Fixtures (calendrier + venue + t.a.b.)
     fixtures_resp=api_get("fixtures", {"league":LEAGUE,"season":SEASON})
+    if fixtures_resp is not None:
+        print(f"[AF][diag] fixtures results={fixtures_resp.get('results')} errors={fixtures_resp.get('errors')} paging={fixtures_resp.get('paging')}", file=sys.stderr)
     if fixtures_resp and fixtures_resp.get("response"):
         af_fix=map_fixtures(fixtures_resp["response"])
         prev=_read("af_fixtures.json"); prev.pop("_meta",None)
@@ -203,6 +205,7 @@ def main():
     # 2) Blessés / suspendus (tout le tournoi en 1 appel)
     inj_resp=api_get("injuries", {"league":LEAGUE,"season":SEASON})
     if inj_resp is not None:
+        print(f"[AF][diag] injuries results={inj_resp.get('results')} errors={inj_resp.get('errors')}", file=sys.stderr)
         _write("af_injuries.json", build_injuries(inj_resp.get("response")))
         print(f"[AF] af_injuries.json mis à jour.")
     print(f"[AF] Terminé — {_calls[0]} appel(s) consommé(s) ce run.")
