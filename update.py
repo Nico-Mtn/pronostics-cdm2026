@@ -1410,6 +1410,49 @@ def compute_live_form(results, ko_fixtures, datetimes=None):
         live[t] = {"gf": round(gf, 2), "ga": round(ga, 2)}
     return live
 
+def _ko_tier_of(mid):
+    if 73 <= mid <= 88: return 0
+    if 104 == mid: return 2
+    return 1   # 8es/quarts/demies/3e place
+
+def _walkforward_predictions(results, ko_fixtures, datetimes):
+    """Pronostics de la SIMULATION 'depuis le coup d'envoi' : chaque match (groupes + KO)
+    est prédit par le moteur Elo+Dixon-Coles à partir de l'état issu UNIQUEMENT des
+    matchs ANTÉRIEURS (walk-forward, sans hindsight). Renvoie {str(mid): pred}.
+    Sauvegarde/restaure les globals LIVE_* (ne perturbe pas le reste du build)."""
+    save = (dict(LIVE_ELO), dict(LIVE_FORM), dict(LIVE_MOM))
+    items = []
+    for mid, grp, date, h, a in GROUP_MATCHES:
+        r = results.get(str(mid))
+        items.append({"mid": mid, "h": h, "a": a, "ts": date + "T00:00:00Z", "tier": 0, "ko": False,
+                      "played": r is not None, "rh": (int(r["h"]) if r else None), "ra": (int(r["a"]) if r else None)})
+    for mid_s, fx in (ko_fixtures or {}).items():
+        if not (fx.get("home") and fx.get("away")): continue
+        try: mid = int(mid_s)
+        except Exception: continue
+        played = fx.get("hs") is not None and fx.get("as") is not None and fx.get("status") in ("FINISHED", "AWARDED")
+        items.append({"mid": mid, "h": fx["home"], "a": fx["away"],
+                      "ts": KO_KICKOFF_UTC.get(mid, "2026-07-01T00:00:00Z"), "tier": _ko_tier_of(mid), "ko": True,
+                      "played": played, "rh": fx.get("hs"), "ra": fx.get("as")})
+    items.sort(key=lambda x: (x["ts"], x["mid"]))
+    acc_res, acc_ko, acc_dt = {}, {}, {}
+    out = {}
+    for it in items:
+        LIVE_ELO.clear();  LIVE_ELO.update(compute_live_elo(acc_res, acc_ko, acc_dt))
+        LIVE_FORM.clear(); LIVE_FORM.update(compute_live_form(acc_res, acc_ko, acc_dt))
+        LIVE_MOM.clear();  LIVE_MOM.update(compute_momentum_overlay(acc_res, acc_ko, acc_dt))
+        out[str(it["mid"])] = _ko_predict(it["h"], it["a"], it["tier"])
+        if it["played"] and it["rh"] is not None:
+            if it["ko"]:
+                acc_ko[str(it["mid"])] = {"home": it["h"], "away": it["a"], "hs": it["rh"], "as": it["ra"], "status": "FINISHED"}
+            else:
+                acc_res[str(it["mid"])] = {"h": it["rh"], "a": it["ra"]}
+            acc_dt[str(it["mid"])] = it["ts"]
+    LIVE_ELO.clear();  LIVE_ELO.update(save[0])
+    LIVE_FORM.clear(); LIVE_FORM.update(save[1])
+    LIVE_MOM.clear();  LIVE_MOM.update(save[2])
+    return out
+
 def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=None, assists_top=None, ko_fixtures=None):
     from collections import defaultdict
     scorers_by_team = scorers_by_team or {}
@@ -1426,6 +1469,8 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
     LIVE_ELO.clear();  LIVE_ELO.update(compute_live_elo(results, ko_fixtures, datetimes))
     LIVE_FORM.clear(); LIVE_FORM.update(compute_live_form(results, ko_fixtures, datetimes))
     LIVE_MOM.clear();  LIVE_MOM.update(compute_momentum_overlay(results, ko_fixtures, datetimes))
+    # PRONOS = SIMULATION walk-forward (Elo+Dixon-Coles) appliquée à TOUS les matchs publiés.
+    WF = _walkforward_predictions(results, ko_fixtures, datetimes)
     qualif_states=compute_qualif_states(results)
     rint={int(k):v for k,v in results.items()}
     # "Aujourd'hui" dans le fuseau du LIEU de la compétition (Amériques). Tous les
@@ -1449,11 +1494,15 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
         # facteur qualification uniquement pour les 3es matchs
         qz = qualif_states if mid in j3_ids else None
         pah,paa,diffaj=compute(home,away,momentum,qz,form)
+        # PRONO AFFICHÉ = simulation walk-forward Elo+Dixon-Coles (cohérence sur toute la compétition)
+        _wf = WF.get(str(mid))
+        if _wf:
+            pih, pia = _wf["sh"], _wf["sa"]; pah, paa = _wf["sh"], _wf["sa"]
         joue=mid in rint
         # Bande de nul calibrée (apprise) : sur un match de groupe À VENIR très serré,
         # on penche pour le nul (issue la plus probable). N'affecte PAS le prono noté figé
         # ni les matchs déjà joués -> les grades passés restent intacts.
-        if (not joue) and CALIB["group_draw_band"]>0 and abs(diffaj)<CALIB["group_draw_band"] and pah!=paa:
+        if (not _wf) and (not joue) and CALIB["group_draw_band"]>0 and abs(diffaj)<CALIB["group_draw_band"] and pah!=paa:
             nn=[1,0,2][(sum(ord(c) for c in home+away))%3]; pah=paa=nn
         reel=None; statut="avenir"; resume=""; resume_reel=""
         if joue:
@@ -1517,7 +1566,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
         is_today = (matchday_iso == today_iso)
         if is_today: n_today += 1
         style_label, style_note = style_analysis(home, away)
-        conf = confidence_pct(diffaj if not joue else compute(home,away,None)[2])
+        conf = _wf["conf"] if _wf else confidence_pct(diffaj if not joue else compute(home,away,None)[2])
         # Surprise : favori net (>85 %) donné vainqueur mais qui NE GAGNE PAS
         # (battu OU accroché sur un nul) — ex. un nul d'une grosse équipe face à un outsider
         surprise = bool(joue and conf > 85 and po in (0, 1) and ro != po)
