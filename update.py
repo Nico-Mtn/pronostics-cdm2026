@@ -873,6 +873,41 @@ def load_ko_overrides():
             return json.load(fh).get("ko_resultats",{}) or {}
     return {}
 
+def load_af_fixtures():
+    """Cache d'enrichissement API-Football (Lot 1) : {numéro FIFA(str): champs}.
+    Renvoie {} si absent (le site continue normalement sur football-data)."""
+    p=os.path.join(ROOT,"data","af_fixtures.json")
+    if os.path.exists(p):
+        try:
+            with open(p,encoding="utf-8") as fh:
+                d=json.load(fh); d.pop("_meta",None); return d
+        except Exception: return {}
+    return {}
+
+def apply_af_enrichment(ko_fixtures):
+    """Lot 1 — quick wins API-Football : lieu (stade/ville) fiable + tirs au but fiables.
+    L'enrichissement PRIME sur football-data quand il est présent."""
+    af=load_af_fixtures()
+    for mid,rec in af.items():
+        # Lieu : alimente VENUES pour TOUS les matchs (groupes + phases finales)
+        ven=rec.get("venue"); city=rec.get("city")
+        if ven or city:
+            VENUES[str(mid)]=", ".join([x for x in (ven,city) if x])
+        # Tirs au but : pour les matchs KO présents dans ko_fixtures
+        fx=ko_fixtures.get(str(mid))
+        if not fx: continue
+        ph,pa=rec.get("penh"),rec.get("pena")
+        if ph is not None and pa is not None:
+            fx["penh"]=int(ph); fx["pena"]=int(pa); fx["tab"]=True
+            if ph!=pa: fx["winner"]="HOME_TEAM" if ph>pa else "AWAY_TEAM"
+        w=rec.get("winner")
+        if w in ("home","away"):
+            fx["winner"]="HOME_TEAM" if w=="home" else "AWAY_TEAM"
+        # Score "sur le terrain" (hors t.a.b.) plus fiable que football-data
+        if rec.get("sh") is not None and rec.get("sa") is not None:
+            fx["hs"]=int(rec["sh"]); fx["as"]=int(rec["sa"])
+    return ko_fixtures
+
 def apply_ko_overrides(ko_fixtures):
     """Complète ko_fixtures avec les overrides manuels (qualifié + t.a.b.) — l'override
     PRIME sur l'API pour le vainqueur, car le flux gratuit perd parfois ce champ."""
@@ -1377,6 +1412,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
     scorers_top = scorers_top or []
     assists_top = assists_top or []
     ko_fixtures = apply_ko_overrides(ko_fixtures or {})
+    ko_fixtures = apply_af_enrichment(ko_fixtures)   # Lot 1 : lieu + t.a.b. fiables (API-Football)
     datetimes = datetimes or {}
     results={str(k):v for k,v in results.items()}
     momentum,detail=compute_momentum(results, ko_fixtures, datetimes)
