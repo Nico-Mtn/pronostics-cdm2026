@@ -415,10 +415,10 @@
     "75": {
       "home": "Pays-Bas",
       "away": "Maroc",
-      "hs": 0,
+      "hs": 1,
       "as": 0,
       "status": "IN_PLAY",
-      "winner": "DRAW"
+      "winner": "HOME_TEAM"
     },
     "76": {
       "home": "Brésil",
