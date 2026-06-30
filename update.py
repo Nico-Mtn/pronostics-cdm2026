@@ -631,6 +631,42 @@ def compute_form(results):
     return {"off":off,"def_":dfn,"level":level,"tg":tg,"n":tot_matches,"styles":styles}
 
 # ─── RÉCUPÉRATION DES RÉSULTATS ──────────────────────────────────────────────
+def _ko_score_from_api(home, away, row):
+    """Construit l'entrée ko_fixtures à partir d'une fixture API football-data.
+
+    Règle football-data : score.fullTime INCLUT les buts des tirs au but.
+    On affiche donc le score AVANT t.a.b. (fin du temps réglementaire / prolongation),
+    on garde le score des t.a.b. à part, et on désigne le qualifié via score.winner
+    (repli sur le score des t.a.b. puis sur le score réglementaire)."""
+    ft_h, ft_a = row.get("ft_h"), row.get("ft_a")
+    pen_h, pen_a = row.get("pen_h"), row.get("pen_a")
+    duration = row.get("duration")
+    shootout = (duration == "PENALTY_SHOOTOUT") or (pen_h is not None and pen_a is not None)
+    # Score AFFICHÉ = score avant les t.a.b.
+    disp_h, disp_a = ft_h, ft_a
+    if shootout and ft_h is not None and ft_a is not None and pen_h is not None and pen_a is not None:
+        disp_h, disp_a = ft_h - pen_h, ft_a - pen_a          # fullTime - t.a.b.
+    # Repli : score réglementaire (+ prolongation) si fourni explicitement
+    if (disp_h is None or disp_a is None) and row.get("rt_h") is not None:
+        disp_h = row.get("rt_h") + (row.get("et_h") or 0)
+        disp_a = row.get("rt_a") + (row.get("et_a") or 0)
+    # Qualifié : API d'abord, puis t.a.b., puis score affiché
+    winner = row.get("winner")
+    if winner not in ("HOME_TEAM", "AWAY_TEAM"):
+        if pen_h is not None and pen_a is not None and pen_h != pen_a:
+            winner = "HOME_TEAM" if pen_h > pen_a else "AWAY_TEAM"
+        elif disp_h is not None and disp_a is not None and disp_h != disp_a:
+            winner = "HOME_TEAM" if disp_h > disp_a else "AWAY_TEAM"
+        else:
+            winner = None
+    return {"home":home, "away":away,
+            "hs":(int(disp_h) if disp_h is not None else None),
+            "as":(int(disp_a) if disp_a is not None else None),
+            "penh":(int(pen_h) if pen_h is not None else None),
+            "pena":(int(pen_a) if pen_a is not None else None),
+            "tab":bool(shootout),
+            "status":row.get("status",""), "winner":winner}
+
 def fetch_from_api():
     """Retourne {match_id: {'h':int,'a':int}} depuis football-data.org, ou None si échec."""
     if not API_KEY:
@@ -686,12 +722,19 @@ def fetch_from_api():
     for fx in payload.get("matches", []):
         st=(fx.get("stage") or "").upper()
         if st in KO_STAGE_IDS and fx.get("utcDate"):
-            sc=fx.get("score") or {}; ft=sc.get("fullTime") or {}
+            sc=fx.get("score") or {}
+            ft=sc.get("fullTime") or {}; rt=sc.get("regularTime") or {}
+            et=sc.get("extraTime") or {}; pen=sc.get("penalties") or {}
             hn=map_team((fx.get("homeTeam") or {}).get("name"), (fx.get("homeTeam") or {}).get("tla"))
             an=map_team((fx.get("awayTeam") or {}).get("name"), (fx.get("awayTeam") or {}).get("tla"))
-            by_stage.setdefault(st,[]).append((fx["utcDate"], fx.get("id") or 0, hn, an,
-                                               ft.get("home"), ft.get("away"),
-                                               fx.get("status",""), sc.get("winner")))
+            by_stage.setdefault(st,[]).append({
+                "utc":fx["utcDate"], "id":fx.get("id") or 0, "hn":hn, "an":an,
+                "ft_h":ft.get("home"), "ft_a":ft.get("away"),
+                "rt_h":rt.get("home"), "rt_a":rt.get("away"),
+                "et_h":et.get("home"), "et_a":et.get("away"),
+                "pen_h":pen.get("home"), "pen_a":pen.get("away"),
+                "duration":sc.get("duration"), "status":fx.get("status",""),
+                "winner":sc.get("winner")})
     ko_fixtures={}
     for st,ids in KO_STAGE_IDS.items():
         # IMPORTANT : les numéros de match FIFA ne sont PAS chronologiques.
@@ -699,15 +742,11 @@ def fetch_from_api():
         # tour eux-mêmes triés par heure officielle (KO_KICKOFF_UTC) -> chaque
         # fixture tombe sur le BON numéro de match FIFA.
         ids_by_time=sorted(ids, key=lambda m: KO_KICKOFF_UTC.get(m, "9999"))
-        rows_by_time=sorted(by_stage.get(st,[]), key=lambda r:(r[0], r[1]))
+        rows_by_time=sorted(by_stage.get(st,[]), key=lambda r:(r["utc"], r["id"]))
         for i,row in enumerate(rows_by_time):
             if i>=len(ids_by_time): break
-            utc,_id,hn,an,hs,as_,status,winner=row
-            mid=str(ids_by_time[i]); datetimes[mid]=utc
-            ko_fixtures[mid]={"home":hn,"away":an,
-                              "hs":(int(hs) if hs is not None else None),
-                              "as":(int(as_) if as_ is not None else None),
-                              "status":status,"winner":winner}
+            mid=str(ids_by_time[i]); datetimes[mid]=row["utc"]
+            ko_fixtures[mid]=_ko_score_from_api(row["hn"], row["an"], row)
 
     return results, datetimes, ko_fixtures
 
@@ -1066,14 +1105,16 @@ def _ko_real(mid, ko_fixtures, datetimes, fb_home=None, fb_away=None):
     home=fx.get("home") or fb_home
     away=fx.get("away") or fb_away
     played=fx.get("status") in ("FINISHED","AWARDED") and fx.get("hs") is not None and fx.get("as") is not None
-    sh=sa=None; rwin=None; tab=False
+    sh=sa=None; rwin=None; tab=False; penh=pena=None
     if home and away and played:
         sh,sa=fx["hs"],fx["as"]
         w=fx.get("winner")
         rwin = home if w=="HOME_TEAM" else (away if w=="AWAY_TEAM" else None)
-        tab = (sh==sa)
+        # t.a.b. : drapeau fourni par l'ingestion (ou repli sur l'égalité au score affiché)
+        tab = bool(fx.get("tab")) or (sh is not None and sh==sa)
+        penh, pena = fx.get("penh"), fx.get("pena")
     d,h=_ko_date_fr(datetimes,mid)
-    return home,away,sh,sa,rwin,tab,played,d,h
+    return home,away,sh,sa,rwin,tab,played,d,h,penh,pena
 
 def build_knockout_real(real_standings, datetimes=None, ko_fixtures=None):
     """Bracket 'Reel' : affiches et scores REELS de l'API quand disponibles ; sinon 16es
@@ -1082,9 +1123,10 @@ def build_knockout_real(real_standings, datetimes=None, ko_fixtures=None):
     feeders={mid:(a,b) for mid,a,b in KO_NEXT}
     real_winners={}   # PROPAGATION : dès qu'une équipe gagne réellement, elle alimente le tour suivant
     def mk(mid, fb_home=None, fb_away=None):
-        home,away,sh,sa,rwin,tab,played,d,h=_ko_real(mid,ko_fixtures,datetimes,fb_home,fb_away)
+        home,away,sh,sa,rwin,tab,played,d,h,penh,pena=_ko_real(mid,ko_fixtures,datetimes,fb_home,fb_away)
         if rwin: real_winners[mid]=rwin
         return {"id":mid,"home":home,"away":away,"sh":sh,"sa":sa,"winner":rwin,"tab":tab,
+                "penh":penh,"pena":pena,
                 "ch":FLAG_CODES.get(home,""),"ca":FLAG_CODES.get(away,""),"date":d,"heure":h}
     r32=[]
     for mid,ra,rb in KO_R32:
@@ -1115,7 +1157,7 @@ def build_knockout(standings, momentum, datetimes=None, form=None, ko_fixtures=N
     thirds_sorted, qual_groups, slot_team = _assign_thirds(standings)
     winners={}; rounds=[]
     def make(mid, fb_home, fb_away, tier=0):
-        home,away,sh,sa,rwin,tab,played,d,h=_ko_real(mid,ko_fixtures,datetimes,fb_home,fb_away)
+        home,away,sh,sa,rwin,tab,played,d,h,penh,pena=_ko_real(mid,ko_fixtures,datetimes,fb_home,fb_away)
         if not home or not away:
             res={"home":home,"away":away,"sh":None,"sa":None,"winner":None,"tab":False}
         elif played:
@@ -1127,6 +1169,7 @@ def build_knockout(standings, momentum, datetimes=None, form=None, ko_fixtures=N
             pred=_ko_match(home,away,momentum,form,tier)
             pred_fav=pred.get("fav") or pred.get("winner")
             res={"home":home,"away":away,"sh":sh,"sa":sa,"winner":winner,"tab":tab,
+                 "penh":penh,"pena":pena,
                  "hit":(pred_fav==winner) if winner else None,
                  "conf":pred.get("conf"),"proba":pred.get("proba"),"pred_winner":pred_fav,
                  "pred_score":[pred.get("sh"),pred.get("sa")]}
@@ -1478,6 +1521,9 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
                 "reel_home":rm.get("home"),"reel_away":rm.get("away"),
                 "rch":rm.get("ch",""),"rca":rm.get("ca",""),
                 "reel":[rm["sh"],rm["sa"]] if played else None,
+                "tab":bool(rm.get("tab")) if played else False,
+                "penh":rm.get("penh") if played else None,
+                "pena":rm.get("pena") if played else None,
                 "prono":[m["sh"],m["sa"]] if (not played and m.get("sh") is not None) else None,
                 # — infos enrichies (confiance, prono vs réel, style, 2e choix, résumé) —
                 "conf":m.get("conf"),"pred_score":ko_pred,"statut":ko_statut,

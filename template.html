@@ -107,6 +107,7 @@
   .sc-real-lbl{font-size:7.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--win)}
   .sc-prono-lbl{font-size:7.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--mut)}
   .sc-prono{font-size:9px;color:var(--mut);font-weight:600}
+  .sc-tab{font-size:9px;color:var(--accent2);font-weight:700;letter-spacing:.2px}
   .sc .tag{font-size:8px;padding:2px 8px;border-radius:20px;font-weight:700;letter-spacing:.3px;white-space:nowrap}
   .tag.exact{background:var(--winbg);color:var(--win)}.tag.bon{background:var(--drawbg);color:var(--draw)}
   .tag.rate{background:var(--ratebg);color:var(--rate)}.tag.avenir{background:var(--line2);color:var(--mut)}
@@ -481,8 +482,8 @@ function koFeedCard(m){
   if(!isProno()){
     var rsc;
     if(m.reel){
-      var rnul=(m.reel[0]===m.reel[1]);
-      rsc='<div class="sc"><div class="sc-real-lbl">Score'+(rnul?' (nul)':'')+'</div><div class="score">'+m.reel[0]+' – '+m.reel[1]+'</div>'+(rnul?'<div class="sc-prono">tirs au but</div>':'')+'</div>';
+      var rtab=m.tab?('t.a.b. '+((m.penh!=null&&m.pena!=null)?('('+m.penh+'–'+m.pena+')'):'')):'';
+      rsc='<div class="sc"><div class="sc-real-lbl">Score'+(m.tab?' (nul)':'')+'</div><div class="score">'+m.reel[0]+' – '+m.reel[1]+'</div>'+(m.tab?'<div class="sc-prono">'+rtab+'</div>':'')+'</div>';
     } else {
       rsc='<div class="sc"><div class="tag avenir">À venir</div></div>';
     }
@@ -501,8 +502,9 @@ function koFeedCard(m){
   var scoreHtml, tagHtml;
   if(m.reel){
     var pp = m.pred_score ? ('<div class="sc-prono">Prono : '+m.pred_score[0]+'–'+m.pred_score[1]+'</div>') : '';
-    scoreHtml='<div class="sc-real-lbl">Score final réel</div>'
-      +'<div class="score">'+m.reel[0]+' – '+m.reel[1]+'</div>'+pp;
+    var tabline = m.tab ? ('<div class="sc-tab">t.a.b. '+((m.penh!=null&&m.pena!=null)?('('+m.penh+'–'+m.pena+')'):'')+'</div>') : '';
+    scoreHtml='<div class="sc-real-lbl">Score'+(m.tab?' (nul)':' final réel')+'</div>'
+      +'<div class="score">'+m.reel[0]+' – '+m.reel[1]+'</div>'+tabline+pp;
     var st=m.statut||'bon';
     tagHtml='<div class="tag '+st+'">'+TAG_LABEL[st]+'</div>';
   } else if(m.pred_score){
