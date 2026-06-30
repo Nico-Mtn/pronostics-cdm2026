@@ -1636,6 +1636,9 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
                 "tab":bool(rm.get("tab")) if played else False,
                 "penh":rm.get("penh") if played else None,
                 "pena":rm.get("pena") if played else None,
+                # qualifié + t.a.b. PRÉDITS (matchs KO à venir) pour nommer le qualifié sur un nul prédit
+                "qualif":(rm.get("winner") if played else m.get("winner")),
+                "ptab":(False if played else bool(m.get("tab"))),
                 "prono":[m["sh"],m["sa"]] if (not played and m.get("sh") is not None) else None,
                 # — infos enrichies (confiance, prono vs réel, style, 2e choix, résumé) —
                 "conf":m.get("conf"),"pred_score":ko_pred,"statut":ko_statut,

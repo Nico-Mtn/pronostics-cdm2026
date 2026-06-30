@@ -513,7 +513,9 @@ function koFeedCard(m){
     var st=m.statut||'bon';
     tagHtml='<div class="tag '+st+'">'+TAG_LABEL[st]+'</div>';
   } else if(m.pred_score){
-    scoreHtml='<div class="sc-prono-lbl">Pronostic</div><div class="score prono">'+m.pred_score[0]+' – '+m.pred_score[1]+'</div>';
+    var qualLine = (m.pred_score[0]===m.pred_score[1] && m.qualif)
+       ? '<div class="sc-tab">\u21AA '+m.qualif+' qualifi\u00e9\u00b7e'+(m.ptab?' (t.a.b.)':'')+'</div>' : '';
+    scoreHtml='<div class="sc-prono-lbl">Pronostic</div><div class="score prono">'+m.pred_score[0]+' – '+m.pred_score[1]+'</div>'+qualLine;
     var altBtn = m.second ? '<button class="alt-badge" data-alt="alt-ko'+m.num+'" title="Pronostic incertain : voir le 2e choix">!</button>' : '';
     tagHtml='<div class="tag avenir">À venir'+altBtn+'</div>';
   } else {
