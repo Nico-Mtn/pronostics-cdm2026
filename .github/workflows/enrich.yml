@@ -1,0 +1,57 @@
+name: Enrichissement API-Football
+
+on:
+  workflow_dispatch:        # manuel + déclenchable via Cloudflare Cron (comme update.yml)
+  schedule:
+    - cron: "20 5,13,21 * * *"   # best-effort 3x/jour (UTC) ; le cron GitHub peut sauter des runs
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  enrich-build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v5
+
+      - name: Installer Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Enrichir via API-Football (lieu, t.a.b., blessés)
+        env:
+          APIFOOTBALL_KEY: ${{ secrets.APIFOOTBALL_KEY }}
+        run: python enrich_apifootball.py
+
+      - name: Régénérer la page (intègre l'enrichissement)
+        env:
+          FOOTBALLDATA_KEY: ${{ secrets.FOOTBALLDATA_KEY }}
+        run: python update.py
+
+      - name: Committer données + page (si modifiées)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/af_fixtures.json data/af_injuries.json data/results_manual.json index.html data.json
+          git diff --staged --quiet || git commit -m "Enrichissement API-Football $(date -u +%Y-%m-%dT%H:%M) [skip ci]"
+          git push || echo "Rien à pousser"
+
+      - name: Configurer Pages
+        uses: actions/configure-pages@v5
+
+      - name: Préparer l'artefact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: "."
+
+      - name: Déployer sur GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
