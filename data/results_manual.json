@@ -443,13 +443,13 @@
     "77": {
       "home": "France",
       "away": "Suède",
-      "hs": 1,
+      "hs": 0,
       "as": 0,
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "IN_PLAY",
-      "winner": "HOME_TEAM"
+      "status": "PAUSED",
+      "winner": null
     },
     "78": {
       "home": "Côte d'Ivoire",
