@@ -1096,9 +1096,13 @@ def _ko_predict(home, away, tier=0):
     seed = int(_unit(away + "#" + home) * 100000)                 # graine (découplée) pour le score
     # Score : le qualifié tiré l'emporte de façon DÉCISIVE ; le nul + t.a.b. n'est montré
     # que pour un vrai 50/50 (match couperet), indépendamment de QUI est tiré.
-    coinflip = abs(advH - 0.5) < CALIB["ko_coinflip"]   # KO : t.a.b. réservé aux vrais 50/50 (calibré)
+    # NUL : on prédit le match nul (puis t.a.b. ; le qualifié reste le favori) quand la
+    # probabilité de nul Dixon-Coles (pN) est crédible face aux victoires. Calibré pour
+    # coller au taux de base réel (~25-30 %) au lieu du seuil 50/50 ultra-serré d'avant.
+    draw_margin = CALIB.get("ko_draw_margin", 0.06)
+    show_draw = pN >= (max(pV, pD) - draw_margin)
     draws = {k: v for k, v in g.items() if k[0] == k[1]}
-    if coinflip and draws:
+    if show_draw and draws:
         (sx, sy) = _pick_score(draws, seed); tab = True
     else:
         if winner == home:

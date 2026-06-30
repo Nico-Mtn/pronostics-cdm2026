@@ -109,6 +109,8 @@
   .sc-prono{font-size:9px;color:var(--mut);font-weight:600}
   .sc-tab{font-size:9px;color:var(--accent2);font-weight:700;letter-spacing:.2px}
   .b-venue{display:inline-block;margin-top:5px;font-size:10px;color:var(--mut);font-weight:600}
+  .b-serre{display:inline-block;font-size:10px;font-weight:800;color:var(--orange);background:color-mix(in srgb,var(--orange) 14%,transparent);border:1px solid var(--orange);border-radius:8px;padding:2px 7px}
+  .ko-serre{font-size:8px;font-weight:800;color:var(--orange);margin:1px 0 2px;letter-spacing:.2px}
   .sc .tag{font-size:8px;padding:2px 8px;border-radius:20px;font-weight:700;letter-spacing:.3px;white-space:nowrap}
   .tag.exact{background:var(--winbg);color:var(--win)}.tag.bon{background:var(--drawbg);color:var(--draw)}
   .tag.rate{background:var(--ratebg);color:var(--rate)}.tag.avenir{background:var(--line2);color:var(--mut)}
@@ -463,7 +465,8 @@ function koFeedCard(m){
   var dt='<span class="dt">'+m.date+(m.heure?' <span class="h">'+m.heure+'</span>':'')+'</span>';
   var phase='<span class="b-grp" style="background:var(--accent)">'+m.phase+'</span>';
   var numb=(m.num!=null)?'<span class="b-num">Match '+m.num+'</span>':'';
-  var badges=(m.today ? '<span class="b-today">● Match du jour</span><div style="margin-top:5px">'+phase+'</div>' : phase)+' '+numb+(m.venue?'<div>'+venueTag(m)+'</div>':'');
+  var badges=(m.today ? '<span class="b-today">● Match du jour</span><div style="margin-top:5px">'+phase+'</div>' : phase)+' '+numb+(m.venue?'<div>'+venueTag(m)+'</div>':'')
+    +((isProno() && !m.reel && m.conf!=null && m.conf<60)?'<div style="margin-top:5px"><span class="b-serre" title="Qualification quasi 50/50 : issue très ouverte, séance de tirs au but probable">\u2696\uFE0F Match serré · t.a.b. probable</span></div>':'');
   // Slot par slot. En mode Réel : équipe RÉELLEMENT qualifiée si connue (propagation),
   // sinon "Vainqueur match N" (N = match nourricier) pour suivre les oppositions.
   function side(real, projHome){
@@ -927,8 +930,9 @@ function koMatch(m){
   var second = (isProno() && m.second) ? '<div class="ko-second" title="2e sc\u00e9nario possible (confiance < 65%)">\uD83D\uDD00 2e sc\u00e9nario : '
         + flagImg(m.second.code,'sm') + ' <span class="tlink" data-team="'+m.second.team+'">'+m.second.team+'</span> '
         + m.second.sh+'\u2013'+m.second.sa+' <span class="p2">('+m.second.p+'%)</span></div>' : '';
+  var koSerre = (isProno() && m.hit==null && m.conf && m.conf<60) ? '<div class="ko-serre" title="Issue quasi 50/50 — tirs au but probables">\u2696\uFE0F match serré</div>' : '';
   return '<div class="ko-match'+(m.winner?' done':'')+'">'
-    + hit + d
+    + hit + d + koSerre
     + koLine(m.home,m.ch,m.sh,m.winner&&m.winner===m.home,m.tab,m.penh)
     + koLine(m.away,m.ca,m.sa,m.winner&&m.winner===m.away,m.tab,m.pena)
     + second
