@@ -1,5 +1,5 @@
 {
-  "derniere_maj": "2026-06-30",
+  "derniere_maj": "2026-06-29",
   "resultats": {
     "1": {
       "h": 2,
@@ -401,42 +401,30 @@
       "away": "Canada",
       "hs": 0,
       "as": 1,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "FINISHED",
       "winner": "AWAY_TEAM"
     },
     "74": {
       "home": "Allemagne",
       "away": "Paraguay",
-      "hs": 1,
-      "as": 1,
-      "penh": 3,
-      "pena": 4,
-      "tab": true,
-      "status": "FINISHED",
-      "winner": "AWAY_TEAM"
+      "hs": 0,
+      "as": 0,
+      "status": "IN_PLAY",
+      "winner": "DRAW"
     },
     "75": {
       "home": "Pays-Bas",
       "away": "Maroc",
-      "hs": 1,
-      "as": 1,
-      "penh": 2,
-      "pena": 3,
-      "tab": true,
-      "status": "FINISHED",
-      "winner": "AWAY_TEAM"
+      "hs": null,
+      "as": null,
+      "status": "TIMED",
+      "winner": null
     },
     "76": {
       "home": "Brésil",
       "away": "Japon",
       "hs": 2,
       "as": 1,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "FINISHED",
       "winner": "HOME_TEAM"
     },
@@ -445,9 +433,6 @@
       "away": "Suède",
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
@@ -456,9 +441,6 @@
       "away": "Norvège",
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
@@ -467,9 +449,6 @@
       "away": "Équateur",
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
@@ -478,9 +457,6 @@
       "away": "RD Congo",
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
@@ -489,9 +465,6 @@
       "away": "Bosnie-Herzégovine",
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
@@ -500,9 +473,6 @@
       "away": "Sénégal",
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
@@ -511,9 +481,6 @@
       "away": "Croatie",
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
@@ -522,9 +489,6 @@
       "away": "Autriche",
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
@@ -533,9 +497,6 @@
       "away": "Algérie",
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
@@ -544,9 +505,6 @@
       "away": "Cap-Vert",
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
@@ -555,9 +513,6 @@
       "away": "Ghana",
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
@@ -566,42 +521,30 @@
       "away": "Égypte",
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
     "89": {
-      "home": "Paraguay",
+      "home": null,
       "away": null,
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
     "90": {
       "home": "Canada",
-      "away": "Maroc",
+      "away": null,
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
     "91": {
-      "home": "Brésil",
+      "home": null,
       "away": null,
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
@@ -610,9 +553,6 @@
       "away": null,
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
@@ -621,9 +561,6 @@
       "away": null,
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
@@ -632,9 +569,6 @@
       "away": null,
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
@@ -643,9 +577,6 @@
       "away": null,
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
@@ -654,9 +585,6 @@
       "away": null,
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
@@ -665,9 +593,6 @@
       "away": null,
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
@@ -676,9 +601,6 @@
       "away": null,
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
@@ -687,9 +609,6 @@
       "away": null,
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
@@ -698,9 +617,6 @@
       "away": null,
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
@@ -709,9 +625,6 @@
       "away": null,
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
@@ -720,9 +633,6 @@
       "away": null,
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
     },
@@ -731,11 +641,24 @@
       "away": null,
       "hs": null,
       "as": null,
-      "penh": null,
-      "pena": null,
-      "tab": false,
       "status": "TIMED",
       "winner": null
+    }
+  },
+  "ko_resultats": {
+    "74": {
+      "h": 1,
+      "a": 1,
+      "pen_h": 3,
+      "pen_a": 4,
+      "_note": "Allemagne 1-1 Paraguay, Paraguay vainqueur t.a.b. 3-4 (override manuel : football-data ne renvoie pas le vainqueur)"
+    },
+    "75": {
+      "h": 1,
+      "a": 1,
+      "pen_h": 2,
+      "pen_a": 3,
+      "_note": "Pays-Bas 1-1 Maroc, Maroc vainqueur t.a.b. 2-3 (override manuel)"
     }
   }
 }
