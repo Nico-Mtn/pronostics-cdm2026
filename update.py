@@ -1608,6 +1608,24 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
                 "venue":VENUES.get(str(mid)),
                 "host_h":m["home"] in HOST_NATIONS,"host_a":m["away"] in HOST_NATIONS})
 
+    # ── "Match du jour" = journée ACTIVE ──────────────────────────────────────
+    # Tant que le jour courant (fuseau du lieu) a encore un match non joué, c'est lui.
+    # Dès que TOUS les matchs du jour sont passés en "Anciens", le badge bascule
+    # automatiquement sur la prochaine journée à jouer (les nouveaux matchs).
+    _unplayed_iso=[m["iso"] for m in matches if not m.get("reel") and m.get("iso")]
+    _unplayed_iso+=[m["iso"] for m in ko_feed if not m.get("reel") and m.get("iso")]
+    if any(i==today_iso for i in _unplayed_iso):
+        active_day=today_iso
+    elif _unplayed_iso:
+        active_day=min(_unplayed_iso)
+    else:
+        active_day=today_iso
+    n_today=0
+    for _m in matches:
+        _m["today"]=(_m.get("iso")==active_day); n_today+=1 if _m["today"] else 0
+    for _m in ko_feed:
+        _m["today"]=(_m.get("iso")==active_day); n_today+=1 if _m["today"] else 0
+
     return {
         "maj":(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(hours=2)).strftime("%d/%m/%Y à %H:%M")+" (Paris)",
         "today":datetime.date.today().isoformat(),
