@@ -78,4 +78,4 @@ Projet personnel de **Nico-Mtn**, sans but lucratif, **sans publicité ni paris*
 Vous pouvez vous en inspirer ou le réutiliser : **merci de créditer le créateur, Nico-Mtn**
 (https://github.com/Nico-Mtn). Un simple lien suffit et fait toujours plaisir. 🙏
 
-🤖 Conçu et itéré avec l'assistance de Claude (Cowork), relu et validé par Nico-Mtn.
+🤖 Conçu par Nicolas Martin
