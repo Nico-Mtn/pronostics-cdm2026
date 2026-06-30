@@ -412,22 +412,22 @@
       "away": "Paraguay",
       "hs": 1,
       "as": 1,
-      "penh": null,
-      "pena": null,
+      "penh": 3,
+      "pena": 4,
       "tab": true,
       "status": "FINISHED",
-      "winner": null
+      "winner": "AWAY_TEAM"
     },
     "75": {
       "home": "Pays-Bas",
       "away": "Maroc",
       "hs": 1,
       "as": 1,
-      "penh": null,
-      "pena": null,
+      "penh": 2,
+      "pena": 3,
       "tab": true,
       "status": "FINISHED",
-      "winner": null
+      "winner": "AWAY_TEAM"
     },
     "76": {
       "home": "Brésil",
@@ -573,7 +573,7 @@
       "winner": null
     },
     "89": {
-      "home": null,
+      "home": "Paraguay",
       "away": null,
       "hs": null,
       "as": null,
@@ -585,7 +585,7 @@
     },
     "90": {
       "home": "Canada",
-      "away": null,
+      "away": "Maroc",
       "hs": null,
       "as": null,
       "penh": null,
@@ -595,7 +595,7 @@
       "winner": null
     },
     "91": {
-      "home": null,
+      "home": "Brésil",
       "away": null,
       "hs": null,
       "as": null,
