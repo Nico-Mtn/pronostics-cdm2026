@@ -1,9 +1,13 @@
 name: Enrichissement API-Football
 
 on:
-  workflow_dispatch:        # manuel + déclenchable via Cloudflare Cron (comme update.yml)
-  schedule:
-    - cron: "20 5,13,21 * * *"   # best-effort 3x/jour (UTC) ; le cron GitHub peut sauter des runs
+  workflow_dispatch:        # MANUEL UNIQUEMENT.
+  # NB (30/06/2026) : le plan gratuit API-Football NE COUVRE PAS la saison 2026
+  # ("Free plans do not have access to this season, try from 2022 to 2024").
+  # Le cron automatique est donc DÉSACTIVÉ tant qu'une clé Pro (saison courante) n'est pas
+  # fournie. Réactiver le bloc `schedule` ci-dessous le cas échéant.
+  # schedule:
+  #   - cron: "20 5,13,21 * * *"
 
 permissions:
   contents: write
