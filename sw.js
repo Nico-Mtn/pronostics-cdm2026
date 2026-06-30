@@ -1,6 +1,6 @@
 /* Pronostix — Coupe du Monde 2026 | Auteur : Nico-Mtn (https://github.com/Nico-Mtn) | Projet gratuit. Réutilisation : crédit au créateur (Nico-Mtn) apprécié. */
 /* Pronostix — Service Worker (PWA installable + hors-ligne + prêt pour le push) */
-const CACHE = 'pronobot-v13';
+const CACHE = 'pronobot-v14';
 const CORE = ['./', './index.html', './logo.png', './icon-192.png', './icon-512.png', './manifest.webmanifest'];
 
 self.addEventListener('install', function(e){

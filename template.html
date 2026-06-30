@@ -1087,6 +1087,26 @@ function openTeamProfile(team){
     });
     if(path.length) koHtml='<div class="tp-sec">Parcours projet\u00e9 en phase finale</div>'+path.join("");
   }
+  // Mode RÉEL : parcours RÉEL en phase finale (résultats joués, t.a.b., qualifié/éliminé)
+  if(!isProno()){
+    var kor=DATA.knockout_real, rpath=[];
+    if(kor&&kor.rounds){
+      kor.rounds.forEach(function(r){
+        r.matches.forEach(function(m){
+          if((m.home===team||m.away===team) && m.sh!=null && m.sa!=null){
+            var home=m.home===team, opp=home?m.away:m.home, oppCode=home?m.ca:m.ch;
+            var gf=home?m.sh:m.sa, ga=home?m.sa:m.sh, won=(m.winner===team);
+            var cls=won?'win':'loss';
+            var tab=m.tab ? (' <small>t.a.b.'+((m.penh!=null&&m.pena!=null)?' ('+(home?m.penh+'\u2013'+m.pena:m.pena+'\u2013'+m.penh)+')':'')+'</small>') : '';
+            rpath.push('<div class="tp-m '+cls+'"><span class="tp-d">'+r.name+'</span>'
+              +'<span class="tp-opp"><span class="vs">vs</span> '+flagImg(oppCode,'sm')+' <span class="tlink" data-team="'+opp+'">'+opp+'</span></span>'
+              +'<span class="tp-res '+cls+'">'+gf+'\u2013'+ga+tab+'<div class="pr">'+(won?'qualifi\u00e9':'\u00e9limin\u00e9')+'</div></span></div>');
+          }
+        });
+      });
+    }
+    if(rpath.length) koHtml='<div class="tp-sec">Phase finale</div>'+rpath.join("");
+  }
   var momHtml = (isProno() && mom) ? ('<div class="tp-mom">Dynamique<span class="mv '+(mom.mom>=0.2?'up':(mom.mom<=-0.2?'down':'neu'))+'">'+(mom.mom>=0?'+':'')+mom.mom+'</span></div>') : '';
   var html='<div class="modal-bg" id="modal-bg"><div class="modal">'
     +'<div class="modal-head"><div class="tp-head" style="flex:1">'+flagImg(code)
