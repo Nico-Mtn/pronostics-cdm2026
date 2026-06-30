@@ -1172,10 +1172,11 @@ def build_knockout(standings, momentum, datetimes=None, form=None, ko_fixtures=N
         if not home or not away:
             res={"home":home,"away":away,"sh":None,"sa":None,"winner":None,"tab":False}
         elif played:
-            # match reellement joue : on affiche le vrai resultat
-            winner=rwin
-            if winner is None:
-                _,_,diff=compute(home,away,momentum,None,form); winner=home if diff>=0 else away
+            # match reellement joue : on affiche le vrai resultat.
+            # IMPORTANT : on NE fabrique JAMAIS un vainqueur via l'Elo si le résultat
+            # réel ne le donne pas encore (ex. t.a.b. non finalisés dans le flux API).
+            # Sinon une équipe réellement éliminée pourrait « avancer » dans l'arbre.
+            winner=rwin   # peut être None tant que le qualifié réel n'est pas connu
             # justesse du prono KO (cote Prono uniquement) : vainqueur predit vs vainqueur reel
             pred=_ko_match(home,away,momentum,form,tier)
             pred_fav=pred.get("fav") or pred.get("winner")
