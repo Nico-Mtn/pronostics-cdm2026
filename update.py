@@ -105,6 +105,7 @@ CALIB = load_calibration()
 LIVE_ELO = {}
 LIVE_FORM = {}   # forme (att/déf) mise à jour par les buts réels du tournoi
 LIVE_MOM = {}    # surcouche momentum (récence + victoire de prestige), en points Elo
+VENUES = {}      # {match_id(str): lieu (stade/ville)} récupéré de l'API football-data
 ELO_DEFAULT = 1700.0
 HOST_ELO_BONUS = 60.0   # avantage hôte exprimé en points Elo
 
@@ -563,18 +564,17 @@ def match_summary(home, away, rh, ra, statut, mom_after, scorers_by_team):
     parts.append(verdict + dyn)
     return " ".join(parts).strip(), resume_reel
 
-def compute_momentum(results):
+def compute_momentum(results, ko_fixtures=None, datetimes=None):
     """Dynamique (forme V/N/D) avec PONDÉRATION RÉCENCE (v2.3) : les derniers matchs
-    d'une équipe pèsent un peu plus (rampe douce 0.85 -> 1.15). Plafonné ±1.2."""
+    d'une équipe pèsent un peu plus (rampe douce 0.85 -> 1.15). Plafonné ±1.2.
+    Inclut la phase de groupes ET les phases finales jouées (la dynamique continue)."""
     from collections import defaultdict
     by_id={m[0]:m for m in GROUP_MATCHES}
     per_team=defaultdict(list)
-    for mid,sc in results.items():
-        mid=int(mid)
-        if mid not in by_id: continue
-        _,grp,date,home,away=by_id[mid]
-        rh,ra=sc["h"],sc["a"]; hf=TEAM_DATA[home][0]; af=TEAM_DATA[away][0]
+    def _add_event(sort_date, ord_key, home, away, rh, ra):
+        hf=TEAM_DATA.get(home,(6.0,))[0]; af=TEAM_DATA.get(away,(6.0,))[0]
         for team,gf,ga,opp_f in [(home,rh,ra,af),(away,ra,rh,hf)]:
+            if team not in TEAM_DATA: continue
             if gf>ga: base=0.30; tag="V"
             elif gf<ga: base=-0.30; tag="D"
             else: base=0.0; tag="N"
@@ -583,7 +583,21 @@ def compute_momentum(results):
             if gf>ga and gap>0: surprise=gap*0.10
             elif gf<ga and gap<0: surprise=gap*0.10
             elif gf==ga and gap>0: surprise=gap*0.05
-            per_team[team].append((date, mid, base+margin_bonus+surprise, f"{tag} {gf}-{ga}"))
+            per_team[team].append((sort_date, ord_key, base+margin_bonus+surprise, f"{tag} {gf}-{ga}"))
+    # Phase de groupes
+    for mid,sc in results.items():
+        mid=int(mid)
+        if mid not in by_id: continue
+        _,grp,date,home,away=by_id[mid]
+        _add_event(date, mid, home, away, sc["h"], sc["a"])
+    # Phases finales jouées (clé de tri "zzz###" -> toujours APRÈS les poules)
+    for mid_s,fx in (ko_fixtures or {}).items():
+        if not (fx.get("home") and fx.get("away") and fx.get("hs") is not None
+                and fx.get("as") is not None and fx.get("status") in ("FINISHED","AWARDED")):
+            continue
+        try: mk=int(mid_s)
+        except Exception: continue
+        _add_event("zzz%03d"%mk, 1000+mk, fx["home"], fx["away"], int(fx["hs"]), int(fx["as"]))
     momentum={}; detail={}
     for team,lst in per_team.items():
         lst.sort(key=lambda x:(x[0],x[1]))            # chronologique
@@ -699,6 +713,7 @@ def fetch_from_api():
 
     results={}
     datetimes={}
+    VENUES.clear()
     for fx in payload.get("matches", []):
         hn=map_team((fx.get("homeTeam") or {}).get("name"), (fx.get("homeTeam") or {}).get("tla"))
         an=map_team((fx.get("awayTeam") or {}).get("name"), (fx.get("awayTeam") or {}).get("tla"))
@@ -709,6 +724,8 @@ def fetch_from_api():
         # horaire officiel (utcDate) si présent, quel que soit le statut
         utc=fx.get("utcDate")
         if utc: datetimes[str(mid)]=utc
+        _v=fx.get("venue")
+        if _v: VENUES[str(mid)]=_v
         status=fx.get("status","")
         if status not in ("FINISHED","AWARDED"):   # score : match terminé uniquement
             continue
@@ -745,7 +762,7 @@ def fetch_from_api():
                 "et_h":et.get("home"), "et_a":et.get("away"),
                 "pen_h":pen.get("home"), "pen_a":pen.get("away"),
                 "duration":sc.get("duration"), "status":fx.get("status",""),
-                "winner":sc.get("winner")})
+                "winner":sc.get("winner"), "venue":fx.get("venue")})
     ko_fixtures={}
     for st,ids in KO_STAGE_IDS.items():
         # IMPORTANT : les numéros de match FIFA ne sont PAS chronologiques.
@@ -758,6 +775,7 @@ def fetch_from_api():
             if i>=len(ids_by_time): break
             mid=str(ids_by_time[i]); datetimes[mid]=row["utc"]
             ko_fixtures[mid]=_ko_score_from_api(row["hn"], row["an"], row)
+            if row.get("venue"): VENUES[mid]=row["venue"]
 
     return results, datetimes, ko_fixtures
 
@@ -843,18 +861,52 @@ def load_ko_fixtures(fresh):
     merged=dict(stored); merged.update(fresh or {})
     return merged
 
+def load_ko_overrides():
+    """Overrides manuels de phases finales pour les cas où football-data ne fournit pas
+    le qualifié / le score des t.a.b. (fréquent en plan gratuit sur séances de tirs au but).
+    Format dans data/results_manual.json :
+        "ko_resultats": { "74": {"pen_h":3,"pen_a":4}, "75": {"pen_h":2,"pen_a":3} }
+    Clés optionnelles : "h","a" (score réglementaire si l'API ne l'a pas), "winner":"home"/"away"."""
+    p=os.path.join(ROOT,"data","results_manual.json")
+    if os.path.exists(p):
+        with open(p,"r",encoding="utf-8") as fh:
+            return json.load(fh).get("ko_resultats",{}) or {}
+    return {}
+
+def apply_ko_overrides(ko_fixtures):
+    """Complète ko_fixtures avec les overrides manuels (qualifié + t.a.b.) — l'override
+    PRIME sur l'API pour le vainqueur, car le flux gratuit perd parfois ce champ."""
+    ovr=load_ko_overrides()
+    for mid,o in (ovr or {}).items():
+        fx=ko_fixtures.get(str(mid))
+        if not fx:
+            continue
+        ph,pa=o.get("pen_h"),o.get("pen_a")
+        if "h" in o and fx.get("hs") is None: fx["hs"]=int(o["h"])
+        if "a" in o and fx.get("as") is None: fx["as"]=int(o["a"])
+        if ph is not None and pa is not None:
+            fx["penh"]=int(ph); fx["pena"]=int(pa); fx["tab"]=True
+            if ph!=pa: fx["winner"]="HOME_TEAM" if ph>pa else "AWAY_TEAM"
+        w=o.get("winner")
+        if w in ("home","away"):
+            fx["winner"]="HOME_TEAM" if w=="home" else "AWAY_TEAM"
+    return ko_fixtures
+
 def save_manual(results, datetimes=None, ko_fixtures=None):
     p=os.path.join(ROOT,"data","results_manual.json")
     os.makedirs(os.path.dirname(p),exist_ok=True)
-    prev_h={}; prev_k={}
+    prev_h={}; prev_k={}; prev_ko_res={}
     if os.path.exists(p):
         with open(p,"r",encoding="utf-8") as f:
             _d=json.load(f); prev_h=_d.get("horaires",{}); prev_k=_d.get("ko_affiches",{})
+            prev_ko_res=_d.get("ko_resultats",{})   # overrides manuels t.a.b. : à PRÉSERVER
     horaires=dict(prev_h); horaires.update(datetimes or {})
     ko=dict(prev_k); ko.update(ko_fixtures or {})
+    out={"derniere_maj":datetime.date.today().isoformat(),
+         "resultats":results,"horaires":horaires,"ko_affiches":ko}
+    if prev_ko_res: out["ko_resultats"]=prev_ko_res
     with open(p,"w",encoding="utf-8") as f:
-        json.dump({"derniere_maj":datetime.date.today().isoformat(),
-                   "resultats":results,"horaires":horaires,"ko_affiches":ko},f,ensure_ascii=False,indent=2)
+        json.dump(out,f,ensure_ascii=False,indent=2)
 
 # ─── TABLEAU FINAL (PHASES FINALES) ──────────────────────────────────────────
 # Slots "meilleur 3e" : groupes autorisés par match (Annexe C FIFA).
@@ -1324,10 +1376,10 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
     scorers_by_team = scorers_by_team or {}
     scorers_top = scorers_top or []
     assists_top = assists_top or []
-    ko_fixtures = ko_fixtures or {}
+    ko_fixtures = apply_ko_overrides(ko_fixtures or {})
     datetimes = datetimes or {}
     results={str(k):v for k,v in results.items()}
-    momentum,detail=compute_momentum(results)
+    momentum,detail=compute_momentum(results, ko_fixtures, datetimes)
     form=compute_form(results)   # v2.3 : forme observée (off/déf, niveau réel, tendance de buts)
     # V3.2 — MODÈLE DYNAMIQUE : Elo + forme RECALCULÉS depuis les vrais résultats du
     # tournoi (auto-entretenu à chaque run). Pilote les projections de phase finale.
@@ -1336,7 +1388,11 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
     LIVE_MOM.clear();  LIVE_MOM.update(compute_momentum_overlay(results, ko_fixtures, datetimes))
     qualif_states=compute_qualif_states(results)
     rint={int(k):v for k,v in results.items()}
-    today_iso = datetime.date.today().isoformat()
+    # "Aujourd'hui" dans le fuseau du LIEU de la compétition (Amériques). Tous les
+    # stades CdM 2026 sont en UTC-4..-7 et les coups d'envoi sont l'après-midi/le soir
+    # local : (UTC - 7h) donne donc le bon jour calendaire local pour chaque match.
+    today_iso = (datetime.datetime.now(datetime.timezone.utc)
+                 - datetime.timedelta(hours=7)).date().isoformat()
 
     # Identifier les matchs de la 3e journée (derniers 2 matchs de chaque groupe)
     j3_ids=set()
@@ -1441,6 +1497,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
             "confidence":conf,"surprise":surprise,"second":second,
             "style_label":style_label,"style_note":style_note,
             "mom_h":round(momentum.get(home,0.0),2),"mom_a":round(momentum.get(away,0.0),2),
+            "venue":VENUES.get(str(mid)),
         })
 
     # classements
@@ -1487,9 +1544,12 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
 
     # ── Matchs de phase finale pour le LIVE FEED (affiches réelles : du jour + à venir + joués)
     def _iso_paris(utc):
+        # Renvoie (jour officiel "local Amériques" pour le regroupement/"match du jour",
+        #          clé de tri chronologique UTC). L'affichage date/heure reste en heure de Paris.
         try:
-            dt=datetime.datetime.fromisoformat(utc.replace("Z","+00:00"))+datetime.timedelta(hours=2)
-            return dt.strftime("%Y-%m-%d"), dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+            dt_utc=datetime.datetime.fromisoformat(utc.replace("Z","+00:00"))
+            matchday=(dt_utc - datetime.timedelta(hours=7)).strftime("%Y-%m-%d")
+            return matchday, dt_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
         except Exception:
             return None,None
     ko_feed=[]
@@ -1545,6 +1605,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
                 "mom_h":round(momentum.get(m["home"],0.0),2),
                 "mom_a":round(momentum.get(m["away"],0.0),2),
                 "winner":rm.get("winner") if played else None,
+                "venue":VENUES.get(str(mid)),
                 "host_h":m["home"] in HOST_NATIONS,"host_a":m["away"] in HOST_NATIONS})
 
     return {

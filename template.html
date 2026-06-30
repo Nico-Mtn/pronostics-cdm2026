@@ -108,6 +108,7 @@
   .sc-prono-lbl{font-size:7.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--mut)}
   .sc-prono{font-size:9px;color:var(--mut);font-weight:600}
   .sc-tab{font-size:9px;color:var(--accent2);font-weight:700;letter-spacing:.2px}
+  .b-venue{display:inline-block;margin-top:5px;font-size:10px;color:var(--mut);font-weight:600}
   .sc .tag{font-size:8px;padding:2px 8px;border-radius:20px;font-weight:700;letter-spacing:.3px;white-space:nowrap}
   .tag.exact{background:var(--winbg);color:var(--win)}.tag.bon{background:var(--drawbg);color:var(--draw)}
   .tag.rate{background:var(--ratebg);color:var(--rate)}.tag.avenir{background:var(--line2);color:var(--mut)}
@@ -337,6 +338,7 @@
     background:var(--line2);border-radius:6px;padding:2px 6px}
   .ko-line.win .ko-sc{background:var(--win);color:#fff}
   .ko-sc .tab{display:block;font-size:6.5px;color:inherit;opacity:.85;font-weight:700;letter-spacing:.3px}
+  .ko-sc .ko-pen{font-size:9px;font-weight:800;opacity:.9}
   .ko-hit{position:absolute;top:0;right:0;font-size:8px;font-weight:800;padding:2px 6px;border-bottom-left-radius:8px;letter-spacing:.3px;z-index:2}
   .ko-hit.ok{background:var(--winbg);color:var(--win)}
   .ko-hit.ko{background:var(--ratebg);color:var(--rate)}
@@ -461,7 +463,7 @@ function koFeedCard(m){
   var dt='<span class="dt">'+m.date+(m.heure?' <span class="h">'+m.heure+'</span>':'')+'</span>';
   var phase='<span class="b-grp" style="background:var(--accent)">'+m.phase+'</span>';
   var numb=(m.num!=null)?'<span class="b-num">Match '+m.num+'</span>':'';
-  var badges=(m.today ? '<span class="b-today">● Match du jour</span><div style="margin-top:5px">'+phase+'</div>' : phase)+' '+numb;
+  var badges=(m.today ? '<span class="b-today">● Match du jour</span><div style="margin-top:5px">'+phase+'</div>' : phase)+' '+numb+(m.venue?'<div>'+venueTag(m)+'</div>':'');
   // Slot par slot. En mode Réel : équipe RÉELLEMENT qualifiée si connue (propagation),
   // sinon "Vainqueur match N" (N = match nourricier) pour suivre les oppositions.
   function side(real, projHome){
@@ -740,6 +742,7 @@ var STADIUM_SVG = '<svg class="stadium" viewBox="0 0 20 20" width="15" height="1
   + '<path d="M10 4.6V2.2M7 4.8 6.1 2.6M13 4.8l.9-2.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>'
   + '</svg>';
 function hostBadge(){ return '<span class="host" title="Pays-hote de la competition">'+STADIUM_SVG+'</span>'; }
+function venueTag(m){ return m && m.venue ? '<span class="b-venue" title="Lieu du match">\uD83D\uDCCD '+m.venue+'</span>' : ''; }
 
 function matchCard(m){
   var host_h=m.host_h?hostBadge():'';
@@ -749,7 +752,7 @@ function matchCard(m){
     var rh = m.heure ? ('<span class="h">'+m.heure+(m.heure_note?' <span class="hn">'+m.heure_note+'</span>':'')+'</span>') : '';
     var rdt='<span class="dt">'+m.date+rh+'</span>';
     var rgrp='<span class="b-grp" style="background:'+GRP_COL[m.grp]+'">Groupe '+m.grp+'</span>';
-    var rbadges = (m.today ? '<span class="b-today">● Match du jour</span><div style="margin-top:5px">'+rgrp+'</div>' : rgrp)+' <span class="b-num">Match '+m.id+'</span>';
+    var rbadges = (m.today ? '<span class="b-today">● Match du jour</span><div style="margin-top:5px">'+rgrp+'</div>' : rgrp)+' <span class="b-num">Match '+m.id+'</span>'+(m.venue?'<div>'+venueTag(m)+'</div>':'');
     var rsc = m.reel
       ? '<div class="sc"><div class="sc-real-lbl">Score final</div><div class="score">'+m.reel[0]+' – '+m.reel[1]+'</div></div>'
       : '<div class="sc"><div class="tag avenir">À venir</div></div>';
@@ -784,7 +787,7 @@ function matchCard(m){
   var dt='<span class="dt">'+m.date+hpart+'</span>';
   // badges
   var grpb='<span class="b-grp" style="background:'+GRP_COL[m.grp]+'">Groupe '+m.grp+'</span>';
-  var badges = (m.today ? '<span class="b-today">\u25CF Match du jour</span><div style="margin-top:5px">'+grpb+'</div>' : grpb)+' <span class="b-num">Match '+m.id+'</span>';
+  var badges = (m.today ? '<span class="b-today">\u25CF Match du jour</span><div style="margin-top:5px">'+grpb+'</div>' : grpb)+' <span class="b-num">Match '+m.id+'</span>'+(m.venue?'<div>'+venueTag(m)+'</div>':'');
   // dynamique
   var dyn="";
   if(!m.reel){
@@ -904,15 +907,17 @@ function grpButtons(){
 }
 
 // Une ligne = une \u00e9quipe + son score. Nom cliquable (fiche \u00e9quipe).
-function koLine(name, code, sc, isWinner, tabFlag){
+function koLine(name, code, sc, isWinner, tabFlag, pen){
   if(!name){
     return '<div class="ko-line"><span class="ko-team tbd"><span class="kn">\u00e0 venir</span></span>'
       + '<span class="ko-sc">\u2013</span></div>';
   }
+  // t.a.b. : score réglementaire + (score des tirs au but) — ex. 1 (4)
+  var penTxt = (tabFlag && pen!=null) ? ' <span class="ko-pen">('+pen+')</span>' : '';
   var tab = (tabFlag && isWinner) ? '<span class="tab">t.a.b.</span>' : '';
   return '<div class="ko-line'+(isWinner?' win':'')+'"><span class="ko-team'+(isWinner?' win':'')+'">'+flagImg(code,'sm')
     + ' <span class="kn tlink" data-team="'+name+'">'+name+'</span></span>'
-    + '<span class="ko-sc">'+(sc==null?'\u2013':sc)+tab+'</span></div>';
+    + '<span class="ko-sc">'+(sc==null?'\u2013':sc)+penTxt+tab+'</span></div>';
 }
 function koMatch(m){
   var confChip = (isProno() && m.conf) ? '<span class="ko-conf'+(m.upset?' ko-upset':'')+'" title="'+(m.upset?'Surprise projetée — ':'')+'Probabilité de qualification du qualifié affiché (Elo + Dixon-Coles)">'+(m.upset?'\u26A1 ':'')+m.conf+'%</span>' : '';
@@ -924,8 +929,8 @@ function koMatch(m){
         + m.second.sh+'\u2013'+m.second.sa+' <span class="p2">('+m.second.p+'%)</span></div>' : '';
   return '<div class="ko-match'+(m.winner?' done':'')+'">'
     + hit + d
-    + koLine(m.home,m.ch,m.sh,m.winner&&m.winner===m.home,m.tab)
-    + koLine(m.away,m.ca,m.sa,m.winner&&m.winner===m.away,m.tab)
+    + koLine(m.home,m.ch,m.sh,m.winner&&m.winner===m.home,m.tab,m.penh)
+    + koLine(m.away,m.ca,m.sa,m.winner&&m.winner===m.away,m.tab,m.pena)
     + second
     + '</div>';
 }
@@ -1127,15 +1132,21 @@ function realStandings(g){
 // Forme réelle d'une équipe : +2 victoire / 0 nul / -1 défaite — pour la vue Dynamique en mode Réel
 function realForme(){
   var f={};
+  function acc(tm,code,gf,ga){
+    if(!f[tm]) f[tm]={team:tm,code:code,pts:0,detail:[]};
+    if(gf>ga){f[tm].pts+=2;f[tm].detail.push("V "+gf+"-"+ga);}
+    else if(gf<ga){f[tm].pts-=1;f[tm].detail.push("D "+gf+"-"+ga);}
+    else f[tm].detail.push("N "+gf+"-"+ga);
+  }
+  // Phase de groupes
   DATA.matches.forEach(function(m){
     if(!m.reel)return;
-    var h=m.reel[0],a=m.reel[1];
-    [[m.home,m.ch,h,a],[m.away,m.ca,a,h]].forEach(function(x){
-      var tm=x[0]; if(!f[tm]) f[tm]={team:tm,code:x[1],pts:0,detail:[]};
-      if(x[2]>x[3]){f[tm].pts+=2;f[tm].detail.push("V "+x[2]+"-"+x[3]);}
-      else if(x[2]<x[3]){f[tm].pts-=1;f[tm].detail.push("D "+x[2]+"-"+x[3]);}
-      else f[tm].detail.push("N "+x[2]+"-"+x[3]);
-    });
+    acc(m.home,m.ch,m.reel[0],m.reel[1]); acc(m.away,m.ca,m.reel[1],m.reel[0]);
+  });
+  // Phases finales jouées (la dynamique continue)
+  (DATA.ko_feed||[]).forEach(function(m){
+    if(!m.reel)return;
+    acc(m.home,m.ch,m.reel[0],m.reel[1]); acc(m.away,m.ca,m.reel[1],m.reel[0]);
   });
   return Object.keys(f).map(function(k){return f[k];}).sort(function(a,b){return b.pts-a.pts;});
 }
