@@ -639,32 +639,43 @@ def _ko_score_from_api(home, away, row):
     on garde le score des t.a.b. à part, et on désigne le qualifié via score.winner
     (repli sur le score des t.a.b. puis sur le score réglementaire)."""
     ft_h, ft_a = row.get("ft_h"), row.get("ft_a")
+    rt_h, rt_a = row.get("rt_h"), row.get("rt_a")
+    et_h, et_a = row.get("et_h"), row.get("et_a")
     pen_h, pen_a = row.get("pen_h"), row.get("pen_a")
     duration = row.get("duration")
     shootout = (duration == "PENALTY_SHOOTOUT") or (pen_h is not None and pen_a is not None)
-    # Score AFFICHÉ = score avant les t.a.b.
-    disp_h, disp_a = ft_h, ft_a
-    if shootout and ft_h is not None and ft_a is not None and pen_h is not None and pen_a is not None:
-        disp_h, disp_a = ft_h - pen_h, ft_a - pen_a          # fullTime - t.a.b.
-    # Repli : score réglementaire (+ prolongation) si fourni explicitement
-    if (disp_h is None or disp_a is None) and row.get("rt_h") is not None:
-        disp_h = row.get("rt_h") + (row.get("et_h") or 0)
-        disp_a = row.get("rt_a") + (row.get("et_a") or 0)
-    # Qualifié : API d'abord, puis t.a.b., puis score affiché
+    # Score AFFICHÉ = score « sur le terrain », hors t.a.b.
+    #  1) score réglementaire (+ prolongation) si l'API le fournit (le plus fiable) ;
+    #  2) sinon fullTime − t.a.b. (football-data : fullTime INCLUT les t.a.b.) ;
+    #  3) sinon fullTime brut.
+    if rt_h is not None and rt_a is not None:
+        disp_h = rt_h + (et_h or 0); disp_a = rt_a + (et_a or 0)
+    elif shootout and None not in (ft_h, ft_a, pen_h, pen_a):
+        disp_h, disp_a = ft_h - pen_h, ft_a - pen_a
+    else:
+        disp_h, disp_a = ft_h, ft_a
+    # t.a.b. décisifs (un vrai vainqueur aux tirs : scores différents) ?
+    pen_decisive = (pen_h is not None and pen_a is not None and pen_h != pen_a)
+    on_pitch_draw = (disp_h is not None and disp_h == disp_a)
+    # On ne signale « t.a.b. » que si la séance a un sens affichable :
+    # match nul sur le terrain, OU séance de tirs décisive.
+    tab = bool(shootout and (on_pitch_draw or pen_decisive))
+    # Qualifié : champ winner de l'API d'abord, puis t.a.b. décisifs, puis score affiché.
     winner = row.get("winner")
     if winner not in ("HOME_TEAM", "AWAY_TEAM"):
-        if pen_h is not None and pen_a is not None and pen_h != pen_a:
+        if pen_decisive:
             winner = "HOME_TEAM" if pen_h > pen_a else "AWAY_TEAM"
         elif disp_h is not None and disp_a is not None and disp_h != disp_a:
             winner = "HOME_TEAM" if disp_h > disp_a else "AWAY_TEAM"
         else:
             winner = None
+    # On n'expose le score des t.a.b. que s'il est décisif (sinon valeur non fiable).
+    show_penh = int(pen_h) if (tab and pen_decisive) else None
+    show_pena = int(pen_a) if (tab and pen_decisive) else None
     return {"home":home, "away":away,
             "hs":(int(disp_h) if disp_h is not None else None),
             "as":(int(disp_a) if disp_a is not None else None),
-            "penh":(int(pen_h) if pen_h is not None else None),
-            "pena":(int(pen_a) if pen_a is not None else None),
-            "tab":bool(shootout),
+            "penh":show_penh, "pena":show_pena, "tab":tab,
             "status":row.get("status",""), "winner":winner}
 
 def fetch_from_api():
