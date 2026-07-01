@@ -498,13 +498,13 @@
     "82": {
       "home": "Belgique",
       "away": "Sénégal",
-      "hs": 0,
+      "hs": 2,
       "as": 2,
       "penh": null,
       "pena": null,
       "tab": false,
       "status": "IN_PLAY",
-      "winner": "AWAY_TEAM"
+      "winner": null
     },
     "83": {
       "home": "Portugal",
