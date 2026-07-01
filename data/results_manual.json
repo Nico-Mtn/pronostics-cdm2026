@@ -454,13 +454,13 @@
     "78": {
       "home": "Côte d'Ivoire",
       "away": "Norvège",
-      "hs": 1,
-      "as": 2,
+      "hs": null,
+      "as": null,
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "FINISHED",
-      "winner": "AWAY_TEAM"
+      "status": "TIMED",
+      "winner": null
     },
     "79": {
       "home": "Mexique",
