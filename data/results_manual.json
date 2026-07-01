@@ -476,13 +476,13 @@
     "80": {
       "home": "Angleterre",
       "away": "RD Congo",
-      "hs": 1,
+      "hs": 2,
       "as": 1,
       "penh": null,
       "pena": null,
       "tab": false,
       "status": "IN_PLAY",
-      "winner": null
+      "winner": "HOME_TEAM"
     },
     "81": {
       "home": "États-Unis",
