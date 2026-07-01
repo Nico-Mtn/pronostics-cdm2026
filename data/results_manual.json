@@ -465,13 +465,13 @@
     "79": {
       "home": "Mexique",
       "away": "Équateur",
-      "hs": 0,
+      "hs": 2,
       "as": 0,
       "penh": null,
       "pena": null,
       "tab": false,
       "status": "LIVE",
-      "winner": null
+      "winner": "HOME_TEAM"
     },
     "80": {
       "home": "Angleterre",
