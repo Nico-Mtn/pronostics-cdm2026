@@ -454,6 +454,17 @@
     "78": {
       "home": "Côte d'Ivoire",
       "away": "Norvège",
+      "hs": 1,
+      "as": 2,
+      "penh": null,
+      "pena": null,
+      "tab": false,
+      "status": "FINISHED",
+      "winner": "AWAY_TEAM"
+    },
+    "79": {
+      "home": "Mexique",
+      "away": "Équateur",
       "hs": null,
       "as": null,
       "penh": null,
@@ -461,17 +472,6 @@
       "tab": false,
       "status": "TIMED",
       "winner": null
-    },
-    "79": {
-      "home": "Mexique",
-      "away": "Équateur",
-      "hs": 2,
-      "as": 0,
-      "penh": null,
-      "pena": null,
-      "tab": false,
-      "status": "FINISHED",
-      "winner": "HOME_TEAM"
     },
     "80": {
       "home": "Angleterre",
