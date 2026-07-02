@@ -509,12 +509,12 @@
     "83": {
       "home": "Portugal",
       "away": "Croatie",
-      "hs": null,
-      "as": null,
+      "hs": 0,
+      "as": 0,
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "TIMED",
+      "status": "IN_PLAY",
       "winner": null
     },
     "84": {
