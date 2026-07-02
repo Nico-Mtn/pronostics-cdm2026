@@ -13,13 +13,18 @@ permissions:
   pages: write              # pour déployer sur GitHub Pages
   id-token: write
 
+# Un seul passage Pages à la fois. cancel-in-progress:false = on n'interrompt pas
+# un déploiement déjà lancé. Le timeout du job `deploy` (ci-dessous) évite qu'un
+# déploiement engorgé fasse traîner le run : il échoue vite au lieu de bloquer la file.
 concurrency:
   group: "pages"
   cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
+  # 1) BUILD : génère la page, committe les données, prépare l'artefact Pages.
+  build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Récupérer le dépôt
         uses: actions/checkout@v5
@@ -50,6 +55,16 @@ jobs:
         with:
           path: "."
 
+  # 2) DEPLOY : job dédié, rattaché explicitement à l'environnement github-pages
+  # (modèle officiel GitHub Pages). Le timeout borne l'attente si la file s'engorge.
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Déployer sur GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

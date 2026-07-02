@@ -14,13 +14,17 @@ permissions:
   pages: write
   id-token: write
 
+# Même groupe "pages" que update.yml : les deux workflows ne peuvent pas déployer
+# en même temps (une seule file Pages). cancel-in-progress:false = pas d'interruption.
 concurrency:
   group: "pages"
   cancel-in-progress: false
 
 jobs:
-  enrich-build-deploy:
+  # 1) BUILD : enrichit via API-Football, régénère la page, committe, prépare l'artefact.
+  build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Récupérer le dépôt
         uses: actions/checkout@v5
@@ -56,6 +60,15 @@ jobs:
         with:
           path: "."
 
+  # 2) DEPLOY : job dédié rattaché à l'environnement github-pages (modèle officiel).
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Déployer sur GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
