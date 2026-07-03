@@ -564,13 +564,13 @@
     "88": {
       "home": "Australie",
       "away": "Égypte",
-      "hs": 0,
+      "hs": 1,
       "as": 1,
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "PAUSED",
-      "winner": "AWAY_TEAM"
+      "status": "IN_PLAY",
+      "winner": null
     },
     "89": {
       "home": "Paraguay",
