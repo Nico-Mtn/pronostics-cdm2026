@@ -543,12 +543,12 @@
       "home": "Argentine",
       "away": "Cap-Vert",
       "hs": 1,
-      "as": 0,
+      "as": 1,
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "PAUSED",
-      "winner": "HOME_TEAM"
+      "status": "IN_PLAY",
+      "winner": null
     },
     "87": {
       "home": "Colombie",
