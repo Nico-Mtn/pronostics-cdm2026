@@ -510,12 +510,12 @@
       "home": "Portugal",
       "away": "Croatie",
       "hs": 2,
-      "as": 2,
+      "as": 1,
       "penh": null,
       "pena": null,
       "tab": false,
       "status": "FINISHED",
-      "winner": null
+      "winner": "HOME_TEAM"
     },
     "84": {
       "home": "Espagne",
