@@ -1,5 +1,5 @@
 {
-  "derniere_maj": "2026-07-02",
+  "derniere_maj": "2026-07-03",
   "resultats": {
     "1": {
       "h": 2,
@@ -514,7 +514,7 @@
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "IN_PLAY",
+      "status": "PAUSED",
       "winner": null
     },
     "84": {
