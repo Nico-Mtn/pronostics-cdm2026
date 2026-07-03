@@ -531,12 +531,12 @@
     "85": {
       "home": "Suisse",
       "away": "Algérie",
-      "hs": 1,
+      "hs": 2,
       "as": 0,
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "PAUSED",
+      "status": "IN_PLAY",
       "winner": "HOME_TEAM"
     },
     "86": {
