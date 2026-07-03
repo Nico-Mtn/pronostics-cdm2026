@@ -1688,7 +1688,16 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
 def render_html(payload):
     data_json=json.dumps(payload,ensure_ascii=False)
     tpl=open(os.path.join(ROOT,"template.html"),"r",encoding="utf-8").read()
-    return tpl.replace("/*__DATA__*/null", data_json)
+    html=tpl.replace("/*__DATA__*/null", data_json)
+    # Masquer la carte « Meilleurs passeurs » : la source gratuite (football-data /scorers,
+    # classée par buts) ne peut pas produire un vrai classement passeurs — un passeur qui n'a
+    # pas marqué (ex. Olise, Bruno Guimarães) est invisible. Mieux vaut pas de carte qu'un
+    # classement trompeur. Réactivable en v2 avec une source dédiée (API-Football Pro).
+    # No-op si le motif change dans template.html (aucun risque de casse).
+    html=html.replace(
+        "renderScorers())\n       + collapsible('assists','🎯 Meilleurs passeurs (toute la compétition)', renderAssists());",
+        "renderScorers());")
+    return html
 
 def main():
     results, datetimes, ko_fixtures = load_results()
