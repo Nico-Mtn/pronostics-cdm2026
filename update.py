@@ -787,13 +787,23 @@ def fetch_scorers():
     (..., []) si indisponible."""
     if not API_KEY:
         return {}, [], []
-    url=f"{API_BASE}/competitions/{WC_CODE}/scorers?limit=50"
-    req=urllib.request.Request(url, headers={"X-Auth-Token":API_KEY})
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            payload=json.loads(resp.read().decode("utf-8"))
-    except Exception as e:
-        print(f"[INFO] Buteurs indisponibles : {e}", file=sys.stderr)
+    # Pool large : l'endpoint /scorers est classé PAR BUTS. En élargissant fortement
+    # le nombre de joueurs récupérés, on capte aussi les créateurs (qui marquent peu)
+    # pour alimenter le classement des passeurs. Repli automatique sur un limit plus
+    # petit si l'API refuse une grande valeur, pour ne JAMAIS dégrader les buteurs.
+    # NB : un passeur sans aucun but reste invisible ici (limite structurelle de
+    # football-data en plan gratuit : pas d'endpoint « top passes décisives »).
+    payload=None
+    for lim in (300, 100, 50):
+        try:
+            url=f"{API_BASE}/competitions/{WC_CODE}/scorers?limit={lim}"
+            req=urllib.request.Request(url, headers={"X-Auth-Token":API_KEY})
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                payload=json.loads(resp.read().decode("utf-8"))
+            break
+        except Exception as e:
+            print(f"[INFO] Buteurs limit={lim} indisponible : {e}", file=sys.stderr)
+    if payload is None:
         return {}, [], []
     by_team={}; top_list=[]; assists_list=[]
     for sc in payload.get("scorers", []):
@@ -1096,13 +1106,9 @@ def _ko_predict(home, away, tier=0):
     seed = int(_unit(away + "#" + home) * 100000)                 # graine (découplée) pour le score
     # Score : le qualifié tiré l'emporte de façon DÉCISIVE ; le nul + t.a.b. n'est montré
     # que pour un vrai 50/50 (match couperet), indépendamment de QUI est tiré.
-    # NUL : on prédit le match nul (puis t.a.b. ; le qualifié reste le favori) quand la
-    # probabilité de nul Dixon-Coles (pN) est crédible face aux victoires. Calibré pour
-    # coller au taux de base réel (~25-30 %) au lieu du seuil 50/50 ultra-serré d'avant.
-    draw_margin = CALIB.get("ko_draw_margin", 0.06)
-    show_draw = pN >= (max(pV, pD) - draw_margin)
+    coinflip = abs(advH - 0.5) < CALIB["ko_coinflip"]   # KO : t.a.b. réservé aux vrais 50/50 (calibré)
     draws = {k: v for k, v in g.items() if k[0] == k[1]}
-    if show_draw and draws:
+    if coinflip and draws:
         (sx, sy) = _pick_score(draws, seed); tab = True
     else:
         if winner == home:
@@ -1410,49 +1416,6 @@ def compute_live_form(results, ko_fixtures, datetimes=None):
         live[t] = {"gf": round(gf, 2), "ga": round(ga, 2)}
     return live
 
-def _ko_tier_of(mid):
-    if 73 <= mid <= 88: return 0
-    if 104 == mid: return 2
-    return 1   # 8es/quarts/demies/3e place
-
-def _walkforward_predictions(results, ko_fixtures, datetimes):
-    """Pronostics de la SIMULATION 'depuis le coup d'envoi' : chaque match (groupes + KO)
-    est prédit par le moteur Elo+Dixon-Coles à partir de l'état issu UNIQUEMENT des
-    matchs ANTÉRIEURS (walk-forward, sans hindsight). Renvoie {str(mid): pred}.
-    Sauvegarde/restaure les globals LIVE_* (ne perturbe pas le reste du build)."""
-    save = (dict(LIVE_ELO), dict(LIVE_FORM), dict(LIVE_MOM))
-    items = []
-    for mid, grp, date, h, a in GROUP_MATCHES:
-        r = results.get(str(mid))
-        items.append({"mid": mid, "h": h, "a": a, "ts": date + "T00:00:00Z", "tier": 0, "ko": False,
-                      "played": r is not None, "rh": (int(r["h"]) if r else None), "ra": (int(r["a"]) if r else None)})
-    for mid_s, fx in (ko_fixtures or {}).items():
-        if not (fx.get("home") and fx.get("away")): continue
-        try: mid = int(mid_s)
-        except Exception: continue
-        played = fx.get("hs") is not None and fx.get("as") is not None and fx.get("status") in ("FINISHED", "AWARDED")
-        items.append({"mid": mid, "h": fx["home"], "a": fx["away"],
-                      "ts": KO_KICKOFF_UTC.get(mid, "2026-07-01T00:00:00Z"), "tier": _ko_tier_of(mid), "ko": True,
-                      "played": played, "rh": fx.get("hs"), "ra": fx.get("as")})
-    items.sort(key=lambda x: (x["ts"], x["mid"]))
-    acc_res, acc_ko, acc_dt = {}, {}, {}
-    out = {}
-    for it in items:
-        LIVE_ELO.clear();  LIVE_ELO.update(compute_live_elo(acc_res, acc_ko, acc_dt))
-        LIVE_FORM.clear(); LIVE_FORM.update(compute_live_form(acc_res, acc_ko, acc_dt))
-        LIVE_MOM.clear();  LIVE_MOM.update(compute_momentum_overlay(acc_res, acc_ko, acc_dt))
-        out[str(it["mid"])] = _ko_predict(it["h"], it["a"], it["tier"])
-        if it["played"] and it["rh"] is not None:
-            if it["ko"]:
-                acc_ko[str(it["mid"])] = {"home": it["h"], "away": it["a"], "hs": it["rh"], "as": it["ra"], "status": "FINISHED"}
-            else:
-                acc_res[str(it["mid"])] = {"h": it["rh"], "a": it["ra"]}
-            acc_dt[str(it["mid"])] = it["ts"]
-    LIVE_ELO.clear();  LIVE_ELO.update(save[0])
-    LIVE_FORM.clear(); LIVE_FORM.update(save[1])
-    LIVE_MOM.clear();  LIVE_MOM.update(save[2])
-    return out
-
 def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=None, assists_top=None, ko_fixtures=None):
     from collections import defaultdict
     scorers_by_team = scorers_by_team or {}
@@ -1469,8 +1432,6 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
     LIVE_ELO.clear();  LIVE_ELO.update(compute_live_elo(results, ko_fixtures, datetimes))
     LIVE_FORM.clear(); LIVE_FORM.update(compute_live_form(results, ko_fixtures, datetimes))
     LIVE_MOM.clear();  LIVE_MOM.update(compute_momentum_overlay(results, ko_fixtures, datetimes))
-    # PRONOS = SIMULATION walk-forward (Elo+Dixon-Coles) appliquée à TOUS les matchs publiés.
-    WF = _walkforward_predictions(results, ko_fixtures, datetimes)
     qualif_states=compute_qualif_states(results)
     rint={int(k):v for k,v in results.items()}
     # "Aujourd'hui" dans le fuseau du LIEU de la compétition (Amériques). Tous les
@@ -1494,15 +1455,11 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
         # facteur qualification uniquement pour les 3es matchs
         qz = qualif_states if mid in j3_ids else None
         pah,paa,diffaj=compute(home,away,momentum,qz,form)
-        # PRONO AFFICHÉ = simulation walk-forward Elo+Dixon-Coles (cohérence sur toute la compétition)
-        _wf = WF.get(str(mid))
-        if _wf:
-            pih, pia = _wf["sh"], _wf["sa"]; pah, paa = _wf["sh"], _wf["sa"]
         joue=mid in rint
         # Bande de nul calibrée (apprise) : sur un match de groupe À VENIR très serré,
         # on penche pour le nul (issue la plus probable). N'affecte PAS le prono noté figé
         # ni les matchs déjà joués -> les grades passés restent intacts.
-        if (not _wf) and (not joue) and CALIB["group_draw_band"]>0 and abs(diffaj)<CALIB["group_draw_band"] and pah!=paa:
+        if (not joue) and CALIB["group_draw_band"]>0 and abs(diffaj)<CALIB["group_draw_band"] and pah!=paa:
             nn=[1,0,2][(sum(ord(c) for c in home+away))%3]; pah=paa=nn
         reel=None; statut="avenir"; resume=""; resume_reel=""
         if joue:
@@ -1566,7 +1523,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
         is_today = (matchday_iso == today_iso)
         if is_today: n_today += 1
         style_label, style_note = style_analysis(home, away)
-        conf = _wf["conf"] if _wf else confidence_pct(diffaj if not joue else compute(home,away,None)[2])
+        conf = confidence_pct(diffaj if not joue else compute(home,away,None)[2])
         # Surprise : favori net (>85 %) donné vainqueur mais qui NE GAGNE PAS
         # (battu OU accroché sur un nul) — ex. un nul d'une grosse équipe face à un outsider
         surprise = bool(joue and conf > 85 and po in (0, 1) and ro != po)
@@ -1685,9 +1642,6 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
                 "tab":bool(rm.get("tab")) if played else False,
                 "penh":rm.get("penh") if played else None,
                 "pena":rm.get("pena") if played else None,
-                # qualifié + t.a.b. PRÉDITS (matchs KO à venir) pour nommer le qualifié sur un nul prédit
-                "qualif":(rm.get("winner") if played else m.get("winner")),
-                "ptab":(False if played else bool(m.get("tab"))),
                 "prono":[m["sh"],m["sa"]] if (not played and m.get("sh") is not None) else None,
                 # — infos enrichies (confiance, prono vs réel, style, 2e choix, résumé) —
                 "conf":m.get("conf"),"pred_score":ko_pred,"statut":ko_statut,
@@ -1740,7 +1694,7 @@ def main():
     results, datetimes, ko_fixtures = load_results()
     scorers, scorers_top, assists_top = fetch_scorers()
     if scorers:
-        print(f"[OK] Buteurs récupérés pour {len(scorers)} équipe(s) ; {len(scorers_top)} buteur(s) classés")
+        print(f"[OK] Buteurs récupérés pour {len(scorers)} équipe(s) ; {len(scorers_top)} buteur(s) classés ; {len(assists_top)} passeur(s) classés")
     payload=build_payload(results, scorers, datetimes, scorers_top, assists_top, ko_fixtures)
     html=render_html(payload)
     out=os.path.join(ROOT,"index.html")
