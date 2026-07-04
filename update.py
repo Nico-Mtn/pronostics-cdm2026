@@ -1278,7 +1278,11 @@ def build_knockout(standings, momentum, datetimes=None, form=None, ko_fixtures=N
             pred_fav=pred.get("fav") or pred.get("winner")
             res={"home":home,"away":away,"sh":sh,"sa":sa,"winner":winner,"tab":tab,
                  "penh":penh,"pena":pena,
-                 "hit":(pred_fav==winner) if winner else None,
+                 # « au moins bon » : bon qualifié ET, si le match est allé aux t.a.b.
+                 # (nul en 90/120 min), le prono devait AUSSI avoir prédit un nul — sinon
+                 # le match serré n'a pas été vu → raté. Cohérent avec le feed et le compteur.
+                 "hit":(None if not winner else
+                        ((pred_fav==winner) and (not (tab or sh==sa) or pred.get("sh")==pred.get("sa")))),
                  "conf":pred.get("conf"),"proba":pred.get("proba"),"pred_winner":pred_fav,
                  "pred_score":[pred.get("sh"),pred.get("sa")]}
         else:
