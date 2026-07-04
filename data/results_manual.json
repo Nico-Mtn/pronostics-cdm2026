@@ -575,12 +575,12 @@
     "89": {
       "home": "Paraguay",
       "away": "France",
-      "hs": null,
-      "as": null,
+      "hs": 0,
+      "as": 0,
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "TIMED",
+      "status": "LIVE",
       "winner": null
     },
     "90": {
