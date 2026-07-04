@@ -587,11 +587,11 @@
       "home": "Canada",
       "away": "Maroc",
       "hs": 0,
-      "as": 2,
+      "as": 3,
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "IN_PLAY",
+      "status": "FINISHED",
       "winner": "AWAY_TEAM"
     },
     "91": {
