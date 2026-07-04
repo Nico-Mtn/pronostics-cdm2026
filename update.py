@@ -789,14 +789,11 @@ def fetch_scorers():
     (..., []) si indisponible."""
     if not API_KEY:
         return {}, [], []
-    # Pool large : l'endpoint /scorers est classé PAR BUTS. En élargissant fortement
-    # le nombre de joueurs récupérés, on capte aussi les créateurs (qui marquent peu)
-    # pour alimenter le classement des passeurs. Repli automatique sur un limit plus
-    # petit si l'API refuse une grande valeur, pour ne JAMAIS dégrader les buteurs.
-    # NB : un passeur sans aucun but reste invisible ici (limite structurelle de
-    # football-data en plan gratuit : pas d'endpoint « top passes décisives »).
+    # L'affichage montre le TOP 5 buteurs (les passeurs sont masqués, cf. render_html) :
+    # on se limite au top 10, largement suffisant, et on allège fortement le payload
+    # (on était monté à 300 pour les passeurs, devenu inutile depuis le masquage).
     payload=None
-    for lim in (300, 100, 50):
+    for lim in (10,):
         try:
             url=f"{API_BASE}/competitions/{WC_CODE}/scorers?limit={lim}"
             req=urllib.request.Request(url, headers={"X-Auth-Token":API_KEY})
@@ -1727,9 +1724,9 @@ def render_html(payload):
     # elles, sont déjà rafraîchies en direct par le poll existant. Garde anti-boucle 120 s
     # (le temps que le CDN GitHub Pages propage la nouvelle page).
     reload_js=("<script>(function(){var V='%s';function c(){"
-               "fetch('./data.json?v='+Date.now(),{cache:'no-store'})"
-               ".then(function(r){return r.ok?r.json():null;})"
-               ".then(function(d){if(!d||!d.app_version||d.app_version===V)return;"
+               "fetch('./app.version?v='+Date.now(),{cache:'no-store'})"
+               ".then(function(r){return r.ok?r.text():null;})"
+               ".then(function(t){if(!t)return;t=t.trim();if(!t||t===V)return;"
                "var now=Date.now(),last=0;try{last=+sessionStorage.getItem('pb_reload_at')||0;}catch(e){}"
                "if(now-last<120000)return;try{sessionStorage.setItem('pb_reload_at',String(now));}catch(e){}"
                "location.reload();}).catch(function(){});}"
@@ -1751,6 +1748,10 @@ def main():
     # data.json : données structurées réutilisables (service worker pour les notifications, etc.)
     with open(os.path.join(ROOT,"data.json"),"w",encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False)
+    # app.version : minuscule fichier sondé par le client pour l'auto-reload (évite de
+    # re-télécharger data.json juste pour lire la version).
+    with open(os.path.join(ROOT,"app.version"),"w",encoding="utf-8") as f:
+        f.write(payload.get("app_version",""))
     s=payload["stats"]
     print(f"[OK] index.html généré — {s['joue']} joués | {s['exact']} exacts, {s['bon']} bons, {s['rate']} ratés | {s['today']} match(s) aujourd'hui")
 
