@@ -1703,10 +1703,14 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
 # ─── GÉNÉRATION HTML ─────────────────────────────────────────────────────────
 def render_html(payload):
     tpl=open(os.path.join(ROOT,"template.html"),"r",encoding="utf-8").read()
-    # Empreinte du CODE (template.html), stable tant que le code ne change pas (indépendante
-    # des données). Sert à détecter côté client une nouvelle version de l'app et à recharger
-    # automatiquement l'onglet resté ouvert.
-    app_ver=hashlib.md5(tpl.encode("utf-8")).hexdigest()[:8]
+    # Empreinte du CODE = template.html + générateur (update.py). Stable tant que le code ne
+    # change pas (indépendante des données : résultats et API n'altèrent pas ces fichiers).
+    # Sert à détecter côté client une nouvelle version de l'app et à recharger l'onglet ouvert.
+    try:
+        _own=open(os.path.abspath(__file__),encoding="utf-8").read()
+    except Exception:
+        _own=""
+    app_ver=hashlib.md5((tpl+_own).encode("utf-8")).hexdigest()[:8]
     payload["app_version"]=app_ver   # embarquée dans index.html ET dans data.json (écrit ensuite)
     data_json=json.dumps(payload,ensure_ascii=False)
     html=tpl.replace("/*__DATA__*/null", data_json)
