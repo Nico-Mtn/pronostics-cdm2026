@@ -553,12 +553,12 @@
     "87": {
       "home": "Colombie",
       "away": "Ghana",
-      "hs": 2,
+      "hs": 1,
       "as": 0,
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "IN_PLAY",
+      "status": "FINISHED",
       "winner": "HOME_TEAM"
     },
     "88": {
