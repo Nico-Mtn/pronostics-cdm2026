@@ -504,7 +504,7 @@ def compute_qualif_states(results):
                 states[t]=None
     return states
 
-def match_summary(home, away, rh, ra, statut, mom_after, scorers_by_team):
+def match_summary(home, away, rh, ra, statut, mom_after, scorers_by_team, tab=False):
     """Génère un résumé court combinant factuel (A) et analyse du moteur (C).
     mom_after : dict team->momentum (après ce match). scorers_by_team : dict team->[noms]."""
     # --- Factuel (A) ---
@@ -544,6 +544,8 @@ def match_summary(home, away, rh, ra, statut, mom_after, scorers_by_team):
         verdict = "Résultat exactement conforme au pronostic IA."
     elif statut == "bon":
         verdict = "Le bon vainqueur avait été anticipé, mais pas le score exact."
+    elif tab:
+        verdict = "Match nul, décidé aux tirs au but : le pronostic annonçait une issue nette — le match serré n'avait pas été anticipé."
     else:
         verdict = "Résultat à contre-courant du pronostic : le football reste imprévisible."
 
@@ -1618,7 +1620,21 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
             ko_statut = "avenir"
             if played:
                 ps = m.get("pred_score") or [None,None]
-                if ps[0] is not None and ps[0]==rm.get("sh") and ps[1]==rm.get("sa"):
+                # Match décidé aux t.a.b. = nul en temps réglementaire/prolongation. Le prono
+                # n'est crédité que s'il avait ANTICIPÉ le nul (score prédit nul) ET désigné le
+                # bon qualifié. S'il annonçait une victoire nette, le match serré (→ t.a.b.)
+                # n'a pas été vu : c'est un raté (le tir au but est un quasi pile-ou-face).
+                is_tab = bool(rm.get("tab")) or (rm.get("sh") is not None and rm.get("sh")==rm.get("sa"))
+                pred_draw   = (ps[0] is not None and ps[0]==ps[1])
+                score_exact = (ps[0] is not None and ps[0]==rm.get("sh") and ps[1]==rm.get("sa"))
+                if is_tab:
+                    if pred_draw and m.get("hit") and score_exact:
+                        ko_statut = "exact"
+                    elif pred_draw and m.get("hit"):
+                        ko_statut = "bon"
+                    else:
+                        ko_statut = "rate"
+                elif score_exact:
                     ko_statut = "exact"
                 elif m.get("hit"):
                     ko_statut = "bon"
@@ -1628,7 +1644,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
             if played:
                 ko_resume, ko_resume_reel = match_summary(
                     rm.get("home") or m["home"], rm.get("away") or m["away"],
-                    rm["sh"], rm["sa"], ko_statut, momentum, scorers_by_team or {})
+                    rm["sh"], rm["sa"], ko_statut, momentum, scorers_by_team or {}, tab=is_tab)
             ko_feed.append({
                 "id":mid,"num":mid,"phase":rd["name"],"date":m.get("date",""),"heure":m.get("heure",""),
                 "iso":iso or "","sort":sort_key or (m.get("date","")+"~"),
