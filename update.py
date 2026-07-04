@@ -1702,8 +1702,13 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
 
 # ─── GÉNÉRATION HTML ─────────────────────────────────────────────────────────
 def render_html(payload):
-    data_json=json.dumps(payload,ensure_ascii=False)
     tpl=open(os.path.join(ROOT,"template.html"),"r",encoding="utf-8").read()
+    # Empreinte du CODE (template.html), stable tant que le code ne change pas (indépendante
+    # des données). Sert à détecter côté client une nouvelle version de l'app et à recharger
+    # automatiquement l'onglet resté ouvert.
+    app_ver=hashlib.md5(tpl.encode("utf-8")).hexdigest()[:8]
+    payload["app_version"]=app_ver   # embarquée dans index.html ET dans data.json (écrit ensuite)
+    data_json=json.dumps(payload,ensure_ascii=False)
     html=tpl.replace("/*__DATA__*/null", data_json)
     # Masquer la carte « Meilleurs passeurs » : la source gratuite (football-data /scorers,
     # classée par buts) ne peut pas produire un vrai classement passeurs — un passeur qui n'a
@@ -1713,6 +1718,20 @@ def render_html(payload):
     html=html.replace(
         "renderScorers())\n       + collapsible('assists','🎯 Meilleurs passeurs (toute la compétition)', renderAssists());",
         "renderScorers());")
+    # Rechargement auto SILENCIEUX : si le CODE de l'app change (app_version différent de celui
+    # embarqué), l'onglet ouvert se recharge pour récupérer la nouvelle version. Les DONNÉES,
+    # elles, sont déjà rafraîchies en direct par le poll existant. Garde anti-boucle 120 s
+    # (le temps que le CDN GitHub Pages propage la nouvelle page).
+    reload_js=("<script>(function(){var V='%s';function c(){"
+               "fetch('./data.json?v='+Date.now(),{cache:'no-store'})"
+               ".then(function(r){return r.ok?r.json():null;})"
+               ".then(function(d){if(!d||!d.app_version||d.app_version===V)return;"
+               "var now=Date.now(),last=0;try{last=+sessionStorage.getItem('pb_reload_at')||0;}catch(e){}"
+               "if(now-last<120000)return;try{sessionStorage.setItem('pb_reload_at',String(now));}catch(e){}"
+               "location.reload();}).catch(function(){});}"
+               "setInterval(c,180000);document.addEventListener('visibilitychange',function(){if(!document.hidden)c();});"
+               "})();</script>") % app_ver
+    html=html.replace("</body>", reload_js+"</body>")
     return html
 
 def main():
