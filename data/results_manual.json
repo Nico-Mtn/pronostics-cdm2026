@@ -576,12 +576,12 @@
       "home": "Paraguay",
       "away": "France",
       "hs": 0,
-      "as": 0,
+      "as": 1,
       "penh": null,
       "pena": null,
       "tab": false,
       "status": "IN_PLAY",
-      "winner": null
+      "winner": "AWAY_TEAM"
     },
     "90": {
       "home": "Canada",
