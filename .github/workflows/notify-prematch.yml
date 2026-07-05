@@ -1,0 +1,33 @@
+# Pronostix — rappel PRÉ-MATCH (push ~15 min avant le coup d'envoi).
+# Déclenché par le Cron Trigger Cloudflare (cron "* * * * *" → dispatch avec l'id du match)
+# ou manuellement. Réutilise les mêmes secrets VAPID que la notif matinale.
+name: Rappel pré-match Pronostix
+
+on:
+  workflow_dispatch:
+    inputs:
+      match_id:
+        description: "ID du match (tel que présent dans data.json)"
+        required: true
+        type: string
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Installer web-push
+        working-directory: notify
+        run: npm install web-push --no-save
+      - name: Envoyer le rappel pré-match
+        working-directory: notify
+        env:
+          VAPID_PUBLIC: ${{ secrets.VAPID_PUBLIC }}
+          VAPID_PRIVATE: ${{ secrets.VAPID_PRIVATE }}
+          SUBS_URL: ${{ secrets.SUBS_URL }}
+          LIST_SECRET: ${{ secrets.PUSH_LIST_SECRET }}
+          MATCH_ID: ${{ github.event.inputs.match_id }}
+        run: node send-prematch.mjs
