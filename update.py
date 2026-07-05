@@ -1756,6 +1756,14 @@ def main():
     # re-télécharger data.json juste pour lire la version).
     with open(os.path.join(ROOT,"app.version"),"w",encoding="utf-8") as f:
         f.write(payload.get("app_version",""))
+    # content.sig : empreinte du CONTENU (hors timestamp "maj", qui change à chaque run).
+    # Sert au déploiement conditionnel dans update.yml : on ne republie sur GitHub Pages
+    # QUE si cette empreinte a changé (nouveau résultat, buteur, horaire, code…), jamais
+    # pour un simple rafraîchissement d'heure. Évite les déploiements Pages « à vide ».
+    _sig_payload = {k: v for k, v in payload.items() if k != "maj"}
+    _sig = hashlib.md5(json.dumps(_sig_payload, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
+    with open(os.path.join(ROOT,"content.sig"),"w",encoding="utf-8") as f:
+        f.write(_sig)
     s=payload["stats"]
     print(f"[OK] index.html généré — {s['joue']} joués | {s['exact']} exacts, {s['bon']} bons, {s['rate']} ratés | {s['today']} match(s) aujourd'hui")
 
