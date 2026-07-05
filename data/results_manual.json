@@ -580,7 +580,7 @@
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "2026-07-04 21:00:00Z",
+      "status": "FINISHED",
       "winner": "AWAY_TEAM"
     },
     "90": {
@@ -602,7 +602,7 @@
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "2026-07-06 20:00:00Z",
+      "status": "TIMED",
       "winner": null
     },
     "92": {
@@ -661,8 +661,8 @@
       "winner": null
     },
     "97": {
-      "home": null,
-      "away": null,
+      "home": "France",
+      "away": "Maroc",
       "hs": null,
       "as": null,
       "penh": null,
