@@ -1711,7 +1711,14 @@ def render_html(payload):
         _own=open(os.path.abspath(__file__),encoding="utf-8").read()
     except Exception:
         _own=""
-    app_ver=hashlib.md5((tpl+_own).encode("utf-8")).hexdigest()[:8]
+    # sw.js fait partie du CODE de l'app : l'inclure dans l'empreinte pour qu'une modif
+    # du service worker change app_version → déclenche le déploiement conditionnel (content.sig)
+    # ET l'auto-reload client. Sans ça, un sw.js modifié ne serait jamais republié.
+    try:
+        _sw=open(os.path.join(ROOT,"sw.js"),encoding="utf-8").read()
+    except Exception:
+        _sw=""
+    app_ver=hashlib.md5((tpl+_own+_sw).encode("utf-8")).hexdigest()[:8]
     payload["app_version"]=app_ver   # embarquée dans index.html ET dans data.json (écrit ensuite)
     data_json=json.dumps(payload,ensure_ascii=False)
     html=tpl.replace("/*__DATA__*/null", data_json)

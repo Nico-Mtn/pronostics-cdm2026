@@ -1,6 +1,6 @@
 /* Pronostix — Coupe du Monde 2026 | Auteur : Nico-Mtn (https://github.com/Nico-Mtn) | Projet gratuit. Réutilisation : crédit au créateur (Nico-Mtn) apprécié. */
 /* Pronostix — Service Worker (PWA installable + hors-ligne + prêt pour le push) */
-const CACHE = 'pronobot-v15';
+const CACHE = 'pronobot-v16';
 const CORE = ['./', './index.html', './logo.png', './icon-192.png', './icon-512.png', './manifest.webmanifest'];
 
 self.addEventListener('install', function(e){
@@ -37,9 +37,11 @@ self.addEventListener('fetch', function(e){
   }));
 });
 
-/* ── Notifications push : message « résultats d'hier + justesse de Pronostix » ──
-   L'expéditeur (GitHub Actions) envoie un push « nu » ; le message Pronostix est
-   construit ici à partir de data.json (résultats réels + statut du pronostic noté). */
+/* ── Notifications push ──
+   Deux types de push :
+   1) Push AVEC payload (ex. rappel pré-match) : { title, body, tag, url } → affiché tel quel.
+   2) Push « nu » (notif matinale) : le message « résultats d'hier + matchs du jour » est
+      construit ici à partir de data.json (résultats réels + justesse du pronostic noté). */
 function digestHier(){
   return fetch('./data.json', {cache:'no-store'}).then(function(r){ return r.json(); }).then(function(data){
     function isoOf(off){ var d=new Date(); d.setDate(d.getDate()+off);
@@ -63,6 +65,17 @@ function digestHier(){
   }).catch(function(){ return { title:'⚽ Pronostix', body:"Résultats et matchs du jour disponibles." }; });
 }
 self.addEventListener('push', function(e){
+  var payload = null;
+  try { payload = e.data ? e.data.json() : null; } catch(_) { payload = null; }
+  // 1) Push avec message prêt à l'emploi (rappel pré-match, etc.) → affichage direct.
+  if (payload && payload.body) {
+    e.waitUntil(self.registration.showNotification(payload.title || '⚽ Pronostix', {
+      body: payload.body, icon: './icon-192.png', badge: './icon-192.png',
+      tag: payload.tag || 'pronobot', data: payload.url || './'
+    }));
+    return;
+  }
+  // 2) Push « nu » → notif matinale construite depuis data.json.
   e.waitUntil(digestHier().then(function(msg){
     return self.registration.showNotification(msg.title, {
       body: msg.body, icon: './icon-192.png', badge: './icon-192.png', tag: 'pronobot-daily', data: './'
