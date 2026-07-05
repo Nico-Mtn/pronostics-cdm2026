@@ -1,5 +1,5 @@
 {
-  "derniere_maj": "2026-07-04",
+  "derniere_maj": "2026-07-05",
   "resultats": {
     "1": {
       "h": 2,
@@ -580,7 +580,7 @@
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "FINISHED",
+      "status": "2026-07-04 21:00:00Z",
       "winner": "AWAY_TEAM"
     },
     "90": {
@@ -602,7 +602,7 @@
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "TIMED",
+      "status": "2026-07-06 20:00:00Z",
       "winner": null
     },
     "92": {
