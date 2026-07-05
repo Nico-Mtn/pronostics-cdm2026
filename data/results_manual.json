@@ -597,12 +597,12 @@
     "91": {
       "home": "Brésil",
       "away": "Norvège",
-      "hs": 0,
+      "hs": 1,
       "as": 2,
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "LIVE",
+      "status": "FINISHED",
       "winner": "AWAY_TEAM"
     },
     "92": {
