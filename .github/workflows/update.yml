@@ -21,10 +21,13 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # 1) BUILD : génère la page, committe les données, prépare l'artefact Pages.
+  # 1) BUILD : génère la page, DÉTECTE un vrai changement de contenu, committe et
+  # prépare l'artefact Pages UNIQUEMENT si le contenu a changé.
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      changed: ${{ steps.detect.outputs.changed }}
     steps:
       - name: Récupérer le dépôt
         uses: actions/checkout@v5
@@ -39,26 +42,46 @@ jobs:
           FOOTBALLDATA_KEY: ${{ secrets.FOOTBALLDATA_KEY }}
         run: python update.py
 
-      - name: Committer les résultats récupérés (si modifiés)
+      # Déploiement conditionnel : update.py écrit content.sig = empreinte du CONTENU
+      # HORS timestamp "maj". Si cette empreinte est identique à celle déjà committée,
+      # rien de réel n'a changé (juste l'heure) → on ne redéploie PAS. Ça évite les
+      # déploiements Pages « à vide » quand le Worker déclenche sans nouveau résultat.
+      - name: Détecter un vrai changement de contenu
+        id: detect
+        run: |
+          if [ -n "$(git status --porcelain -- content.sig)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Contenu modifié → déploiement."
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Aucun changement de contenu (seul l'horodatage a bougé) → pas de déploiement."
+          fi
+
+      - name: Committer les résultats récupérés (si contenu modifié)
+        if: steps.detect.outputs.changed == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/results_manual.json index.html data.json
+          git add data/results_manual.json index.html data.json app.version content.sig
           git diff --staged --quiet || git commit -m "MAJ auto $(date -u +%Y-%m-%d) [skip ci]"
           git push || echo "Rien à pousser"
 
       - name: Configurer Pages
+        if: steps.detect.outputs.changed == 'true'
         uses: actions/configure-pages@v5
 
       - name: Préparer l'artefact (page = racine du dépôt)
+        if: steps.detect.outputs.changed == 'true'
         uses: actions/upload-pages-artifact@v4
         with:
           path: "."
 
   # 2) DEPLOY : job dédié, rattaché explicitement à l'environnement github-pages
-  # (modèle officiel GitHub Pages). Le timeout borne l'attente si la file s'engorge.
+  # (modèle officiel GitHub Pages). Ne s'exécute QUE si le build a détecté un
+  # changement de contenu (sinon skip = run vert, zéro déploiement Pages).
   deploy:
     needs: build
+    if: needs.build.outputs.changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
