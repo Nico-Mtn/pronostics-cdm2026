@@ -619,13 +619,13 @@
     "93": {
       "home": "Portugal",
       "away": "Espagne",
-      "hs": null,
-      "as": null,
+      "hs": 0,
+      "as": 1,
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "TIMED",
-      "winner": null
+      "status": "FINISHED",
+      "winner": "AWAY_TEAM"
     },
     "94": {
       "home": "États-Unis",
