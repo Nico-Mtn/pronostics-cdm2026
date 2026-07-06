@@ -608,12 +608,12 @@
     "92": {
       "home": "Mexique",
       "away": "Angleterre",
-      "hs": 1,
-      "as": 2,
+      "hs": 2,
+      "as": 3,
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "IN_PLAY",
+      "status": "FINISHED",
       "winner": "AWAY_TEAM"
     },
     "93": {
