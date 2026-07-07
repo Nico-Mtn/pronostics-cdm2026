@@ -641,13 +641,13 @@
     "95": {
       "home": "Argentine",
       "away": "Égypte",
-      "hs": null,
-      "as": null,
+      "hs": 1,
+      "as": 2,
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "TIMED",
-      "winner": null
+      "status": "IN_PLAY",
+      "winner": "AWAY_TEAM"
     },
     "96": {
       "home": "Suisse",
