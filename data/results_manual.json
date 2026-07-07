@@ -652,12 +652,12 @@
     "96": {
       "home": "Suisse",
       "away": "Colombie",
-      "hs": null,
-      "as": null,
+      "hs": 0,
+      "as": 0,
       "penh": null,
       "pena": null,
-      "tab": false,
-      "status": "TIMED",
+      "tab": true,
+      "status": "FINISHED",
       "winner": null
     },
     "97": {
