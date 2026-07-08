@@ -654,11 +654,11 @@
       "away": "Colombie",
       "hs": 0,
       "as": 0,
-      "penh": null,
-      "pena": null,
+      "penh": 4,
+      "pena": 3,
       "tab": true,
       "status": "FINISHED",
-      "winner": null
+      "winner": "HOME_TEAM"
     },
     "97": {
       "home": "France",
@@ -694,8 +694,8 @@
       "winner": null
     },
     "100": {
-      "home": null,
-      "away": null,
+      "home": "Argentine",
+      "away": "Suisse",
       "hs": null,
       "as": null,
       "penh": null,
