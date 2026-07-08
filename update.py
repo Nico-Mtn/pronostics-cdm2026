@@ -504,7 +504,7 @@ def compute_qualif_states(results):
                 states[t]=None
     return states
 
-def match_summary(home, away, rh, ra, statut, mom_after, scorers_by_team, tab=False):
+def match_summary(home, away, rh, ra, statut, mom_after, scorers_by_team, tab=False, pred_draw=False):
     """Génère un résumé court combinant factuel (A) et analyse du moteur (C).
     mom_after : dict team->momentum (après ce match). scorers_by_team : dict team->[noms]."""
     # --- Factuel (A) ---
@@ -541,9 +541,13 @@ def match_summary(home, away, rh, ra, statut, mom_after, scorers_by_team, tab=Fa
 
     # --- Analyse du moteur (C) ---
     if statut == "exact":
-        verdict = "Résultat exactement conforme au pronostic IA."
+        verdict = ("Nul exactement anticipé et bon qualifié désigné ; départage aux tirs au but."
+                   if tab else "Résultat exactement conforme au pronostic IA.")
     elif statut == "bon":
-        verdict = "Le bon vainqueur avait été anticipé, mais pas le score exact."
+        verdict = ("Le nul (temps réglementaire + prolongation) et le bon qualifié avaient été anticipés, à un score près ; départage aux tirs au but."
+                   if tab else "Le bon vainqueur avait été anticipé, mais pas le score exact.")
+    elif tab and pred_draw:
+        verdict = "Nul bien anticipé, mais le mauvais qualifié a été désigné : les tirs au but ont fait passer l'autre équipe — pronostic non validé."
     elif tab:
         verdict = "Match nul, décidé aux tirs au but : le pronostic annonçait une issue nette — le match serré n'avait pas été anticipé."
     else:
@@ -1278,9 +1282,12 @@ def build_knockout(standings, momentum, datetimes=None, form=None, ko_fixtures=N
             pred_fav=pred.get("fav") or pred.get("winner")
             res={"home":home,"away":away,"sh":sh,"sa":sa,"winner":winner,"tab":tab,
                  "penh":penh,"pena":pena,
-                 # « au moins bon » : bon qualifié ET, si le match est allé aux t.a.b.
-                 # (nul en 90/120 min), le prono devait AUSSI avoir prédit un nul — sinon
-                 # le match serré n'a pas été vu → raté. Cohérent avec le feed et le compteur.
+                 # « au moins bon » = BON QUALIFIÉ désigné ET, si le match est allé aux t.a.b.
+                 # (nul en 90/120 min), le NUL devait AUSSI avoir été prédit. Autrement dit, pour
+                 # un match à t.a.b. le pronostic doit avoir vu le nul ET le bon qualifié : un nul
+                 # bien anticipé mais avec le mauvais qualifié = raté (les t.a.b. ont désigné
+                 # l'autre équipe). Le t.a.b. tranche le qualifié → propagation du bracket.
+                 # Cohérent avec le feed et le compteur.
                  "hit":(None if not winner else
                         ((pred_fav==winner) and (not (tab or sh==sa) or pred.get("sh")==pred.get("sa")))),
                  "conf":pred.get("conf"),"proba":pred.get("proba"),"pred_winner":pred_fav,
@@ -1622,9 +1629,10 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
             if played:
                 ps = m.get("pred_score") or [None,None]
                 # Match décidé aux t.a.b. = nul en temps réglementaire/prolongation. Le prono
-                # n'est crédité que s'il avait ANTICIPÉ le nul (score prédit nul) ET désigné le
-                # bon qualifié. S'il annonçait une victoire nette, le match serré (→ t.a.b.)
-                # n'a pas été vu : c'est un raté (le tir au but est un quasi pile-ou-face).
+                # doit avoir vu le NUL (score prédit nul) ET désigné le BON QUALIFIÉ (m.hit) pour
+                # être crédité. Un nul bien anticipé mais avec le mauvais qualifié = raté (les
+                # t.a.b. ont fait passer l'autre équipe) ; une victoire nette annoncée = raté
+                # aussi (match serré non vu). Le t.a.b. ne sert qu'à trancher le qualifié/bracket.
                 is_tab = bool(rm.get("tab")) or (rm.get("sh") is not None and rm.get("sh")==rm.get("sa"))
                 pred_draw   = (ps[0] is not None and ps[0]==ps[1])
                 score_exact = (ps[0] is not None and ps[0]==rm.get("sh") and ps[1]==rm.get("sa"))
@@ -1645,7 +1653,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
             if played:
                 ko_resume, ko_resume_reel = match_summary(
                     rm.get("home") or m["home"], rm.get("away") or m["away"],
-                    rm["sh"], rm["sa"], ko_statut, momentum, scorers_by_team or {}, tab=is_tab)
+                    rm["sh"], rm["sa"], ko_statut, momentum, scorers_by_team or {}, tab=is_tab, pred_draw=pred_draw)
             ko_feed.append({
                 "id":mid,"num":mid,"phase":rd["name"],"date":m.get("date",""),"heure":m.get("heure",""),
                 "iso":iso or "","sort":sort_key or (m.get("date","")+"~"),
