@@ -1752,6 +1752,10 @@ def render_html(payload):
                       '<span class="b-today">● %s</span>' % _lbl)
     html=html.replace('<span class="b-today">\\u25CF Match du jour</span>',
                       '<span class="b-today">\\u25CF %s</span>' % _lbl)
+    # En-tête de journée du live feed : « · aujourd'hui » seulement si la journée active est
+    # réellement aujourd'hui ; sinon « · prochaine journée » (cohérent avec le badge).
+    html=html.replace("x.today?' · aujourd\\'hui':''",
+                      "x.today?' · '+(DATA.active_is_today===false?'prochaine journée':'aujourd\\'hui'):''")
     # Rechargement auto SILENCIEUX : si le CODE de l'app change (app_version différent de celui
     # embarqué), l'onglet ouvert se recharge pour récupérer la nouvelle version. Les DONNÉES,
     # elles, sont déjà rafraîchies en direct par le poll existant. Garde anti-boucle 120 s
