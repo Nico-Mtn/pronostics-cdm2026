@@ -1691,6 +1691,10 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
         active_day=min(_unplayed_iso)
     else:
         active_day=today_iso
+    # La journée active est-elle réellement aujourd'hui ? Si non (aucun match aujourd'hui →
+    # bascule sur la prochaine journée), le badge doit dire « Prochaine journée », pas
+    # « Match du jour » (sinon on affiche « Match du jour » sur un match de demain).
+    active_is_today = (active_day == today_iso)
     n_today=0
     for _m in matches:
         _m["today"]=(_m.get("iso")==active_day); n_today+=1 if _m["today"] else 0
@@ -1700,6 +1704,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
     return {
         "maj":(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(hours=2)).strftime("%d/%m/%Y à %H:%M")+" (Paris)",
         "today":datetime.date.today().isoformat(),
+        "active_is_today":active_is_today,
         "version":MODEL_VERSION,
         "stats":{"joue":n_joue_total,"exact":n_exact,"bon":n_bon,"rate":n_rate,"total":104,"today":n_today},
         "matches":matches,"standings":standings,"momentum":mom_list,"knockout":knockout,
@@ -1738,6 +1743,15 @@ def render_html(payload):
     html=html.replace(
         "renderScorers())\n       + collapsible('assists','🎯 Meilleurs passeurs (toute la compétition)', renderAssists());",
         "renderScorers());")
+    # Badge « Match du jour » : n'afficher ce libellé que si la journée active est réellement
+    # AUJOURD'HUI. En cas de bascule sur la prochaine journée (aucun match aujourd'hui), afficher
+    # « Prochaine journée » pour ne pas prétendre qu'un match de demain est « du jour ».
+    # (Les 3 badges du template ont exactement ces chaînes ; no-op si elles changent.)
+    _lbl = "'+(DATA.active_is_today===false?'Prochaine journée':'Match du jour')+'"
+    html=html.replace('<span class="b-today">● Match du jour</span>',
+                      '<span class="b-today">● %s</span>' % _lbl)
+    html=html.replace('<span class="b-today">\\u25CF Match du jour</span>',
+                      '<span class="b-today">\\u25CF %s</span>' % _lbl)
     # Rechargement auto SILENCIEUX : si le CODE de l'app change (app_version différent de celui
     # embarqué), l'onglet ouvert se recharge pour récupérer la nouvelle version. Les DONNÉES,
     # elles, sont déjà rafraîchies en direct par le poll existant. Garde anti-boucle 120 s
