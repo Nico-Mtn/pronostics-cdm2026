@@ -663,13 +663,13 @@
     "97": {
       "home": "France",
       "away": "Maroc",
-      "hs": 0,
+      "hs": 2,
       "as": 0,
       "penh": null,
       "pena": null,
       "tab": false,
       "status": "IN_PLAY",
-      "winner": null
+      "winner": "HOME_TEAM"
     },
     "98": {
       "home": "Espagne",
