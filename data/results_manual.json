@@ -674,13 +674,13 @@
     "98": {
       "home": "Espagne",
       "away": "Belgique",
-      "hs": null,
-      "as": null,
+      "hs": 2,
+      "as": 1,
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "TIMED",
-      "winner": null
+      "status": "FINISHED",
+      "winner": "HOME_TEAM"
     },
     "99": {
       "home": "Norvège",
