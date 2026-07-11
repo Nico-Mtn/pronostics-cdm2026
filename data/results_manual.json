@@ -685,13 +685,13 @@
     "99": {
       "home": "Norvège",
       "away": "Angleterre",
-      "hs": 0,
+      "hs": 1,
       "as": 0,
       "penh": null,
       "pena": null,
       "tab": false,
       "status": "IN_PLAY",
-      "winner": null
+      "winner": "HOME_TEAM"
     },
     "100": {
       "home": "Argentine",
