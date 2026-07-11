@@ -613,7 +613,7 @@
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "FINISHED",
+      "status": "2026-07-06 01:00:00Z",
       "winner": "AWAY_TEAM"
     },
     "93": {
@@ -685,12 +685,12 @@
     "99": {
       "home": "Norvège",
       "away": "Angleterre",
-      "hs": null,
-      "as": null,
+      "hs": 0,
+      "as": 0,
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "TIMED",
+      "status": "IN_PLAY",
       "winner": null
     },
     "100": {
