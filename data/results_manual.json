@@ -613,7 +613,7 @@
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "2026-07-06 01:00:00Z",
+      "status": "FINISHED",
       "winner": "AWAY_TEAM"
     },
     "93": {
@@ -716,8 +716,8 @@
       "winner": null
     },
     "102": {
-      "home": null,
-      "away": null,
+      "home": "Angleterre",
+      "away": "Argentine",
       "hs": null,
       "as": null,
       "penh": null,
