@@ -696,12 +696,12 @@
     "100": {
       "home": "Argentine",
       "away": "Suisse",
-      "hs": 1,
-      "as": 0,
+      "hs": 3,
+      "as": 1,
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "IN_PLAY",
+      "status": "FINISHED",
       "winner": "HOME_TEAM"
     },
     "101": {
