@@ -1147,7 +1147,7 @@ def _ko_match(home, away, momentum, form=None, tier=0):
     if not home or not away: return {"home":home,"away":away,"sh":None,"sa":None,"winner":None,"tab":False}
     return _ko_predict(home, away, tier)
 
-KO_NAMES={"r32":"16es de finale","r16":"8es de finale","qf":"Quarts de finale","sf":"Demi-finales","final":"Finale"}
+KO_NAMES={"r32":"16es de finale","r16":"8es de finale","qf":"Quarts de finale","sf":"Demi-finales","third":"Match pour la 3e place","final":"Finale"}
 
 def _bracket_orders():
     """Ordre d'AFFICHAGE des matchs par tour, dérivé de l'arbre officiel (KO_NEXT).
@@ -1233,9 +1233,12 @@ def build_knockout_real(real_standings, datetimes=None, ko_fixtures=None):
     thirds_sorted, qual_groups, slot_team = _assign_thirds(real_standings)
     feeders={mid:(a,b) for mid,a,b in KO_NEXT}
     real_winners={}   # PROPAGATION : dès qu'une équipe gagne réellement, elle alimente le tour suivant
+    real_losers={}    # perdants réels (pour la petite finale : perdants des deux demi-finales)
     def mk(mid, fb_home=None, fb_away=None):
         home,away,sh,sa,rwin,tab,played,d,h,penh,pena=_ko_real(mid,ko_fixtures,datetimes,fb_home,fb_away)
         if rwin: real_winners[mid]=rwin
+        if rwin and home and away:
+            real_losers[mid]=(away if rwin==home else (home if rwin==away else None))
         return {"id":mid,"home":home,"away":away,"sh":sh,"sa":sa,"winner":rwin,"tab":tab,
                 "penh":penh,"pena":pena,
                 "ch":FLAG_CODES.get(home,""),"ca":FLAG_CODES.get(away,""),"date":d,"heure":h}
@@ -1251,9 +1254,14 @@ def build_knockout_real(real_standings, datetimes=None, ko_fixtures=None):
             a,b=feeders.get(i,(None,None))
             arr.append(mk(i, real_winners.get(a), real_winners.get(b)))
         return {"key":key,"name":KO_NAMES[key],"matches":arr}
-    rounds=[{"key":"r32","name":KO_NAMES["r32"],"matches":r32},
-            later([89,90,91,92,93,94,95,96],"r16"),
-            later([97,98,99,100],"qf"), later([101,102],"sf"), later([104],"final")]
+    # On construit dans l'ordre pour que les perdants des demies soient connus avant la petite finale.
+    r16r=later([89,90,91,92,93,94,95,96],"r16")
+    qfr=later([97,98,99,100],"qf")
+    sfr=later([101,102],"sf")   # peuple real_losers[101], real_losers[102]
+    thirdr={"key":"third","name":KO_NAMES["third"],
+            "matches":[mk(103, real_losers.get(101), real_losers.get(102))]}
+    finalr=later([104],"final")
+    rounds=[{"key":"r32","name":KO_NAMES["r32"],"matches":r32}, r16r, qfr, sfr, thirdr, finalr]
     order_map=_bracket_orders()
     for rd in rounds:
         om=order_map.get(rd["key"])
@@ -1266,7 +1274,7 @@ def build_knockout_real(real_standings, datetimes=None, ko_fixtures=None):
 
 def build_knockout(standings, momentum, datetimes=None, form=None, ko_fixtures=None):
     thirds_sorted, qual_groups, slot_team = _assign_thirds(standings)
-    winners={}; rounds=[]
+    winners={}; losers={}; rounds=[]
     def make(mid, fb_home, fb_away, tier=0):
         home,away,sh,sa,rwin,tab,played,d,h,penh,pena=_ko_real(mid,ko_fixtures,datetimes,fb_home,fb_away)
         if not home or not away:
@@ -1297,6 +1305,8 @@ def build_knockout(standings, momentum, datetimes=None, form=None, ko_fixtures=N
             res=_ko_match(home,away,momentum,form,tier)
         res["id"]=mid; res["ch"]=FLAG_CODES.get(res["home"],""); res["ca"]=FLAG_CODES.get(res["away"],"")
         winners[mid]=res["winner"]
+        _w=res.get("winner"); _h=res.get("home"); _a=res.get("away")
+        losers[mid]=(_a if _w==_h else (_h if _w==_a else None)) if (_w and _h and _a) else None
         return res
     r32=[]
     for mid,ra,rb in KO_R32:
@@ -1311,6 +1321,9 @@ def build_knockout(standings, momentum, datetimes=None, form=None, ko_fixtures=N
     play({89,90,91,92,93,94,95,96},"r16",0)
     play({97,98,99,100},"qf",1)
     play({101,102},"sf",1)
+    # Match pour la 3e place (M°103) : oppose les PERDANTS des deux demi-finales (petite finale).
+    third=make(103, losers.get(101), losers.get(102), 2)
+    rounds.append({"key":"third","name":KO_NAMES["third"],"matches":[third]})
     play({104},"final",2)
     order_map=_bracket_orders()
     for rd in rounds:
@@ -1756,6 +1769,16 @@ def render_html(payload):
     # réellement aujourd'hui ; sinon « · prochaine journée » (cohérent avec le badge).
     html=html.replace("x.today?' · aujourd\\'hui':''",
                       "x.today?' · '+(DATA.active_is_today===false?'prochaine journée':'aujourd\\'hui'):''")
+    # Match pour la 3e place : bracketFifa n'affiche que r32/r16/qf/sf + finale ; le round "third"
+    # serait sinon ignoré. On l'injecte explicitement au centre, juste sous la finale (Prono + Réel).
+    _third_card=("((byKey['third']&&byKey['third'].matches&&byKey['third'].matches[0])"
+                 "?'<div class=\"ko-third\" style=\"margin-top:14px\">"
+                 "<div class=\"ko-rname\">\\uD83E\\uDD49 Match pour la 3e place"
+                 "<span class=\"per\">18 juil.</span></div>"
+                 "<div class=\"ko-matches\"><div class=\"ko-cell\">'"
+                 "+koMatch(byKey['third'].matches[0])+'</div></div></div>':'')")
+    html=html.replace("(champHtml||'') + '</div>';",
+                      "(champHtml||'') + " + _third_card + " + '</div>';")
     # Rechargement auto SILENCIEUX : si le CODE de l'app change (app_version différent de celui
     # embarqué), l'onglet ouvert se recharge pour récupérer la nouvelle version. Les DONNÉES,
     # elles, sont déjà rafraîchies en direct par le poll existant. Garde anti-boucle 120 s
