@@ -1272,6 +1272,27 @@ def build_knockout_real(real_standings, datetimes=None, ko_fixtures=None):
                   "qualified":t[0] in qual_groups} for t in thirds_sorted]
     return {"rounds":rounds,"thirds":thirds_rank}
 
+# ── Override MANUEL de pronostic KO (choix perso de Nono pour un match précis) ──
+# Prime sur le modèle : force le prono AFFICHÉ, la NOTATION une fois le match joué, ET la
+# PROPAGATION du bracket (vainqueur → tour suivant, perdant → petite finale). Ne s'applique
+# qu'au mode Prono (le mode Réel reste 100 % officiel). Clé = numéro FIFA ; sh/sa = score
+# home-away ; winner = équipe qualifiée (doit correspondre à home ou away du match).
+# Cas rare et assumé (choix humain > modèle). Justification 101 (Nono) : le bloc bas espagnol
+# neutralise les individualités françaises → Espagne 0-2, confiance mesurée à 55 %.
+KO_PRONO_OVERRIDE = {
+    101: {"sh": 0, "sa": 2, "winner": "Espagne", "conf": 55},  # Demi 14/07 : France 0 - 2 Espagne
+}
+def _prono_override(mid, p):
+    ov = KO_PRONO_OVERRIDE.get(mid)
+    if not ov:
+        return
+    p["sh"], p["sa"] = ov["sh"], ov["sa"]
+    p["winner"] = p["fav"] = ov["winner"]
+    if "conf" in ov:
+        p["conf"] = ov["conf"]
+    p["second"] = None    # choix net : pas de 2e scénario
+    p["serre_off"] = True # score décisif imposé : on masque le badge « match serré · t.a.b. probable »
+
 def build_knockout(standings, momentum, datetimes=None, form=None, ko_fixtures=None):
     thirds_sorted, qual_groups, slot_team = _assign_thirds(standings)
     winners={}; losers={}; rounds=[]
@@ -1287,6 +1308,7 @@ def build_knockout(standings, momentum, datetimes=None, form=None, ko_fixtures=N
             winner=rwin   # peut être None tant que le qualifié réel n'est pas connu
             # justesse du prono KO (cote Prono uniquement) : vainqueur predit vs vainqueur reel
             pred=_ko_match(home,away,momentum,form,tier)
+            _prono_override(mid, pred)   # choix perso éventuel → notation sur CE prono
             pred_fav=pred.get("fav") or pred.get("winner")
             res={"home":home,"away":away,"sh":sh,"sa":sa,"winner":winner,"tab":tab,
                  "penh":penh,"pena":pena,
@@ -1303,6 +1325,7 @@ def build_knockout(standings, momentum, datetimes=None, form=None, ko_fixtures=N
         else:
             # affiche reelle (ou reconstruite) mais match a venir : on PREDIT le score
             res=_ko_match(home,away,momentum,form,tier)
+            _prono_override(mid, res)   # choix perso éventuel (prime sur le modèle)
         res["id"]=mid; res["ch"]=FLAG_CODES.get(res["home"],""); res["ca"]=FLAG_CODES.get(res["away"],"")
         winners[mid]=res["winner"]
         _w=res.get("winner"); _h=res.get("home"); _a=res.get("away")
@@ -1686,7 +1709,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
                 "prono":[m["sh"],m["sa"]] if (not played and m.get("sh") is not None) else None,
                 # — infos enrichies (confiance, prono vs réel, style, 2e choix, résumé) —
                 "conf":m.get("conf"),"pred_score":ko_pred,"statut":ko_statut,
-                "second":m.get("second"),
+                "second":m.get("second"),"serre_off":m.get("serre_off"),
                 "style_label":ko_style_label,"style_note":ko_style_note,
                 "resume":ko_resume,"resume_reel":ko_resume_reel,
                 "mom_h":round(momentum.get(m["home"],0.0),2),
@@ -1782,6 +1805,12 @@ def render_html(payload):
                  "+koMatch(byKey['third'].matches[0])+'</div></div></div>':'')")
     html=html.replace("(champHtml||'') + '</div>';",
                       "(champHtml||'') + " + _third_card + " + '</div>';")
+    # Choix perso « net » (override de prono) : masquer le badge « match serré · t.a.b. probable »
+    # même si la confiance < 60 %, car un score décisif est imposé (flag serre_off).
+    html=html.replace("!m.reel && m.conf!=null && m.conf<60)",
+                      "!m.reel && m.conf!=null && m.conf<60 && !m.serre_off)")
+    html=html.replace("m.hit==null && m.conf && m.conf<60)",
+                      "m.hit==null && m.conf && m.conf<60 && !m.serre_off)")
     # Rechargement auto SILENCIEUX : si le CODE de l'app change (app_version différent de celui
     # embarqué), l'onglet ouvert se recharge pour récupérer la nouvelle version. Les DONNÉES,
     # elles, sont déjà rafraîchies en direct par le poll existant. Garde anti-boucle 120 s
