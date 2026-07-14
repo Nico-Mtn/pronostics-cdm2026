@@ -1629,7 +1629,10 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
         prevlbl=PREV_ROUND.get(rd.get("key"),"")
         for m in rd["matches"]:
             if not m.get("home") or not m.get("away"): continue
-            mid=m["id"]; utc=datetimes.get(str(mid)); iso,sort_key=_iso_paris(utc)
+            # Fallback sur l'horaire officiel figé (KO_KICKOFF_UTC) si l'API n'a pas encore
+            # la date du match (ex. M°103, 3e place) : sinon la clé de tri retombe sur la
+            # date FR ("18 juil.~") qui se classe avant les dates ISO → match mal ordonné.
+            mid=m["id"]; utc=datetimes.get(str(mid)) or KO_KICKOFF_UTC.get(mid); iso,sort_key=_iso_paris(utc)
             rm=realmap.get(mid,{}); played=rm.get("sh") is not None
             fx=(ko_fixtures or {}).get(str(mid)) or {}
             is_real=bool(fx.get("home") and fx.get("away"))   # affiche réellement connue (tirage)
