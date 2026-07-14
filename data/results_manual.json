@@ -708,12 +708,12 @@
       "home": "France",
       "away": "Espagne",
       "hs": 0,
-      "as": 0,
+      "as": 2,
       "penh": null,
       "pena": null,
       "tab": false,
       "status": "IN_PLAY",
-      "winner": null
+      "winner": "AWAY_TEAM"
     },
     "102": {
       "home": "Angleterre",
