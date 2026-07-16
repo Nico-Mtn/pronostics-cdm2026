@@ -1,4 +1,4 @@
-# Pronostix — Modèle de prédiction (v3.5)
+# Pronostix — Modèle de prédiction (v3.6)
 
 > **Auteur : Nico-Mtn** — https://github.com/Nico-Mtn
 > Document de référence du moteur de pronostics. Projet gratuit, sans pub, sans paris.
@@ -46,6 +46,13 @@ blendés). Le modèle **s'affûte donc dans le temps**, sans réécrire le pass�
 - **Momentum + prestige** : performance récente pondérée ; une **victoire de prestige** récente
   (battre un mieux classé) est amplifiée. Borné ±~40 pts Elo.
 - **Expérience des grands matchs** : nudge croissant avec l'enjeu du tour (R32 → finale).
+- **Défense d'élite** (v3.6) : au-delà du plancher de forme (0,78), on réduit **légèrement** le
+  nombre de buts attendus d'une équipe qui **affronte un bloc d'élite**. Métrique = buts
+  encaissés/match sur les **10 derniers résultats** de l'adversaire (`ga10` de `team_form.json`,
+  régénéré par `build_stats.py` — fenêtre qui inclut le tournoi en cours). Effet **gradué et
+  borné** : nul au-dessus de `def_elite_zero` (≈ défense moyenne, 0,90), maximal à `def_elite_full`
+  (0,20 → réduction `def_elite_k`, 15 %). **Réservé aux matchs À VENIR** : les pronos déjà notés
+  ne sont **pas** réécrits. **Inerte** tant que `ga10` n'est pas committé (déploiement sans risque).
 
 ### 2.5 Issue, qualifié, score affiché
 - Qualification : `advH = P(V) + ½·P(N)`, `advA = P(D) + ½·P(N)` (les nuls se décident aux t.a.b.).
@@ -55,12 +62,21 @@ blendés). Le modèle **s'affûte donc dans le temps**, sans réécrire le pass�
 - **2ᵉ scénario** affiché quand la confiance < 65 % (qualifié alternatif + score + probabilité).
 - Score décisif pour le qualifié ; **nul + t.a.b. réservé aux vrais 50/50** (`ko_coinflip`).
 - **Justesse (✓/✗ prono)** mesurée sur le favori mathématique, côté Prono uniquement.
+- **Prono KO FIGÉ (v3.6)** : le prono d'un match à élimination directe est **verrouillé 24 h avant
+  le coup d'envoi** et persisté dans `data/ko_pronos.json`. Ensuite il ne bouge plus — le prono
+  affiché la veille est **exactement** celui qui sera noté (fini le score qui dérive au fil des
+  runs quand l'Elo/forme live évoluent). Gel strictement **avant** le coup d'envoi (jamais après :
+  une panne API ne peut donc pas geler des matchs déjà joués). Repli sûr = calcul à la volée si un
+  match n'a pu être figé. La surcouche défense d'élite est incluse **au moment du gel**.
 
 ## 3. Calibration apprise (`data/calibration.json`)
 
 Paramètres auto-ajustés par `learn.py` : `ko_sup_div`, `ko_mu`, `ko_coinflip`, poids d'expérience,
 `group_draw_band` (bande de nul pour les matchs de poule **à venir**). `update.py` lit ce fichier ;
 défauts = comportement actuel. La bande de nul ne s'applique **jamais** aux matchs déjà joués.
+Surcouche défense d'élite (v3.6) : `def_elite_zero` (0,90), `def_elite_full` (0,20), `def_elite_k`
+(0,15). `learn.py` **préserve** ces clés (fusion dans le fichier existant). Étude de validation :
+`python3 backtest.py --defense` (hors-ligne, dataset CC0).
 
 ## 4. Apprentissage continu
 
@@ -75,9 +91,10 @@ en grande partie irréductibles).
 | Fichier | Contenu |
 |---|---|
 | `data/elo_snapshot.json` | Elo figé par équipe |
-| `data/team_form.json` | Forme attaque/défense (~50 matchs) |
+| `data/team_form.json` | Forme attaque/défense (~50 matchs) + `ga10` (défense sur 10 derniers) |
 | `data/h2h.json` | Bilans des confrontations directes |
-| `data/calibration.json` | Paramètres apprenables |
+| `data/calibration.json` | Paramètres apprenables (dont défense d'élite) |
+| `data/ko_pronos.json` | Pronos KO **figés** 24 h avant le coup d'envoi (affichage = notation) |
 | `data/results_manual.json` | Repli résultats + affiches KO |
 | `update.py` | Moteur + génération de `index.html` |
 | `learn.py` / `backtest.py` / `build_stats.py` / `benchmark_versions.py` | Outils offline |
@@ -86,7 +103,9 @@ en grande partie irréductibles).
 
 2.3 base · 3.0 Elo + Dixon-Coles · 3.1 forme/H2H/calibration buts · 3.2 Elo & forme LIVE ·
 3.3 style tactique · 3.4 momentum + expérience + surprise calibrée + 2ᵉ scénario ·
-**3.5 calibration apprise + qualifié = plus haute confiance + KO sans nuls superflus.**
+3.5 calibration apprise + qualifié = plus haute confiance + KO sans nuls superflus ·
+**3.6 surcouche « défense d'élite » (ga10 sur 10 derniers, léger & calibrable) + prono KO figé 24 h
+avant le coup d'envoi (affichage = notation, plus de dérive du score).**
 
 ---
 

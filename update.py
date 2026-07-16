@@ -89,7 +89,13 @@ ELO = load_elo()
 def load_calibration():
     """Paramètres apprenables (auto-calibrés par learn.py). Repli sur les défauts actuels."""
     d = {"ko_sup_div":240.0,"ko_mu":[2.95,2.80,2.64],"ko_coinflip":0.025,
-         "exp_w0":0.22,"exp_w1":0.18,"group_draw_band":0.0}
+         "exp_w0":0.22,"exp_w1":0.18,"group_draw_band":0.0,
+         # Surcouche « défense d'élite » (KO, matchs à venir uniquement). Bonus LÉGER, gradué :
+         # buts encaissés/match sur les 10 derniers résultats de l'adversaire défensif.
+         # def_elite_zero = seuil au-dessus duquel AUCUN bonus (≈ défense moyenne) ;
+         # def_elite_full = seuil au/en-dessous duquel bonus MAXIMAL ; def_elite_k = réduction
+         # maximale du lambda offensif de l'équipe qui AFFRONTE cette défense (ex. 0.15 = -15 %).
+         "def_elite_zero":0.90,"def_elite_full":0.20,"def_elite_k":0.15}
     try:
         with open(os.path.join(ROOT,"data","calibration.json"),encoding="utf-8") as fh:
             j=json.load(fh)
@@ -131,12 +137,51 @@ FORM = _load_json("team_form.json", "form")
 H2H  = _load_json("h2h.json", "h2h")
 AVG_FORM = 1.45   # buts/match de référence (attaque ET défense)
 
+# ─── Pronos KO FIGÉS (stabilité) ──────────────────────────────────────────────
+# Un prono de phase finale est calculé UNE fois (24 h avant le coup d'envoi) puis figé
+# dans data/ko_pronos.json. Ensuite il ne bouge plus : le prono affiché la veille est
+# EXACTEMENT celui qui sera noté (fini la dérive du score au fil des runs / de l'Elo live).
+def _load_ko_frozen():                                # chargement SILENCIEUX (fichier optionnel)
+    try:
+        with open(os.path.join(ROOT, "data", "ko_pronos.json"), encoding="utf-8") as fh:
+            return json.load(fh).get("pronos", {})
+    except Exception:
+        return {}                                     # absent tant qu'aucun match n'a encore été figé
+KO_FROZEN = _load_ko_frozen()                         # {"102": {pred complet + home/away/frozen_at}}
+_KO_FROZEN_OUT = dict(KO_FROZEN)                      # ré-écrit à chaque run (avec les nouveaux gels)
+_KO_FROZEN_DIRTY = [False]                            # drapeau mutable : un nouveau gel a eu lieu
+FREEZE_LEAD_H = 24                                    # on fige le prono 24 h avant le coup d'envoi
+
 def team_form(team):
     fm = LIVE_FORM.get(team) or FORM.get(team)
     if fm: return fm.get("gf", AVG_FORM), fm.get("ga", AVG_FORM)
     # repli : dérive un profil de la force TEAM_DATA (fort -> marque +, encaisse -)
     base = TEAM_DATA.get(team, (6.0,))[0]
     return AVG_FORM * (0.75 + base/24.0), AVG_FORM * (1.25 - base/24.0)
+
+def recent_ga(team):
+    """Buts encaissés/match sur les 10 DERNIERS résultats (solidité défensive récente).
+    Source : data/team_form.json (champ ga10, régénéré par build_stats.py depuis le dataset
+    CC0 — régénérer pendant/après la CdM pour que la fenêtre inclue le tournoi). Renvoie None
+    si la donnée n'est pas encore committée -> la surcouche « défense d'élite » reste alors
+    INERTE (aucune modification des pronos), ce qui garantit un déploiement sans risque."""
+    fm = FORM.get(team)
+    if fm and isinstance(fm.get("ga10"), (int, float)):
+        return float(fm["ga10"])
+    return None
+
+def elite_def_factor(defender):
+    """Facteur multiplicatif (<= 1.0) appliqué au lambda offensif de l'équipe qui AFFRONTE
+    `defender`, pour valoriser LÉGÈREMENT les défenses d'élite (celles que le plancher de forme
+    à 0,78 sous-évalue). Gradué et borné : 1.0 (aucun effet) au-dessus de def_elite_zero,
+    jusqu'à (1 - def_elite_k) au niveau de def_elite_full. Neutre si la donnée ga10 manque."""
+    g = recent_ga(defender)
+    if g is None: return 1.0
+    zero = CALIB["def_elite_zero"]; full = CALIB["def_elite_full"]; k = CALIB["def_elite_k"]
+    if g >= zero or zero <= full: return 1.0
+    s = (zero - g) / (zero - full)            # 0 à def_elite_zero -> 1 à def_elite_full
+    s = max(0.0, min(1.0, s))
+    return 1.0 - k * s
 
 def h2h_nudge(home, away):
     return H2H.get("|".join(sorted([home, away])))
@@ -1015,7 +1060,7 @@ def _resolve_ref(ref, standings, slot_team):
 # probabilité de QUALIFICATION (issue régulière + 50 % des nuls -> tirs au but).
 _DC_RHO = -0.13   # corrélation faible-score (Dixon-Coles)
 
-def _ko_lambdas(home, away, tier=0):
+def _ko_lambdas(home, away, tier=0, elite_def=False):
     # Elo live + surcouche MOMENTUM (récence + prestige)
     eh = team_elo(home) + LIVE_MOM.get(home, 0.0)
     ea = team_elo(away) + LIVE_MOM.get(away, 0.0)
@@ -1047,6 +1092,13 @@ def _ko_lambdas(home, away, tier=0):
     gf_h, ga_h = team_form(home); gf_a, ga_a = team_form(away)
     mult_h = max(0.78, min(1.32, ((gf_h / AVG_FORM) * (ga_a / AVG_FORM)) ** 0.5))
     mult_a = max(0.78, min(1.32, ((gf_a / AVG_FORM) * (ga_h / AVG_FORM)) ** 0.5))
+    # Surcouche « défense d'élite » (matchs À VENIR uniquement) : au-delà du plancher de forme
+    # à 0,78, on réduit LÉGÈREMENT le lambda offensif de chaque équipe face à un bloc d'élite
+    # (buts encaissés/match très bas sur les 10 derniers résultats de l'adversaire). Inerte tant
+    # que la donnée ga10 n'est pas committée. Réservé aux pronos futurs (le passé n'est pas réécrit).
+    if elite_def:
+        mult_h *= elite_def_factor(away)   # ce que HOME peut marquer dépend du bloc de AWAY
+        mult_a *= elite_def_factor(home)   # et réciproquement
     lam_h = min(2.85, max(0.30, (mu + sup) / 2.0 * mult_h))   # plafond : pas de 4-0/5-0 systématiques en KO
     lam_a = min(2.85, max(0.30, (mu - sup) / 2.0 * mult_a))
     return lam_h, lam_a
@@ -1089,9 +1141,9 @@ def _pick_score(cands, seed):
             return sc
     return items[0][0]
 
-def _ko_predict(home, away, tier=0):
+def _ko_predict(home, away, tier=0, elite_def=False):
     """Renvoie un dict complet de prédiction KO Elo+Dixon-Coles."""
-    lh, la = _ko_lambdas(home, away, tier)
+    lh, la = _ko_lambdas(home, away, tier, elite_def)
     g = _dc_grid(lh, la)
     pV = sum(p for (x, y), p in g.items() if x > y)
     pN = sum(p for (x, y), p in g.items() if x == y)
@@ -1141,11 +1193,55 @@ def _ko_predict(home, away, tier=0):
             "dist": dist, "lh": round(lh, 2), "la": round(la, 2),
             "eh": int(round(team_elo(home))), "ea": int(round(team_elo(away)))}
 
-def _ko_match(home, away, momentum, form=None, tier=0):
+def _ko_match(home, away, momentum, form=None, tier=0, elite_def=False):
     # V3 : pronostic de phase finale piloté par l'Elo réel + Dixon-Coles
     # (remplace l'ancien chemin compute()/paniers ; la phase de groupes n'est pas touchée).
+    # elite_def=True n'est passé que pour les matchs À VENIR (surcouche défense d'élite).
     if not home or not away: return {"home":home,"away":away,"sh":None,"sa":None,"winner":None,"tab":False}
-    return _ko_predict(home, away, tier)
+    return _ko_predict(home, away, tier, elite_def)
+
+def _ko_kickoff_dt(mid, datetimes):
+    """Coup d'envoi (datetime UTC aware) d'un match KO : horaire réel de l'API si dispo,
+    sinon calendrier officiel KO_KICKOFF_UTC. None si inconnu."""
+    iso=(datetimes or {}).get(str(mid))
+    if not iso:
+        try: iso=KO_KICKOFF_UTC.get(int(mid))
+        except Exception: iso=None
+    if not iso: return None
+    try:
+        return datetime.datetime.fromisoformat(iso.replace("Z","+00:00"))
+    except Exception:
+        return None
+
+def _freeze_or_get(mid, home, away, momentum, form, tier, datetimes, played):
+    """Prono KO STABLE. Règle : on fige le prono 24 h avant le coup d'envoi, puis on le
+    réutilise tel quel pour l'AFFICHAGE **et** la NOTATION -> le prono montré la veille est
+    exactement celui qui sera noté (plus de score qui change à l'actualisation).
+      • déjà figé pour cette affiche -> on renvoie le prono figé (jamais recalculé) ;
+      • pas encore figé + match à venir dans la fenêtre de 24 h -> on le fige maintenant ;
+      • sinon (match lointain, ou match joué sans gel antérieur) -> calcul à la volée (repli
+        = comportement historique). La surcouche défense d'élite est incluse dans le gel."""
+    key=str(mid)
+    fr=KO_FROZEN.get(key)
+    if fr and fr.get("home")==home and fr.get("away")==away and fr.get("sh") is not None:
+        return dict(fr)                      # prono figé pour CETTE affiche -> stable, aucun recalcul
+    if (not played) and home and away:
+        ko=_ko_kickoff_dt(mid, datetimes)
+        now=datetime.datetime.now(datetime.timezone.utc)
+        # Fenêtre de gel = STRICTEMENT avant le coup d'envoi, [coup d'envoi − 24 h ; coup d'envoi[.
+        # L'app tourne toutes les ~25 min : tout match a de nombreuses occasions d'être figé dans
+        # ses 24 h. Ne jamais figer APRÈS le coup d'envoi évite qu'une panne API (matchs passés vus
+        # « non joués ») ne gèle en masse des matchs déjà terminés.
+        if ko and (ko - datetime.timedelta(hours=FREEZE_LEAD_H)) <= now < ko:
+            pred=_ko_match(home, away, momentum, form, tier, elite_def=True)
+            if pred.get("sh") is not None:
+                rec=dict(pred); rec["home"]=home; rec["away"]=away
+                rec["frozen_at"]=now.strftime("%Y-%m-%dT%H:%M:%SZ")
+                _KO_FROZEN_OUT[key]=rec; _KO_FROZEN_DIRTY[0]=True
+            return dict(pred)
+    # Repli : hors fenêtre de gel, ou match déjà joué sans prono figé (héritage) -> pas de
+    # surcouche défense sur un match joué (le passé n'est pas réécrit).
+    return _ko_match(home, away, momentum, form, tier, elite_def=(not played))
 
 KO_NAMES={"r32":"16es de finale","r16":"8es de finale","qf":"Quarts de finale","sf":"Demi-finales","third":"Match pour la 3e place","final":"Finale"}
 
@@ -1306,8 +1402,9 @@ def build_knockout(standings, momentum, datetimes=None, form=None, ko_fixtures=N
             # réel ne le donne pas encore (ex. t.a.b. non finalisés dans le flux API).
             # Sinon une équipe réellement éliminée pourrait « avancer » dans l'arbre.
             winner=rwin   # peut être None tant que le qualifié réel n'est pas connu
-            # justesse du prono KO (cote Prono uniquement) : vainqueur predit vs vainqueur reel
-            pred=_ko_match(home,away,momentum,form,tier)
+            # justesse du prono KO (cote Prono uniquement) : vainqueur predit vs vainqueur reel.
+            # On note sur le prono FIGÉ (celui affiché avant le match), pas sur un recalcul.
+            pred=_freeze_or_get(mid,home,away,momentum,form,tier,datetimes,played=True)
             _prono_override(mid, pred)   # choix perso éventuel → notation sur CE prono
             pred_fav=pred.get("fav") or pred.get("winner")
             res={"home":home,"away":away,"sh":sh,"sa":sa,"winner":winner,"tab":tab,
@@ -1323,8 +1420,10 @@ def build_knockout(standings, momentum, datetimes=None, form=None, ko_fixtures=N
                  "conf":pred.get("conf"),"proba":pred.get("proba"),"pred_winner":pred_fav,
                  "pred_score":[pred.get("sh"),pred.get("sa")]}
         else:
-            # affiche reelle (ou reconstruite) mais match a venir : on PREDIT le score
-            res=_ko_match(home,away,momentum,form,tier)
+            # affiche reelle (ou reconstruite) mais match a venir : on PREDIT le score.
+            # Prono figé 24 h avant le coup d'envoi (stable ensuite) ; la surcouche défense
+            # d'élite (elite_def=True) est incluse dans le calcul au moment du gel.
+            res=_freeze_or_get(mid,home,away,momentum,form,tier,datetimes,played=False)
             _prono_override(mid, res)   # choix perso éventuel (prime sur le modèle)
         res["id"]=mid; res["ch"]=FLAG_CODES.get(res["home"],""); res["ca"]=FLAG_CODES.get(res["away"],"")
         winners[mid]=res["winner"]
@@ -1844,11 +1943,22 @@ def main():
     # re-télécharger data.json juste pour lire la version).
     with open(os.path.join(ROOT,"app.version"),"w",encoding="utf-8") as f:
         f.write(payload.get("app_version",""))
+    # ko_pronos.json : pronos KO FIGÉS (persistés d'un run à l'autre). Écrit systématiquement
+    # (idempotent) pour que le fichier committé reste la référence stable des pronos affichés/notés.
+    with open(os.path.join(ROOT,"data","ko_pronos.json"),"w",encoding="utf-8") as f:
+        json.dump({"_meta":{"role":"Pronos de phase finale FIGÉS 24 h avant le coup d'envoi "
+                            "(affichage = notation, aucune dérive). Écrit par update.py.",
+                            "author":"Nico-Mtn",
+                            "credit":"Auteur : Nico-Mtn (https://github.com/Nico-Mtn). Réutilisation libre, crédit apprécié."},
+                   "pronos":_KO_FROZEN_OUT}, f, ensure_ascii=False, indent=2)
     # content.sig : empreinte du CONTENU (hors timestamp "maj", qui change à chaque run).
     # Sert au déploiement conditionnel dans update.yml : on ne republie sur GitHub Pages
     # QUE si cette empreinte a changé (nouveau résultat, buteur, horaire, code…), jamais
     # pour un simple rafraîchissement d'heure. Évite les déploiements Pages « à vide ».
+    # On y intègre l'ensemble des pronos figés : un NOUVEAU gel modifie l'empreinte ->
+    # déclenche le commit (donc la persistance de ko_pronos.json), sans déploiement « à vide ».
     _sig_payload = {k: v for k, v in payload.items() if k != "maj"}
+    _sig_payload["_ko_frozen"] = _KO_FROZEN_OUT
     _sig = hashlib.md5(json.dumps(_sig_payload, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
     with open(os.path.join(ROOT,"content.sig"),"w",encoding="utf-8") as f:
         f.write(_sig)
