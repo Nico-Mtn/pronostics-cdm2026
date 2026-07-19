@@ -729,13 +729,13 @@
     "104": {
       "home": "Espagne",
       "away": "Argentine",
-      "hs": null,
-      "as": null,
+      "hs": 1,
+      "as": 0,
       "penh": null,
       "pena": null,
       "tab": false,
-      "status": "TIMED",
-      "winner": null
+      "status": "FINISHED",
+      "winner": "HOME_TEAM"
     }
   },
   "ko_resultats": {
