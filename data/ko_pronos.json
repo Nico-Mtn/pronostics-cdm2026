@@ -4,5 +4,64 @@
     "author": "Nico-Mtn",
     "credit": "Auteur : Nico-Mtn (https://github.com/Nico-Mtn). Réutilisation libre, crédit apprécié."
   },
-  "pronos": {}
+  "pronos": {
+    "104": {
+      "home": "Espagne",
+      "away": "Argentine",
+      "sh": 1,
+      "sa": 0,
+      "winner": "Espagne",
+      "tab": false,
+      "conf": 59,
+      "fav": "Espagne",
+      "upset": false,
+      "second": {
+        "team": "Argentine",
+        "sh": 1,
+        "sa": 2,
+        "p": 41,
+        "code": "ar"
+      },
+      "proba": {
+        "v": 44,
+        "n": 30,
+        "d": 26
+      },
+      "dist": [
+        {
+          "s": [
+            1,
+            1
+          ],
+          "p": 14
+        },
+        {
+          "s": [
+            1,
+            0
+          ],
+          "p": 10
+        },
+        {
+          "s": [
+            0,
+            0
+          ],
+          "p": 10
+        },
+        {
+          "s": [
+            2,
+            1
+          ],
+          "p": 9
+        }
+      ],
+      "lh": 1.44,
+      "la": 1.07,
+      "eh": 2227,
+      "ea": 2179,
+      "frozen_at": "2026-07-19T00:50:15Z"
+    }
+  }
 }
