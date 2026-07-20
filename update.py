@@ -1932,6 +1932,116 @@ def render_html(payload):
                       "!m.reel && m.conf!=null && m.conf<60 && !m.serre_off)")
     html=html.replace("m.hit==null && m.conf && m.conf<60)",
                       "m.hit==null && m.conf && m.conf<60 && !m.serre_off)")
+    # ── CLÔTURE CdM : bandeau « vainqueur » animé + onglet « Bilan » (récap complet).
+    # Injectés 100 % en JS via l'unique ancre fiable </body> (pas de chirurgie HTML fragile) :
+    #  • bouton d'onglet ajouté au <nav> (système générique data-v) ;
+    #  • render() monkeypatché pour peupler #content quand view==='bilan' ;
+    #  • bandeau champion (données RÉELLES : DATA.knockout_real) en tête de .wrap.
+    # Tout est encapsulé + try/catch → aucune régression possible sur le reste de l'app.
+    bilan_js = """<script>(function(){
+try{
+if(typeof DATA==='undefined'||!DATA) return;
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function fimg(code){try{if(typeof flagImg==='function')return flagImg(code,'sm');}catch(e){}return '';}
+function koReal(){return (DATA.knockout_real&&DATA.knockout_real.rounds)?DATA.knockout_real:(DATA.knockout||{});}
+function mOf(ko,key){var r=(ko.rounds||[]).filter(function(x){return x.key===key;})[0];return (r&&r.matches&&r.matches[0])?r.matches[0]:null;}
+function codeOf(m,team){return team===m.home?m.ch:m.ca;}
+function loserOf(m){if(!m||!m.winner)return null;return m.winner===m.home?m.away:m.home;}
+var KO=koReal();
+var FIN=mOf(KO,'final'), THIRD=mOf(KO,'third');
+var CH = (FIN&&FIN.winner)?FIN.winner:(KO.champion||null);
+var CHC= (FIN&&FIN.winner)?codeOf(FIN,FIN.winner):(KO.champion_code||'');
+
+if(!document.getElementById('champ-css')){var st=document.createElement('style');st.id='champ-css';
+st.textContent='#champbar{margin:10px 0 2px;border-radius:16px;padding:15px 18px;text-align:center;position:relative;overflow:hidden;background:linear-gradient(135deg,#f6c453,#e8a20c 55%,#f6c453);color:#3a2a00;box-shadow:0 6px 20px rgba(232,162,12,.35)}'
++'#champbar .cl{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;opacity:.85}'
++'#champbar .cn{font-size:22px;font-weight:900;margin-top:3px;display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap}'
++'#champbar .tr{display:inline-block;font-size:24px;animation:champpop 1.7s ease-in-out infinite}'
++'#champbar::after{content:"";position:absolute;top:0;left:-60%;width:45%;height:100%;background:linear-gradient(120deg,transparent,rgba(255,255,255,.7),transparent);transform:skewX(-20deg);animation:champshine 3.6s linear infinite;pointer-events:none}'
++'@keyframes champshine{0%{left:-60%}60%{left:130%}100%{left:130%}}'
++'@keyframes champpop{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.14)}}';
+document.head.appendChild(st);}
+
+function ensureChampBar(){try{
+var wrap=document.querySelector('.wrap');if(!wrap)return;
+var el=document.getElementById('champbar');
+if(!CH){if(el)el.remove();return;}
+if(!el){el=document.createElement('div');el.id='champbar';wrap.insertBefore(el,wrap.firstChild);}
+el.innerHTML='<div class="cl"><span class="tr">🏆</span> Champion du monde 2026</div><div class="cn">'+fimg(CHC)+' '+esc(CH)+'</div>';
+}catch(e){}}
+
+if(!document.getElementById('bilan-css')){var s2=document.createElement('style');s2.id='bilan-css';
+s2.textContent='.bilan-podium{display:flex;gap:10px;justify-content:center;align-items:flex-end;flex-wrap:wrap;margin:8px 0 12px}'
++'.bilan-podium .pod{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 14px;border-radius:12px;background:rgba(127,127,127,.10);min-width:96px}'
++'.bilan-podium .pod1{background:linear-gradient(135deg,#f6c453,#e8a20c);color:#3a2a00;order:2;transform:translateY(-8px)}'
++'.bilan-podium .pod2{order:1}.bilan-podium .pod3{order:3}'
++'.bilan-podium .medal{font-size:22px}.bilan-podium b{font-size:14px}.bilan-podium span{font-size:11px;opacity:.75}'
++'.bilan-final{text-align:center;margin-top:2px;opacity:.9;font-size:13px}'
++'.bilan-stats{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}'
++'.bstat{flex:1 1 90px;text-align:center;padding:10px 6px;border-radius:12px;background:rgba(127,127,127,.10)}'
++'.bstat .bv{font-size:20px;font-weight:900}.bstat .bl{font-size:11px;opacity:.75}'
++'.bstat.ok .bv{color:#16a34a}.bstat.ko .bv{color:#dc2626}'
++'.bilan-tbl{width:100%;border-collapse:collapse}.bilan-tbl td{padding:6px 4px;border-bottom:1px solid rgba(127,127,127,.18)}'
++'.bilan-tbl .r{color:#e8a20c;font-weight:800;width:22px}.bilan-tbl .tm{opacity:.7;font-size:12px}.bilan-tbl .v{text-align:right;font-weight:800}'
++'.bilan-prono .bp-head{text-align:center;margin-bottom:8px}.bilan-prono .bp-note{text-align:center;margin-top:8px;font-weight:800;color:#16a34a}'
++'.bmuted{opacity:.65;font-size:11px}';
+document.head.appendChild(s2);}
+
+function podiumHtml(){if(!FIN)return '<div class="bmuted">Tableau final indisponible.</div>';
+var finalist=loserOf(FIN), troisieme=(THIRD&&THIRD.winner)?THIRD.winner:null;
+var h='<div class="bilan-podium">';
+if(finalist)h+='<div class="pod pod2"><div class="medal">🥈</div>'+fimg(codeOf(FIN,finalist))+'<b>'+esc(finalist)+'</b><span>Finaliste</span></div>';
+h+='<div class="pod pod1"><div class="medal">🥇</div>'+fimg(CHC)+'<b>'+esc(CH)+'</b><span>Champion</span></div>';
+if(troisieme)h+='<div class="pod pod3"><div class="medal">🥉</div>'+fimg(codeOf(THIRD,troisieme))+'<b>'+esc(troisieme)+'</b><span>3e place</span></div>';
+h+='</div>';
+if(FIN.sh!=null&&FIN.sa!=null){var pen=(FIN.tab&&FIN.penh!=null)?(' ('+FIN.penh+'-'+FIN.pena+' t.a.b.)'):'';
+h+='<div class="bilan-final">Finale : '+esc(FIN.home)+' <b>'+FIN.sh+'–'+FIN.sa+'</b> '+esc(FIN.away)+pen+'</div>';}
+return h;}
+
+function listHtml(arr,vk){arr=arr||[];if(!arr.length)return '<div class="bmuted">Donnée indisponible.</div>';
+var h='<table class="bilan-tbl">';arr.slice(0,8).forEach(function(s,i){h+='<tr><td class="r">'+(i+1)+'</td><td>'+fimg(s.code)+' '+esc(s.player)+'</td><td class="tm">'+esc(s.team)+'</td><td class="v">'+(s[vk]||0)+'</td></tr>';});
+return h+'</table>';}
+
+function tournStats(){try{var goals=0,played=0,big=null,tab=0,surp=0;
+function acc(sc,isTab,isSurp){if(!sc)return;var a=sc[0],b=sc[1];if(a==null||b==null)return;goals+=a+b;played++;if(big==null||a+b>big)big=a+b;if(isTab)tab++;if(isSurp)surp++;}
+(DATA.matches||[]).forEach(function(m){acc(m.reel,false,m.surprise);});
+(DATA.ko_feed||[]).forEach(function(m){var sc=m.reel||((m.reel_home!=null)?[m.reel_home,m.reel_away]:null);acc(sc,m.tab,(m.upset||m.surprise));});
+function card(v,l){return '<div class="bstat"><div class="bv">'+v+'</div><div class="bl">'+l+'</div></div>';}
+var c='';if(played){c+=card(goals,'buts');c+=card((goals/played).toFixed(2),'buts / match');}
+if(big!=null)c+=card(big,'plus de buts (1 match)');c+=card(tab,'séances de t.a.b.');if(surp)c+=card(surp,'surprises');
+return '<div class="bilan-stats">'+c+'</div>';}catch(e){return '<div class="bmuted">—</div>';}}
+
+function finaleExacte(){try{var f=(DATA.ko_feed||[]).filter(function(m){return m.num===104;})[0];return !!(f&&f.statut==='exact');}catch(e){return false;}}
+
+function pronoBilan(){var s=DATA.stats||{},j=s.joue||0,ex=s.exact||0,bon=s.bon||0,rt=s.rate||0;
+var fiab=j?(((ex+bon)/j)*100).toFixed(1):'0';
+var h='<div class="bilan-prono"><div class="bp-head">Nono a vu juste sur <b>'+(ex+bon)+'</b> matchs sur <b>'+j+'</b> — fiabilité <b>'+fiab+' %</b></div>';
+h+='<div class="bilan-stats"><div class="bstat ok"><div class="bv">'+ex+'</div><div class="bl">scores exacts</div></div>'
++'<div class="bstat ok"><div class="bv">'+bon+'</div><div class="bl">bons vainqueurs</div></div>'
++'<div class="bstat ko"><div class="bv">'+rt+'</div><div class="bl">ratés</div></div></div>';
+if(finaleExacte())h+='<div class="bp-note">🎯 Nono avait pronostiqué la finale au score exact.</div>';
+return h+'</div>';}
+
+function bilanHtml(){try{var h='';
+h+='<div class="phase-done" style="text-align:center"><b>🏆 Bilan de la Coupe du Monde 2026</b><br><span style="opacity:.8">11 juin – 19 juillet · États-Unis / Canada / Mexique</span></div>';
+h+='<div class="card"><div class="ctitle">Podium</div>'+podiumHtml()+'</div>';
+h+='<div class="card"><div class="ctitle">Statistiques clés du tournoi</div>'+tournStats()+'</div>';
+h+='<div class="card"><div class="ctitle">⚽ Meilleurs buteurs</div>'+listHtml(DATA.scorers||DATA.scorers_top,'goals')+'</div>';
+h+='<div class="card"><div class="ctitle">🎯 Meilleurs passeurs</div>'+listHtml(DATA.assists||DATA.assists_top,'assists')+'<div class="bmuted" style="margin-top:6px">Passes décisives selon la source gratuite — indicatif.</div></div>';
+h+='<div class="card"><div class="ctitle">Bilan des pronos de Nono</div>'+pronoBilan()+'</div>';
+return h;}catch(e){return '<div class="card">Bilan momentanément indisponible.</div>';}}
+
+try{var nav=document.getElementById('nav');
+if(nav&&!nav.querySelector('[data-v="bilan"]')){var b=document.createElement('button');b.setAttribute('data-v','bilan');b.innerHTML='🏆 Bilan';
+b.onclick=function(){try{view='bilan';}catch(e){}try{render();}catch(e){}};nav.appendChild(b);}}catch(e){}
+
+if(typeof render==='function'){var _r=render;render=function(){try{_r();}catch(e){}
+try{if(typeof view!=='undefined'&&view==='bilan'){var c=document.getElementById('content');if(c)c.innerHTML=bilanHtml();}}catch(e){}
+ensureChampBar();};}
+ensureChampBar();
+}catch(e){}
+})();</script>"""
+    html=html.replace("</body>", bilan_js+"</body>")
     # Rechargement auto SILENCIEUX : si le CODE de l'app change (app_version différent de celui
     # embarqué), l'onglet ouvert se recharge pour récupérer la nouvelle version. Les DONNÉES,
     # elles, sont déjà rafraîchies en direct par le poll existant. Garde anti-boucle 120 s
