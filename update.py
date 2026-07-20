@@ -1561,6 +1561,27 @@ def compute_live_form(results, ko_fixtures, datetimes=None):
         live[t] = {"gf": round(gf, 2), "ga": round(ga, 2)}
     return live
 
+# Résultat RÉEL saisi à la main quand football-data ne l'a JAMAIS remonté (ex. petite finale
+# non couverte par le flux gratuit). Score en temps réglementaire+prolongation ; winner "home"/"away" ;
+# pen_h/pen_a si t.a.b. Le match est alors marqué TERMINÉ et noté normalement (comme un vrai résultat).
+KO_REAL_OVERRIDE = {
+    103: {"h": 4, "a": 6, "winner": "away"},   # France 4-6 Angleterre (match pour la 3e place) — source FIFA
+}
+def apply_ko_real_override(ko_fixtures):
+    for mid, o in KO_REAL_OVERRIDE.items():
+        fx = ko_fixtures.get(str(mid)) or {}
+        if o.get("h") is not None: fx["hs"] = int(o["h"])
+        if o.get("a") is not None: fx["as"] = int(o["a"])
+        ph, pa = o.get("pen_h"), o.get("pen_a")
+        if ph is not None and pa is not None:
+            fx["penh"] = int(ph); fx["pena"] = int(pa); fx["tab"] = True
+        w = o.get("winner")
+        if w in ("home", "away"):
+            fx["winner"] = "HOME_TEAM" if w == "home" else "AWAY_TEAM"
+        fx["status"] = "FINISHED"            # force la prise en compte comme match JOUÉ + noté
+        ko_fixtures[str(mid)] = fx
+    return ko_fixtures
+
 def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=None, assists_top=None, ko_fixtures=None):
     from collections import defaultdict
     scorers_by_team = scorers_by_team or {}
@@ -1568,6 +1589,7 @@ def build_payload(results, scorers_by_team=None, datetimes=None, scorers_top=Non
     assists_top = assists_top or []
     ko_fixtures = apply_ko_overrides(ko_fixtures or {})
     ko_fixtures = apply_af_enrichment(ko_fixtures)   # Lot 1 : lieu + t.a.b. fiables (API-Football)
+    ko_fixtures = apply_ko_real_override(ko_fixtures)   # résultat réel manuel (petite finale) → TERMINÉ
     datetimes = datetimes or {}
     results={str(k):v for k,v in results.items()}
     momentum,detail=compute_momentum(results, ko_fixtures, datetimes)
