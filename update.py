@@ -1993,7 +1993,15 @@ s2.textContent='.bilan-hero{margin:2px 0 14px;padding:18px 16px;border-radius:16
 +'.b-nm{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.b-tm{font-size:11px;opacity:.6;white-space:nowrap}.b-val{margin-left:auto;font-weight:900;font-size:15px;flex:none}'
 +'.b-track{height:7px;border-radius:5px;background:rgba(127,127,127,.14);margin-top:4px;overflow:hidden}.b-bar{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,#f6c453,#e8a20c)}'
 +'.b-fiab{text-align:center;margin-bottom:12px}.b-fiab .fv{font-size:30px;font-weight:900;color:#e8a20c;line-height:1}.b-fiab .fl{font-size:12px;opacity:.8;margin-top:2px}'
-+'.b-note{text-align:center;margin-top:10px;font-weight:800;color:#16a34a}.bmuted{opacity:.62;font-size:11px}';
++'.b-note{text-align:center;margin-top:12px;font-weight:800;color:#16a34a}.bmuted{opacity:.62;font-size:11px}'
++'.bilan .card{margin-bottom:18px;padding:18px 16px}.bilan .card:last-child{margin-bottom:0}'
++'.bilan-hero{margin:2px 0 18px;padding:22px 16px}'
++'.b-sec{margin:0 0 16px}'
++'.bstats{gap:12px}.bstat{padding:16px 8px}'
++'.b-row{padding:12px 2px}.b-row+.b-row{border-top:1px solid rgba(127,127,127,.12)}'
++'.b-track{margin-top:7px}.b-top{gap:8px}'
++'.bilan-podium{gap:16px;margin:8px 0 16px}.bilan-podium .pod{padding:16px 20px;gap:5px}'
++'.b-fiab{margin-bottom:16px}';
 document.head.appendChild(s2);}
 
 function podiumHtml(){if(!FIN)return '<div class="bmuted">Tableau final indisponible.</div>';
@@ -2007,11 +2015,18 @@ if(FIN.sh!=null&&FIN.sa!=null){var pen=(FIN.tab&&FIN.penh!=null)?(' ('+FIN.penh+
 h+='<div class="bilan-final">Finale : '+esc(FIN.home)+' <b>'+FIN.sh+'–'+FIN.sa+'</b> '+esc(FIN.away)+pen+'</div>';}
 return h;}
 
-function listHtml(arr,vk){arr=arr||[];if(!arr.length)return '<div class="bmuted">Donnée indisponible.</div>';
-var top=arr.slice(0,8),mx=0;top.forEach(function(s){var v=+(s[vk]||0);if(v>mx)mx=v;});if(!mx)mx=1;
-var h='';top.forEach(function(s,i){var v=+(s[vk]||0),rk=(i<3)?(' r'+(i+1)):'';
-h+='<div class="b-row"><span class="b-rk'+rk+'">'+(i+1)+'</span><span class="b-fl">'+fimg(s.code)+'</span>'
-+'<div class="b-mid"><div class="b-top"><span class="b-nm">'+esc(s.player)+'</span><span class="b-tm">'+esc(s.team)+'</span><span class="b-val">'+v+'</span></div>'
+// Classement OFFICIEL FIFA (buts · passes décisives) — source consolidée figée en fin de tournoi.
+var FIFA_TOP=[['Kylian Mbappé',10,4],['Lionel Messi',8,4],['Jude Bellingham',7,1],['Erling Haaland',7,0],['Ousmane Dembélé',6,2],['Harry Kane',6,1],['Mikel Oyarzabal',5,1],['Ismaïla Sarr',4,1],['Julián Quiñones',4,1],['Vinicius Junior',4,1]];
+var FIFA_TEAM={'Kylian Mbappé':'France','Lionel Messi':'Argentine','Jude Bellingham':'Angleterre','Erling Haaland':'Norvège','Ousmane Dembélé':'France','Harry Kane':'Angleterre','Mikel Oyarzabal':'Espagne','Ismaïla Sarr':'Sénégal','Julián Quiñones':'Mexique','Vinicius Junior':'Brésil'};
+function normName(s){try{return String(s||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().trim();}catch(e){return String(s||'').toLowerCase();}}
+function fifaMeta(name){var code='',team='';try{var arr=(DATA.scorers||DATA.scorers_top||[]).concat(DATA.assists||DATA.assists_top||[]);var nn=normName(name);for(var i=0;i<arr.length;i++){if(normName(arr[i].player)===nn){if(arr[i].code&&!code)code=arr[i].code;if(arr[i].team&&!team)team=arr[i].team;if(code&&team)break;}}}catch(e){}return {code:code,team:team||FIFA_TEAM[name]||''};}
+function fifaList(mode){var g=(mode==='g');
+var rows=FIFA_TOP.map(function(r){return {n:r[0],g:r[1],a:r[2]};});
+if(g){rows.sort(function(x,y){return (y.g-x.g)||(y.a-x.a);});}else{rows=rows.filter(function(r){return r.a>0;});rows.sort(function(x,y){return (y.a-x.a)||(y.g-x.g);});}
+rows=rows.slice(0,10);var mx=0;rows.forEach(function(r){var v=g?r.g:r.a;if(v>mx)mx=v;});if(!mx)mx=1;
+var h='';rows.forEach(function(r,i){var v=g?r.g:r.a,sub=g?(r.a?(r.a+' passe'+(r.a>1?'s':'')):''):(r.g+' but'+(r.g>1?'s':'')),m=fifaMeta(r.n),rk=(i<3)?(' r'+(i+1)):'';
+h+='<div class="b-row"><span class="b-rk'+rk+'">'+(i+1)+'</span><span class="b-fl">'+fimg(m.code)+'</span>'
++'<div class="b-mid"><div class="b-top"><span class="b-nm">'+esc(r.n)+'</span><span class="b-tm">'+esc(m.team)+(sub?' · '+sub:'')+'</span><span class="b-val">'+v+'</span></div>'
 +'<div class="b-track"><span class="b-bar" style="width:'+Math.round(v/mx*100)+'%"></span></div></div></div>';});
 return h;}
 
@@ -2037,13 +2052,13 @@ return h;}
 
 function sec(ic,t,body){return '<div class="card"><div class="b-sec"><span class="ic">'+ic+'</span><h3>'+t+'</h3></div>'+body+'</div>';}
 function bilanHtml(){try{
-var h='<div class="bilan-hero"><h2>🏆 Bilan de la Coupe du Monde 2026</h2><div class="sub">11 juin – 19 juillet · États-Unis · Canada · Mexique</div></div>';
+var h='<div class="bilan"><div class="bilan-hero"><h2>🏆 Bilan de la Coupe du Monde 2026</h2><div class="sub">11 juin – 19 juillet · États-Unis · Canada · Mexique</div></div>';
 h+=sec('🏅','Podium',podiumHtml());
 h+=sec('📊','Statistiques clés du tournoi',tournStats());
-h+=sec('⚽','Meilleurs buteurs',listHtml(DATA.scorers||DATA.scorers_top,'goals'));
-h+=sec('🎯','Meilleurs passeurs',listHtml(DATA.assists||DATA.assists_top,'assists')+'<div class="bmuted" style="margin-top:8px">Passes décisives selon la source gratuite — indicatif.</div>');
+h+=sec('⚽','Meilleurs buteurs',fifaList('g')+'<div class="bmuted" style="margin-top:10px">Classement officiel FIFA (buts · passes décisives).</div>');
+h+=sec('🎯','Meilleurs passeurs',fifaList('a')+'<div class="bmuted" style="margin-top:10px">Passes décisives — classement officiel FIFA.</div>');
 h+=sec('🤖','Bilan des pronos de Nono',pronoBilan());
-return h;}catch(e){return '<div class="card">Bilan momentanément indisponible.</div>';}}
+return h+'</div>';}catch(e){return '<div class="card">Bilan momentanément indisponible.</div>';}}
 
 try{var nav=document.getElementById('nav');
 if(nav&&!nav.querySelector('[data-v="bilan"]')){var b=document.createElement('button');b.setAttribute('data-v','bilan');b.innerHTML='🏆 Bilan';
