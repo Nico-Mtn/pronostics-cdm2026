@@ -2020,15 +2020,16 @@ var FIFA_TOP=[['Kylian Mbappé',10,4],['Lionel Messi',8,4],['Jude Bellingham',7,
 var FIFA_TEAM={'Kylian Mbappé':'France','Lionel Messi':'Argentine','Jude Bellingham':'Angleterre','Erling Haaland':'Norvège','Ousmane Dembélé':'France','Harry Kane':'Angleterre','Mikel Oyarzabal':'Espagne','Ismaïla Sarr':'Sénégal','Julián Quiñones':'Mexique','Vinicius Junior':'Brésil'};
 function normName(s){try{return String(s||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().trim();}catch(e){return String(s||'').toLowerCase();}}
 function fifaMeta(name){var code='',team='';try{var arr=(DATA.scorers||DATA.scorers_top||[]).concat(DATA.assists||DATA.assists_top||[]);var nn=normName(name);for(var i=0;i<arr.length;i++){if(normName(arr[i].player)===nn){if(arr[i].code&&!code)code=arr[i].code;if(arr[i].team&&!team)team=arr[i].team;if(code&&team)break;}}}catch(e){}return {code:code,team:team||FIFA_TEAM[name]||''};}
-function fifaList(mode){var g=(mode==='g');
-var rows=FIFA_TOP.map(function(r){return {n:r[0],g:r[1],a:r[2]};});
-if(g){rows.sort(function(x,y){return (y.g-x.g)||(y.a-x.a);});}else{rows=rows.filter(function(r){return r.a>0;});rows.sort(function(x,y){return (y.a-x.a)||(y.g-x.g);});}
-rows=rows.slice(0,10);var mx=0;rows.forEach(function(r){var v=g?r.g:r.a;if(v>mx)mx=v;});if(!mx)mx=1;
-var h='';rows.forEach(function(r,i){var v=g?r.g:r.a,sub=g?(r.a?(r.a+' passe'+(r.a>1?'s':'')):''):(r.g+' but'+(r.g>1?'s':'')),m=fifaMeta(r.n),rk=(i<3)?(' r'+(i+1)):'';
-h+='<div class="b-row"><span class="b-rk'+rk+'">'+(i+1)+'</span><span class="b-fl">'+fimg(m.code)+'</span>'
-+'<div class="b-mid"><div class="b-top"><span class="b-nm">'+esc(r.n)+'</span><span class="b-tm">'+esc(m.team)+(sub?' · '+sub:'')+'</span><span class="b-val">'+v+'</span></div>'
-+'<div class="b-track"><span class="b-bar" style="width:'+Math.round(v/mx*100)+'%"></span></div></div></div>';});
-return h;}
+// Top buteurs (depuis FIFA_TOP, drapeau/équipe résolus via les données de l'app) et
+// Top passeurs = classement OFFICIEL des passes décisives FIFA (indépendant des buteurs :
+// le leader Michael Olise n'est PAS dans le top buteurs). Codes/équipes en dur pour les passeurs.
+var BUT_ROWS=FIFA_TOP.map(function(r){return {n:r[0],v:r[1]};});
+var PASS_ROWS=[{n:'Michael Olise',v:7,code:'fr',team:'France'},{n:'Martin Ødegaard',v:4,code:'no',team:'Norvège'},{n:'Kylian Mbappé',v:4,code:'fr',team:'France'},{n:'Brahim Díaz',v:4,code:'ma',team:'Maroc'},{n:'Bruno Guimarães',v:4,code:'br',team:'Brésil'}];
+function rankList(rows){var mx=0;rows.forEach(function(r){if(r.v>mx)mx=r.v;});if(!mx)mx=1;
+return rows.map(function(r,i){var mt=fifaMeta(r.n),code=r.code||mt.code||'',team=r.team||mt.team||'',rk=(i<3)?(' r'+(i+1)):'';
+return '<div class="b-row"><span class="b-rk'+rk+'">'+(i+1)+'</span><span class="b-fl">'+fimg(code)+'</span>'
++'<div class="b-mid"><div class="b-top"><span class="b-nm">'+esc(r.n)+'</span><span class="b-tm">'+esc(team)+'</span><span class="b-val">'+r.v+'</span></div>'
++'<div class="b-track"><span class="b-bar" style="width:'+Math.round(r.v/mx*100)+'%"></span></div></div></div>';}).join('');}
 
 function tournStats(){try{var goals=0,played=0,big=null,tab=0,surp=0;
 function acc(sc,isTab,isSurp){if(!sc)return;var a=sc[0],b=sc[1];if(a==null||b==null)return;goals+=a+b;played++;if(big==null||a+b>big)big=a+b;if(isTab)tab++;if(isSurp)surp++;}
@@ -2055,8 +2056,8 @@ function bilanHtml(){try{
 var h='<div class="bilan"><div class="bilan-hero"><h2>🏆 Bilan de la Coupe du Monde 2026</h2><div class="sub">11 juin – 19 juillet · États-Unis · Canada · Mexique</div></div>';
 h+=sec('🏅','Podium',podiumHtml());
 h+=sec('📊','Statistiques clés du tournoi',tournStats());
-h+=sec('⚽','Meilleurs buteurs',fifaList('g')+'<div class="bmuted" style="margin-top:10px">Classement officiel FIFA (buts · passes décisives).</div>');
-h+=sec('🎯','Meilleurs passeurs',fifaList('a')+'<div class="bmuted" style="margin-top:10px">Passes décisives — classement officiel FIFA.</div>');
+h+=sec('⚽','Top buteurs',rankList(BUT_ROWS)+'<div class="bmuted" style="margin-top:10px">Buts — classement officiel FIFA.</div>');
+h+=sec('🎯','Top passeurs',rankList(PASS_ROWS)+'<div class="bmuted" style="margin-top:10px">Passes décisives — classement officiel FIFA.</div>');
 h+=sec('🤖','Bilan des pronos de Nono',pronoBilan());
 return h+'</div>';}catch(e){return '<div class="card">Bilan momentanément indisponible.</div>';}}
 
