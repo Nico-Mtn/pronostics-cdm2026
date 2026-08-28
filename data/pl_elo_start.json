@@ -1,0 +1,154 @@
+{
+  "_meta": {
+    "role": "Elo de DÉPART de la saison : résultats réels de la saison précédente (walk-forward) régressés vers la moyenne, + ajustement qualitatif de pré-saison (data/l1_mercato.json). Figé pour reproductibilité.",
+    "regression": 0.25,
+    "promu_elo": 1420.0,
+    "calcule_le": "2026-08-28T11:55:09Z",
+    "author": "Nico-Mtn"
+  },
+  "saison": 2026,
+  "elo": {
+    "Arsenal": 1612.9,
+    "Aston Villa": 1531.0,
+    "Bournemouth": 1543.9,
+    "Brentford": 1507.2,
+    "Brighton Hove": 1503.4,
+    "Chelsea": 1486.1,
+    "Coventry City": 1420.0,
+    "Crystal Palace": 1467.7,
+    "Everton": 1480.7,
+    "Fulham": 1493.8,
+    "Hull City": 1420.0,
+    "Ipswich Town": 1420.0,
+    "Leeds United": 1498.1,
+    "Liverpool": 1518.3,
+    "Man City": 1595.8,
+    "Man United": 1580.0,
+    "Newcastle": 1483.3,
+    "Nottingham": 1491.6,
+    "Sunderland": 1500.7,
+    "Tottenham": 1454.2
+  },
+  "detail": {
+    "Arsenal": {
+      "base": 1612.9,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Aston Villa": {
+      "base": 1531.0,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Bournemouth": {
+      "base": 1543.9,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Brentford": {
+      "base": 1507.2,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Brighton Hove": {
+      "base": 1503.4,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Chelsea": {
+      "base": 1486.1,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Coventry City": {
+      "base": 1420.0,
+      "mercato": 0.0,
+      "source": "promu (aucun match en N-1)",
+      "note": ""
+    },
+    "Crystal Palace": {
+      "base": 1467.7,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Everton": {
+      "base": 1480.7,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Fulham": {
+      "base": 1493.8,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Hull City": {
+      "base": 1420.0,
+      "mercato": 0.0,
+      "source": "promu (aucun match en N-1)",
+      "note": ""
+    },
+    "Ipswich Town": {
+      "base": 1420.0,
+      "mercato": 0.0,
+      "source": "promu (aucun match en N-1)",
+      "note": ""
+    },
+    "Leeds United": {
+      "base": 1498.1,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Liverpool": {
+      "base": 1518.3,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Man City": {
+      "base": 1595.8,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Man United": {
+      "base": 1580.0,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Newcastle": {
+      "base": 1483.3,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Nottingham": {
+      "base": 1491.6,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Sunderland": {
+      "base": 1500.7,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Tottenham": {
+      "base": 1454.2,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    }
+  }
+}

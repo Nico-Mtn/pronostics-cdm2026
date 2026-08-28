@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "role": "Pronostics Ligue 1 FIGÉS 24 h avant le coup d'envoi (affichage = notation, aucune dérive). Écrit par l1.py.",
+    "author": "Nico-Mtn",
+    "credit": "Auteur : Nico-Mtn (https://github.com/Nico-Mtn). Réutilisation libre, crédit apprécié."
+  },
+  "pronos": {
+    "560555": {
+      "sh": 1,
+      "sa": 2,
+      "issue": "D",
+      "conf": 44,
+      "proba": {
+        "v": 28,
+        "n": 28,
+        "d": 44
+      },
+      "eh": 1458,
+      "ea": 1603,
+      "home": "Crystal Palace",
+      "away": "Man City",
+      "frozen_at": "2026-08-28T11:55:08Z"
+    },
+    "560552": {
+      "sh": 2,
+      "sa": 1,
+      "issue": "V",
+      "conf": 46,
+      "proba": {
+        "v": 46,
+        "n": 28,
+        "d": 26
+      },
+      "eh": 1519,
+      "ea": 1479,
+      "home": "Liverpool",
+      "away": "Nottingham",
+      "frozen_at": "2026-08-28T11:55:08Z"
+    }
+  }
+}
