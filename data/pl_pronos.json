@@ -36,6 +36,50 @@
       "home": "Liverpool",
       "away": "Nottingham",
       "frozen_at": "2026-08-28T11:55:08Z"
+    },
+    "560560": {
+      "sh": 2,
+      "sa": 1,
+      "issue": "V",
+      "conf": 47,
+      "second": {
+        "sh": 1,
+        "sa": 1,
+        "issue": "N",
+        "conf": 28
+      },
+      "proba": {
+        "v": 47,
+        "n": 28,
+        "d": 25
+      },
+      "eh": 1536,
+      "ea": 1490,
+      "home": "Bournemouth",
+      "away": "Everton",
+      "frozen_at": "2026-08-28T14:04:19Z"
+    },
+    "560561": {
+      "sh": 2,
+      "sa": 1,
+      "issue": "V",
+      "conf": 40,
+      "second": {
+        "sh": 1,
+        "sa": 2,
+        "issue": "D",
+        "conf": 31
+      },
+      "proba": {
+        "v": 40,
+        "n": 29,
+        "d": 31
+      },
+      "eh": 1415,
+      "ea": 1436,
+      "home": "Coventry City",
+      "away": "Hull City",
+      "frozen_at": "2026-08-28T14:04:19Z"
     }
   }
 }
