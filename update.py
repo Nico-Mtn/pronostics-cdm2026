@@ -1981,8 +1981,10 @@ function ensureCompNav(){try{
 var wrap=document.querySelector('.wrap');if(!wrap)return;
 if(document.getElementById('compnav'))return;
 var n=document.createElement('div');n.id='compnav';
-n.innerHTML='<a href="./" class="on">🏆 Coupe du Monde 2026</a>'
-           +'<a href="./ligue-1-france/">🇫🇷 Ligue 1 2026-27</a>';
+n.innerHTML='<a href="../">🏠 Accueil</a>'
+           +'<a href="./" class="on">🏆 Coupe du Monde 2026</a>'
+           +'<a href="../ligue-1-france/">🇫🇷 Ligue 1</a>'
+           +'<a href="../premier-league-england/">🏴 Premier League</a>';
 wrap.insertBefore(n,wrap.firstChild);
 }catch(e){}}
 
@@ -2105,22 +2107,37 @@ try{if(typeof view!=='undefined'){view='bilan';if(typeof render==='function')ren
     html=html.replace("</body>", reload_js+"</body>")
     return html
 
+CDM_DIR = os.path.join(ROOT, "pronostics-cdm2026")   # la CdM a maintenant sa propre page
+
+def _copier_assets():
+    """Icônes, manifeste et service worker copiés dans le dossier de la compétition :
+    la page reste autonome (PWA, favicon) après son déplacement hors de la racine."""
+    import shutil
+    for f in ("logo.png", "icon-192.png", "icon-512.png", "apple-touch-icon.png",
+              "manifest.webmanifest", "sw.js"):
+        src = os.path.join(ROOT, f)
+        if os.path.exists(src):
+            try: shutil.copy2(src, os.path.join(CDM_DIR, f))
+            except Exception: pass
+
 def main():
+    os.makedirs(CDM_DIR, exist_ok=True)
+    _copier_assets()
     results, datetimes, ko_fixtures = load_results()
     scorers, scorers_top, assists_top = fetch_scorers()
     if scorers:
         print(f"[OK] Buteurs récupérés pour {len(scorers)} équipe(s) ; {len(scorers_top)} buteur(s) classés ; {len(assists_top)} passeur(s) classés")
     payload=build_payload(results, scorers, datetimes, scorers_top, assists_top, ko_fixtures)
     html=render_html(payload)
-    out=os.path.join(ROOT,"index.html")
+    out=os.path.join(CDM_DIR,"index.html")
     with open(out,"w",encoding="utf-8") as f:
         f.write(html)
     # data.json : données structurées réutilisables (service worker pour les notifications, etc.)
-    with open(os.path.join(ROOT,"data.json"),"w",encoding="utf-8") as f:
+    with open(os.path.join(CDM_DIR,"data.json"),"w",encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False)
     # app.version : minuscule fichier sondé par le client pour l'auto-reload (évite de
     # re-télécharger data.json juste pour lire la version).
-    with open(os.path.join(ROOT,"app.version"),"w",encoding="utf-8") as f:
+    with open(os.path.join(CDM_DIR,"app.version"),"w",encoding="utf-8") as f:
         f.write(payload.get("app_version",""))
     # ko_pronos.json : pronos KO FIGÉS (persistés d'un run à l'autre). Écrit systématiquement
     # (idempotent) pour que le fichier committé reste la référence stable des pronos affichés/notés.
@@ -2139,7 +2156,7 @@ def main():
     _sig_payload = {k: v for k, v in payload.items() if k != "maj"}
     _sig_payload["_ko_frozen"] = _KO_FROZEN_OUT
     _sig = hashlib.md5(json.dumps(_sig_payload, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
-    with open(os.path.join(ROOT,"content.sig"),"w",encoding="utf-8") as f:
+    with open(os.path.join(CDM_DIR,"content.sig"),"w",encoding="utf-8") as f:
         f.write(_sig)
     s=payload["stats"]
     print(f"[OK] index.html généré — {s['joue']} joués | {s['exact']} exacts, {s['bon']} bons, {s['rate']} ratés | {s['today']} match(s) aujourd'hui")
