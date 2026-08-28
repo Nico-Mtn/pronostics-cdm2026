@@ -22,15 +22,19 @@ import os, json, hashlib, datetime
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
 # Déclaration des compétitions. Le champ « statut » vaut "en_cours" ou "passee".
+# Le champ « flag » est un code pays flagcdn, servi en IMAGE : le drapeau de
+# l'Angleterre est une séquence de balises Unicode que la plupart des systèmes
+# affichent en drapeau noir générique. Le champ « emoji » sert aux compétitions
+# sans pays (Coupe du Monde).
 COMPETITIONS = [
-    {"slug": "ligue-1-france", "nom": "Ligue 1", "lieu": "France", "drapeau": "🇫🇷",
+    {"slug": "ligue-1-france", "nom": "Ligue 1", "lieu": "France", "flag": "fr",
      "famille": "championnat", "statut": "en_cours", "saison": "2026-2027"},
     {"slug": "premier-league-england", "nom": "Premier League", "lieu": "Angleterre",
-     "drapeau": "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "famille": "championnat", "statut": "en_cours", "saison": "2026-2027"},
-    {"slug": "ligue-1-france-2025-2026", "nom": "Ligue 1", "lieu": "France", "drapeau": "🇫🇷",
+     "flag": "gb-eng", "famille": "championnat", "statut": "en_cours", "saison": "2026-2027"},
+    {"slug": "ligue-1-france-2025-2026", "nom": "Ligue 1", "lieu": "France", "flag": "fr",
      "famille": "championnat", "statut": "passee", "saison": "2025-2026"},
     {"slug": "pronostics-cdm2026", "nom": "Coupe du Monde 2026",
-     "lieu": "États-Unis · Canada · Mexique", "drapeau": "🏆",
+     "lieu": "États-Unis · Canada · Mexique", "emoji": "🏆",
      "famille": "coupe", "statut": "passee", "saison": "2026"},
 ]
 
@@ -59,7 +63,8 @@ def lire(slug):
     # Championnat : leader du classement réel (champion si la saison est archivée)
     tb = d.get("table") or []
     if tb:
-        info["leader"] = tb[0].get("team")
+        lead = tb[0].get("team")
+        info["leader"] = ((d.get("noms") or {}).get(lead) or {}).get("n") or lead
     # Saison archivée : note éditoriale sur 10 attribuée à la saison
     nt = d.get("note") or {}
     if nt.get("note") is not None:
@@ -69,6 +74,13 @@ def lire(slug):
 def esc(s):
     return (str(s if s is not None else "")
             .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;"))
+
+def blason(c):
+    """Drapeau du pays en image (rendu fiable partout), ou emoji pour une coupe."""
+    if c.get("flag"):
+        return (f'<img class="flg" src="https://flagcdn.com/w80/{c["flag"]}.png" '
+                f'width="34" height="26" alt="" loading="lazy">')
+    return f'<div class="emo">{c.get("emoji", "🏆")}</div>'
 
 def carte(c):
     d = lire(c["slug"]) or {}
@@ -91,7 +103,7 @@ def carte(c):
         lignes.append(f'<span class="kpi">🥇 {esc(d["leader"])}</span>')
     kpis = "".join(lignes) or '<span class="kpi soft">bientôt disponible</span>'
     return (f'<a class="card{" past" if c["statut"] == "passee" else ""}" href="./{c["slug"]}/">'
-            f'<div class="flag">{c["drapeau"]}</div>'
+            f'<div class="flag">{blason(c)}</div>'
             f'<div class="txt"><div class="nom">{esc(c["nom"])}</div>'
             f'<div class="lieu">{esc(c["lieu"])} · {esc(c["saison"])}</div>'
             f'<div class="kpis">{kpis}</div></div>'
@@ -112,44 +124,74 @@ PAGE = """<!DOCTYPE html><html lang="fr"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Pronostix — Pronostics IA gratuits, sans pub ni paris</title>
 <meta name="description" content="Pronostics IA gratuits du football : Ligue 1, Premier League, Coupe du Monde. Sans publicité, sans paris. Par Nico-Mtn.">
+<link rel="preconnect" href="https://flagcdn.com">
+<link rel="icon" type="image/png" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<meta property="og:title" content="Pronostix — Pronostics IA gratuits du football">
+<meta property="og:description" content="Ligue 1, Premier League, Coupe du Monde. Sans publicité, sans paris.">
+<meta property="og:image" content="./logo.png">
+<meta name="theme-color" content="#2246c7">
+<script>
+/* Thème appliqué AVANT le premier rendu : évite le flash blanc en mode sombre.
+   « auto » suit le système ; le choix explicite est conservé d'une visite à l'autre. */
+(function(){try{
+ var p=localStorage.getItem("px-theme")||"auto";
+ var d=p==="dark"||(p==="auto"&&window.matchMedia("(prefers-color-scheme:dark)").matches);
+ document.documentElement.dataset.theme=d?"dark":"light";
+ document.documentElement.dataset.pref=p;
+}catch(e){document.documentElement.dataset.theme="light";}})();
+</script>
 <style>
+:root{--bg:#f4f6fb;--fg:#1b2333;--card:#fff;--bd:#e6e9f2;--soft:#eef1f8;--mut:#4b5568;
+--acc:#2246c7;--sh:rgba(34,70,199,.10)}
+html[data-theme="dark"]{--bg:#0f1420;--fg:#e8ecf5;--card:#161d2e;--bd:#242d42;--soft:#242d42;
+--mut:#94a0b8;--sh:rgba(0,0,0,.35)}
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-background:#f4f6fb;color:#1b2333;-webkit-font-smoothing:antialiased}
+background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
 .wrap{max-width:760px;margin:0 auto;padding:0 16px 48px}
-header{text-align:center;padding:34px 16px 26px}
+header{text-align:center;padding:30px 16px 26px;position:relative}
+header img.mark{width:64px;height:64px;border-radius:16px;object-fit:cover;margin-bottom:10px}
 h1{margin:0;font-size:30px;font-weight:900;letter-spacing:-.02em}
-.tag{color:#2246c7;font-weight:700;font-size:14px;margin-top:5px}
+.tag{color:var(--acc);font-weight:700;font-size:14px;margin-top:5px}
 .sous{font-size:12px;opacity:.6;margin-top:8px;text-transform:uppercase;letter-spacing:.06em}
+.theme{position:absolute;top:18px;right:16px;display:flex;gap:2px;background:var(--soft);
+border-radius:99px;padding:3px}
+.theme button{border:0;background:transparent;color:var(--mut);width:28px;height:26px;border-radius:99px;
+cursor:pointer;font-size:13px;line-height:1;padding:0}
+.theme button.on{background:var(--card);color:var(--acc);box-shadow:0 1px 3px var(--sh)}
 section{margin-bottom:30px}
 h2{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:800;margin:0 0 14px}
 h2 .ic{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;
 font-size:16px;background:linear-gradient(135deg,#f6c453,#e8a20c);flex:none}
 .sub{font-size:11px;font-weight:800;opacity:.5;text-transform:uppercase;letter-spacing:.07em;margin:16px 0 9px}
 .card{display:flex;align-items:center;gap:14px;padding:16px;margin-bottom:11px;border-radius:16px;
-background:#fff;border:1px solid #e6e9f2;text-decoration:none;color:inherit;transition:.15s}
-.card:hover{border-color:#2246c7;transform:translateY(-1px);box-shadow:0 6px 18px rgba(34,70,199,.10)}
+background:var(--card);border:1px solid var(--bd);text-decoration:none;color:inherit;transition:.15s}
+.card:hover{border-color:var(--acc);transform:translateY(-1px);box-shadow:0 6px 18px var(--sh)}
 .card.past{opacity:.72}
-.flag{font-size:30px;flex:none;line-height:1}
+.flag{flex:none;line-height:1;display:flex;align-items:center}
+.flag .emo{font-size:30px}
+.flg{border-radius:4px;object-fit:cover;box-shadow:0 0 0 1px rgba(0,0,0,.12)}
 .txt{flex:1;min-width:0}
 .nom{font-size:17px;font-weight:800}
 .lieu{font-size:12px;opacity:.6;margin-top:2px}
 .kpis{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
-.kpi{font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;background:#eef1f8;color:#4b5568}
-.kpi{color:#4b5568}
-.kpi b{color:#1b2333}
+.kpi{font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;background:var(--soft);color:var(--mut)}
+.kpi b{color:var(--fg)}
 .kpi.win{background:linear-gradient(135deg,#f6c453,#e8a20c);color:#3a2a00}
 .kpi.win b{color:#3a2a00}
 .kpi.soft{opacity:.7}
 .go{font-size:19px;opacity:.35;flex:none}
 footer{text-align:center;font-size:11px;opacity:.55;padding:16px;line-height:1.8}
-footer a{color:#2246c7}
-@media(prefers-color-scheme:dark){
-body{background:#0f1420;color:#e8ecf5}
-.card{background:#161d2e;border-color:#242d42}
-.kpi{background:#242d42;color:#94a0b8}.kpi b{color:#e8ecf5}}
+footer a{color:var(--acc)}
 </style></head><body>
 <header>
+ <div class="theme" id="theme" role="group" aria-label="Thème d'affichage">
+  <button data-t="light" title="Thème clair" aria-label="Thème clair">☀</button>
+  <button data-t="auto" title="Thème automatique" aria-label="Thème automatique">◐</button>
+  <button data-t="dark" title="Thème sombre" aria-label="Thème sombre">☾</button>
+ </div>
+ <img class="mark" src="./logo.png" alt="Pronostix">
  <h1>Pronostix</h1>
  <div class="tag">Nono le robot, roi des prono 👑</div>
  <div class="sous">Pronostics IA · gratuit · sans publicité · sans paris</div>
@@ -161,6 +203,21 @@ __SECTIONS__
  Résultats réels via football-data.org · Pronostics générés par modèle IA<br>
  Créé par <a href="https://github.com/Nico-Mtn">Nico-Mtn</a> · Mise à jour __MAJ__
 </footer>
+<script>
+function applyTheme(p){
+ try{localStorage.setItem("px-theme",p);}catch(e){}
+ var d=p==="dark"||(p==="auto"&&window.matchMedia("(prefers-color-scheme:dark)").matches);
+ document.documentElement.dataset.theme=d?"dark":"light";
+ document.documentElement.dataset.pref=p;
+ Array.prototype.forEach.call(document.querySelectorAll("#theme button"),function(b){
+  b.classList.toggle("on",b.dataset.t===p);});
+}
+Array.prototype.forEach.call(document.querySelectorAll("#theme button"),function(b){
+ b.onclick=function(){applyTheme(b.dataset.t);};});
+window.matchMedia("(prefers-color-scheme:dark)").addEventListener("change",function(){
+ if(document.documentElement.dataset.pref==="auto") applyTheme("auto");});
+applyTheme(document.documentElement.dataset.pref||"auto");
+</script>
 </body></html>"""
 
 def main():
