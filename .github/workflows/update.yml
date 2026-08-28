@@ -40,7 +40,9 @@ jobs:
       - name: Générer la page (fetch scores + pronostics)
         env:
           FOOTBALLDATA_KEY: ${{ secrets.FOOTBALLDATA_KEY }}
-        run: python update.py
+        run: |
+          python update.py
+          python hub.py
 
       # Déploiement conditionnel : update.py écrit content.sig = empreinte du CONTENU
       # HORS timestamp "maj". Si cette empreinte est identique à celle déjà committée,
@@ -49,7 +51,7 @@ jobs:
       - name: Détecter un vrai changement de contenu
         id: detect
         run: |
-          if [ -n "$(git status --porcelain -- content.sig)" ]; then
+          if [ -n "$(git status --porcelain -- pronostics-cdm2026 hub.sig)" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "Contenu modifié → déploiement."
           else
@@ -62,7 +64,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/results_manual.json data/ko_pronos.json index.html data.json app.version content.sig
+          git add data/results_manual.json data/ko_pronos.json pronostics-cdm2026 index.html hub.sig
           git diff --staged --quiet || git commit -m "MAJ auto $(date -u +%Y-%m-%d) [skip ci]"
           git push || echo "Rien à pousser"
 
