@@ -284,9 +284,44 @@ def predict(elo, home, away):
     elif issue[0] == "N": cands = {k: v for k, v in grid.items() if k[0] == k[1]}
     else:                 cands = {k: v for k, v in grid.items() if k[0] < k[1]}
     (sx, sy) = max(cands.items(), key=lambda kv: kv[1])[0]
+    # 2e SCÉNARIO : l'issue alternative la plus probable, avec son score le plus plausible.
+    # Affiché quand le match est incertain — l'utilisateur voit ce que le modèle hésite à trancher.
+    autres = sorted([("V", pv), ("N", pn), ("D", pd)], key=lambda t: -t[1])[1:]
+    second = None
+    if autres:
+        k2, p2 = autres[0]
+        if k2 == "V":   c2 = {k: v for k, v in grid.items() if k[0] > k[1]}
+        elif k2 == "N": c2 = {k: v for k, v in grid.items() if k[0] == k[1]}
+        else:           c2 = {k: v for k, v in grid.items() if k[0] < k[1]}
+        if c2:
+            (bx, by) = max(c2.items(), key=lambda kv: kv[1])[0]
+            second = {"sh": bx, "sa": by, "issue": k2, "conf": int(round(p2 * 100))}
     return {"sh": sx, "sa": sy, "issue": issue[0], "conf": int(round(issue[1] * 100)),
+            "second": second,
             "proba": {"v": int(round(pv * 100)), "n": int(round(pn * 100)), "d": int(round(pd * 100))},
             "eh": int(round(eh - HOME_ADV)), "ea": int(round(ea))}
+
+def dynamique(rows):
+    """Dynamique de chaque équipe sur ses 5 derniers matchs joués : points pris,
+    différence de buts et série (V/N/D). Sert l'onglet « Dynamique » et la fiche club."""
+    hist = {}
+    for r in rows:
+        if not r["played"]:
+            continue
+        for team, pour, contre in ((r["home"], r["sh"], r["sa"]), (r["away"], r["sa"], r["sh"])):
+            res = "V" if pour > contre else ("N" if pour == contre else "D")
+            hist.setdefault(team, []).append({"res": res, "pour": pour, "contre": contre})
+    out = []
+    for team, h in hist.items():
+        d = h[-5:]
+        pts = sum(3 if x["res"] == "V" else (1 if x["res"] == "N" else 0) for x in d)
+        diff = sum(x["pour"] - x["contre"] for x in d)
+        # Indice lisible : points pris rapportés au maximum possible, recentré sur 0
+        idx = round((pts / (3 * len(d)) - 0.5) * 4, 2) if d else 0
+        out.append({"team": team, "serie": [x["res"] for x in d], "pts": pts,
+                    "sur": 3 * len(d), "diff": diff, "idx": idx, "joues": len(h)})
+    out.sort(key=lambda x: (-x["idx"], -x["diff"]))
+    return out
 
 # ─── Pronos FIGÉS (24 h avant le coup d'envoi) ───────────────────────────────
 def load_frozen():
@@ -360,7 +395,7 @@ def build(matches_raw, standings_raw, scorers_raw):
         fr = frozen.get(key)
         pred = None
         if fr and fr.get("home") == r["home"] and fr.get("away") == r["away"]:
-            pred = {k: fr[k] for k in ("sh", "sa", "issue", "conf", "proba") if k in fr}
+            pred = {k: fr[k] for k in ("sh", "sa", "issue", "conf", "proba", "second") if k in fr}
         elif r["played"]:
             pred = walk[key]                                   # prono « d'avant match » (honnête)
         elif r["dt"] and (r["dt"] - datetime.timedelta(hours=FREEZE_LEAD_H)) <= now < r["dt"]:
@@ -386,6 +421,7 @@ def build(matches_raw, standings_raw, scorers_raw):
             "conf": pred.get("conf") if pred else None,
             "proba": pred.get("proba") if pred else None,
             "reel": [r["sh"], r["sa"]] if r["played"] else None,
+            "second": (pred.get("second") if pred else None),
             "statut": st, "fige": key in out_frozen,
         })
     save_frozen(out_frozen)
@@ -436,7 +472,7 @@ def build(matches_raw, standings_raw, scorers_raw):
         "maj": paris(now).strftime("%d/%m/%Y à %H:%M") + " (Paris)",
         "today": now.strftime("%Y-%m-%d"),
         "saison": LG["libelle"], "nom": LG["nom"], "slug": LG["slug"], "journee": cur, "journees": jours,
-        "stats": stats, "matches": feed, "table": table,
+        "stats": stats, "matches": feed, "table": table, "dyn": dynamique(rows),
         "projected": projected, "scorers": scorers,
         "credit": "Auteur : Nico-Mtn (https://github.com/Nico-Mtn). Projet gratuit, sans pub, sans paris.",
     }
@@ -503,6 +539,38 @@ td.p{text-align:center;font-weight:900}
 tr.c1 td.n{color:#16a34a}tr.c2 td.n{color:#2246c7}tr.c3 td.n{color:#dc2626}
 .tm{display:flex;align-items:center;gap:8px}.tm img{width:20px;height:20px;object-fit:contain}
 .empty{text-align:center;opacity:.6;padding:26px 10px;font-size:14px}
+.tn{cursor:pointer;border-bottom:1px dotted rgba(127,127,127,.5)}
+.tn:hover{color:#2246c7}
+.alt{margin-top:6px;text-align:center;font-size:11px}
+.alt button{border:0;background:rgba(127,127,127,.12);color:inherit;font:inherit;font-size:11px;
+font-weight:700;padding:3px 10px;border-radius:99px;cursor:pointer}
+.alt button:hover{background:rgba(34,70,199,.14);color:#2246c7}
+.alt .sc{margin-left:6px;font-weight:900;color:#e8a20c}
+.jsel{display:flex;gap:6px;overflow-x:auto;padding:4px 0 10px;-webkit-overflow-scrolling:touch}
+.jsel button{flex:none;padding:7px 13px;border-radius:99px;border:1px solid #e6e9f2;background:#fff;
+font-weight:800;font-size:12px;color:#5a6478;cursor:pointer}
+.jsel button.on{background:#2246c7;color:#fff;border-color:#2246c7}
+.fold{width:100%;margin-top:8px;padding:12px;border-radius:12px;border:1px dashed rgba(127,127,127,.35);
+background:transparent;color:inherit;font:inherit;font-weight:800;font-size:13px;cursor:pointer;opacity:.75}
+.fold:hover{opacity:1;border-color:#2246c7;color:#2246c7}
+.dyn-row{display:flex;align-items:center;gap:10px;padding:11px 2px}
+.dyn-row+.dyn-row{border-top:1px solid #eef0f6}
+.dyn-row .nm{flex:1;font-weight:700}
+.serie{display:flex;gap:3px}
+.serie i{width:19px;height:19px;border-radius:6px;font-style:normal;font-size:10px;font-weight:900;
+display:flex;align-items:center;justify-content:center;color:#fff}
+.serie i.V{background:#16a34a}.serie i.N{background:#a1a1aa}.serie i.D{background:#dc2626}
+.dyn-row .pt{font-weight:900;min-width:52px;text-align:right;font-size:13px}
+.ovl{position:fixed;inset:0;background:rgba(10,14,25,.55);display:flex;align-items:flex-end;
+justify-content:center;z-index:50;padding:0}
+.sheet{background:#fff;width:100%;max-width:640px;max-height:86vh;overflow:auto;
+border-radius:20px 20px 0 0;padding:20px 18px 28px}
+.sheet h3{margin:0 0 4px;font-size:19px;font-weight:900}
+.sheet .cls{position:sticky;top:0;float:right;border:0;background:rgba(127,127,127,.15);
+width:30px;height:30px;border-radius:50%;font-size:16px;cursor:pointer;color:inherit}
+@media(prefers-color-scheme:dark){.sheet{background:#161d2e}
+.jsel button{background:#161d2e;border-color:#242d42;color:#94a0b8}
+.dyn-row+.dyn-row{border-color:#242d42}}
 footer{text-align:center;font-size:11px;opacity:.55;padding:22px 14px;line-height:1.7}
 footer a{color:#2246c7}
 @media(prefers-color-scheme:dark){
@@ -525,14 +593,15 @@ body{background:#0f1420;color:#e8ecf5}header{background:#161d2e;border-color:#24
   __NAV__
  </div>
  <div class="modebar">
-  <button data-m="reel">⚽ Réel</button>
-  <button data-m="prono" class="on">🤖 Prono de Nono</button>
+  <button data-m="reel" class="on">⚽ Réel</button>
+  <button data-m="prono">🤖 Prono de Nono</button>
  </div>
  <div class="note" id="note"></div>
  <nav class="tabs" id="tabs">
   <button data-v="feed" class="on">🔥 Live feed</button>
   <button data-v="cal">📅 Calendrier</button>
   <button data-v="clt">📊 Classement</button>
+  <button data-v="dyn">📈 Dynamique</button>
   <button data-v="but">⚽ Buteurs</button>
  </nav>
  <div id="content"></div>
@@ -543,7 +612,7 @@ body{background:#0f1420;color:#e8ecf5}header{background:#161d2e;border-color:#24
 </footer>
 <script>
 var DATA = /*__DATA__*/null;
-var view="feed", mode="prono";
+var view="feed", mode="reel";
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){
  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
 function logo(u){return u?'<img src="'+esc(u)+'" alt="" loading="lazy">':'';}
@@ -578,14 +647,40 @@ function matchRow(m){
   if(m.statut==="exact") b.push('<span class="b ex">✓ exact</span>');
   else if(m.statut==="bon") b.push('<span class="b bo">✓ bon</span>');
   else if(m.statut==="rate") b.push('<span class="b ra">✗ raté</span>');
-  else if(m.conf!=null) b.push('<span class="b">'+m.conf+' % · '+issueLbl(m.issue)+'</span>');
+  if(m.conf!=null) b.push('<span class="b">confiance '+m.conf+' % · '+issueLbl(m.issue)+'</span>');
   if(!m.reel&&m.fige) b.push('<span class="b fg">prono figé</span>');
  }
- return '<div class="m"><div class="t">'+logo(m.ch)+'<b>'+esc(m.home)+'</b></div>'
+ var alt="";
+ if(mode==="prono"&&m.second){
+  alt='<div class="alt"><button onclick="toggleAlt(this)" data-s="'+m.second.sh+' – '+m.second.sa
+   +'" data-c="'+m.second.conf+'">2ᵉ scénario · '+m.second.conf+' %</button></div>';
+ }
+ return '<div class="m"><div class="t">'+logo(m.ch)+'<b class="tn" data-team="'+esc(m.home)+'">'+esc(m.home)+'</b></div>'
  +'<div class="sc2">'+right+'</div>'
- +'<div class="t a"><b>'+esc(m.away)+'</b>'+logo(m.ca)+'</div></div>'
- +'<div class="meta">'+b.join(" ")+'</div>';
+ +'<div class="t a"><b class="tn" data-team="'+esc(m.away)+'">'+esc(m.away)+'</b>'+logo(m.ca)+'</div></div>'
+ +'<div class="meta">'+b.join(" ")+'</div>'+alt;
 }
+function toggleAlt(btn){
+ if(btn.dataset.open==="1"){btn.dataset.open="0";btn.innerHTML='2ᵉ scénario · '+btn.dataset.c+' %';}
+ else{btn.dataset.open="1";btn.innerHTML='2ᵉ scénario <span class="sc">'+btn.dataset.s+'</span> · '+btn.dataset.c+' %';}
+}
+function openTeam(name){
+ var ms=(DATA.matches||[]).filter(function(m){return m.home===name||m.away===name;});
+ var joues=ms.filter(function(m){return m.reel;}), avenir=ms.filter(function(m){return !m.reel;});
+ var d=(DATA.dyn||[]).filter(function(x){return x.team===name;})[0];
+ var h='<button class="cls" onclick="closeTeam()">×</button><h3>'+esc(name)+'</h3>';
+ if(d){h+='<div class="serie" style="margin:10px 0 4px">'+d.serie.map(function(r){return '<i class="'+r+'">'+r+'</i>';}).join("")
+  +'</div><div style="font-size:12px;opacity:.7">'+d.pts+' pts sur '+d.sur+' · différence '+(d.diff>0?"+":"")+d.diff+' sur 5 matchs</div>';}
+ h+='<div class="ctitle" style="margin:18px 0 8px"><span class="ic">✅</span><h3 style="font-size:14px">Derniers résultats</h3></div>';
+ h+= joues.length? joues.slice(-5).reverse().map(matchRow).join("") : '<div class="empty">Aucun match joué.</div>';
+ h+='<div class="ctitle" style="margin:18px 0 8px"><span class="ic">🔜</span><h3 style="font-size:14px">Prochains matchs</h3></div>';
+ h+= avenir.length? avenir.slice(0,5).map(matchRow).join("") : '<div class="empty">Aucun match à venir.</div>';
+ var o=document.createElement("div");o.className="ovl";o.id="ovl";
+ o.onclick=function(e){if(e.target===o)closeTeam();};
+ o.innerHTML='<div class="sheet">'+h+'</div>';
+ document.body.appendChild(o);
+}
+function closeTeam(){var o=document.getElementById("ovl");if(o)o.remove();}
 function feedHtml(){
  var ms=(DATA.matches||[]).slice();
  var past=ms.filter(function(m){return m.reel;}).reverse().slice(0,10);
@@ -602,19 +697,53 @@ function feedHtml(){
  }
  return h;
 }
-function calHtml(){
- var ms=DATA.matches||[];
- if(!ms.length) return '<div class="card"><div class="empty">Calendrier bientôt disponible.</div></div>';
+var calJ=null, calPast=false;
+function calGroups(){
  var by={},order=[];
- ms.forEach(function(m){var k=m.j||0;if(!by[k]){by[k]=[];order.push(k);}by[k].push(m);});
+ (DATA.matches||[]).forEach(function(m){var k=m.j||0;if(!by[k]){by[k]=[];order.push(k);}by[k].push(m);});
  order.sort(function(a,b){return a-b;});
- var h="";
- order.forEach(function(j){
-  h+='<div class="card"><div class="ctitle"><span class="ic">'+j+'</span><h3>Journée '+j+'</h3></div>';
-  by[j].forEach(function(m){h+=matchRow(m);});
-  h+='</div>';
- });
+ return {by:by,order:order};
+}
+function journeeCourante(g){
+ for(var i=0;i<g.order.length;i++){
+  var j=g.order[i];
+  if(g.by[j].some(function(m){return !m.reel;})) return j;
+ }
+ return g.order[g.order.length-1];
+}
+function bloc(g,j){
+ var h='<div class="card"><div class="ctitle"><span class="ic">'+j+'</span><h3>Journée '+j+'</h3></div>';
+ g.by[j].forEach(function(m){h+=matchRow(m);});
+ return h+'</div>';
+}
+function calHtml(){
+ var g=calGroups();
+ if(!g.order.length) return '<div class="card"><div class="empty">Calendrier bientôt disponible.</div></div>';
+ var cur=journeeCourante(g);
+ if(calJ===null) calJ=cur;
+ var sel='<div class="jsel">'+g.order.map(function(j){
+   return '<button class="'+(j===calJ?"on":"")+'" onclick="calJ='+j+';render();">J'+j+'</button>';
+ }).join("")+'</div>';
+ var suivantes=g.order.filter(function(j){return j>=calJ;});
+ var passees=g.order.filter(function(j){return j<calJ;});
+ var h=sel+suivantes.map(function(j){return bloc(g,j);}).join("");
+ if(passees.length){
+  h+='<button class="fold" onclick="calPast=!calPast;render();">'
+   +(calPast?"▲ Masquer les journées précédentes":"▼ Journées précédentes ("+passees.length+")")+'</button>';
+  if(calPast) h+=passees.slice().reverse().map(function(j){return bloc(g,j);}).join("");
+ }
  return h;
+}
+function dynHtml(){
+ var d=DATA.dyn||[];
+ if(!d.length) return '<div class="card"><div class="empty">La dynamique apparaîtra dès les premiers matchs.</div></div>';
+ var h='<div class="card"><div class="ctitle"><span class="ic">📈</span><h3>Dynamique sur les 5 derniers matchs</h3></div>';
+ d.forEach(function(x){
+  h+='<div class="dyn-row"><span class="nm tn" data-team="'+esc(x.team)+'">'+esc(x.team)+'</span>'
+   +'<span class="serie">'+x.serie.map(function(r){return '<i class="'+r+'">'+r+'</i>';}).join("")+'</span>'
+   +'<span class="pt">'+x.pts+'/'+x.sur+' pts</span></div>';
+ });
+ return h+'<div class="maj" style="margin-top:10px">Forme récente : points pris et série sur les 5 dernières rencontres.</div></div>';
 }
 function tableHtml(){
  var rows=(mode==="prono")?(DATA.projected||[]):(DATA.table||[]);
@@ -653,8 +782,12 @@ function render(){
  Array.prototype.forEach.call(document.querySelectorAll(".modebar button"),function(b){
   b.classList.toggle("on",b.dataset.m===mode);});
  var c=document.getElementById("content");
- c.innerHTML = view==="feed"?feedHtml():(view==="cal"?calHtml():(view==="clt"?tableHtml():scorersHtml()));
+ c.innerHTML = view==="feed"?feedHtml():(view==="cal"?calHtml():(view==="clt"?tableHtml():(view==="dyn"?dynHtml():scorersHtml())));
 }
+document.addEventListener("click",function(e){
+ var el=e.target.closest?e.target.closest("[data-team]"):null;
+ if(el&&el.dataset.team){openTeam(el.dataset.team);}
+});
 Array.prototype.forEach.call(document.querySelectorAll("#tabs button"),function(b){
  b.onclick=function(){view=b.dataset.v;render();};});
 Array.prototype.forEach.call(document.querySelectorAll(".modebar button"),function(b){
