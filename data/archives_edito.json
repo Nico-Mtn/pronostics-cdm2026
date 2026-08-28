@@ -1,0 +1,15 @@
+{
+  "_meta": {
+    "role": "Surcharge ÉDITORIALE des saisons archivées. Permet de remplacer, saison par saison, la note sur 10 et/ou le résumé calculés automatiquement par archive.py — quand le jugement humain apporte un contexte que les données seules ne portent pas (fin de saison dramatique, affaire extra-sportive, exploit d'un promu…).",
+    "champs": {
+      "note": "nombre entre 0 et 10 — remplace la note calculée",
+      "verdict": "phrase de conclusion affichée sous la note",
+      "resume": "texte du résumé de saison — remplace le résumé factuel généré"
+    },
+    "usage": "Ajouter une clé par slug de saison, par exemple \"ligue-1-france-2025-2026\". Les saisons absentes gardent la note et le résumé calculés automatiquement.",
+    "statut": "À RENSEIGNER — laissé vide volontairement : aucune appréciation n'est inventée. Tant que ce fichier est vide, tout est calculé à partir des résultats réels.",
+    "author": "Nico-Mtn",
+    "credit": "Auteur : Nico-Mtn (https://github.com/Nico-Mtn). Réutilisation libre, crédit apprécié."
+  },
+  "saisons": {}
+}
