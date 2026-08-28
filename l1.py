@@ -28,12 +28,48 @@ Usage : python3 l1.py   (variable d'env FOOTBALLDATA_KEY)
 import os, sys, json, math, hashlib, datetime, urllib.request, urllib.error
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-OUTDIR = os.path.join(ROOT, "ligue-1-france")
 API = "https://api.football-data.org/v4"
-COMP = "FL1"                 # Ligue 1 — plan gratuit
-SEASON = 2026                # saison 2026-2027
 KEY = os.environ.get("FOOTBALLDATA_KEY", "")
 FREEZE_LEAD_H = 24           # gel du prono 24 h avant le coup d'envoi
+
+# ─── Championnats suivis ─────────────────────────────────────────────────────
+# Ce fichier est un TEMPLATE : ajouter une entrée ci-dessous suffit à créer une
+# nouvelle page complète (live feed, calendrier, classement réel + projeté, buteurs).
+# `code` = identifiant football-data ; tous ceux listés ici sont en plan GRATUIT.
+# `prefix` = préfixe des fichiers de données (data/<prefix>_pronos.json, etc.).
+LEAGUES = [
+    {"slug": "ligue-1-france", "prefix": "l1", "code": "FL1", "nom": "Ligue 1",
+     "drapeau": "🇫🇷", "saison": 2026, "libelle": "2026-2027"},
+    {"slug": "premier-league-england", "prefix": "pl", "code": "PL", "nom": "Premier League",
+     "drapeau": "🏴", "saison": 2026, "libelle": "2026-2027"},
+]
+LG = LEAGUES[0]              # championnat courant (réassigné par set_league)
+OUTDIR = os.path.join(ROOT, LG["slug"])
+COMP = LG["code"]
+SEASON = LG["saison"]
+
+def set_league(lg):
+    """Bascule le moteur sur un championnat : chemins, code API et saison de référence."""
+    global LG, OUTDIR, COMP, SEASON, PREV_SEASON, ELO_START
+    LG = lg
+    OUTDIR = os.path.join(ROOT, lg["slug"])
+    COMP = lg["code"]
+    SEASON = lg["saison"]
+    PREV_SEASON = SEASON - 1
+    ELO_START = {}           # recalculé pour chaque championnat
+
+def data_path(kind):
+    """Chemin d'un fichier de données propre au championnat courant."""
+    return os.path.join(ROOT, "data", f"{LG['prefix']}_{kind}.json")
+
+def nav_html(current_slug):
+    """Sélecteur de compétition commun à toutes les pages."""
+    items = ['<a href="../">🏆 Coupe du Monde 2026</a>']
+    for lg in LEAGUES:
+        cls = ' class="on"' if lg["slug"] == current_slug else ""
+        href = "./" if lg["slug"] == current_slug else f"../{lg['slug']}/"
+        items.append(f'<a href="{href}"{cls}>{lg["drapeau"]} {lg["nom"]}</a>')
+    return "\n  ".join(items)
 
 # ─── Elo de départ des clubs ─────────────────────────────────────────────────
 # Il n'est PAS saisi de mémoire : il est calculé (voir compute_elo_start) à partir
@@ -83,7 +119,7 @@ def fetch_all():
     m = api_get(f"/competitions/{COMP}/matches?season={SEASON}")
     s = api_get(f"/competitions/{COMP}/standings?season={SEASON}")
     b = api_get(f"/competitions/{COMP}/scorers?season={SEASON}&limit=20")
-    cache = os.path.join(ROOT, "data", "l1_cache.json")
+    cache = data_path("cache")
     if m and m.get("matches"):
         try:
             with open(cache, "w", encoding="utf-8") as f:
@@ -138,7 +174,7 @@ def load_mercato():
     delta en points Elo, borné à ±MERCATO_CAP. Négatif = effectif déstabilisé (beaucoup
     de départs/arrivées, vente de joueurs cadres, nouveau staff → temps d'adaptation) ;
     positif = recrutement qui renforce nettement un groupe déjà en place."""
-    p = os.path.join(ROOT, "data", "l1_mercato.json")
+    p = data_path("mercato")
     try:
         with open(p, encoding="utf-8") as f:
             return json.load(f).get("ajustements", {}) or {}
@@ -170,7 +206,7 @@ def compute_elo_start(teams_now):
        Elo fin N-1 → régression vers la moyenne → ajustement mercato → promus à part.
     Calculé UNE fois puis figé dans data/l1_elo_start.json (reproductible, et le quota
     API n'est pas consommé à chaque run)."""
-    path = os.path.join(ROOT, "data", "l1_elo_start.json")
+    path = data_path("elo_start")
     try:
         with open(path, encoding="utf-8") as f:
             saved = json.load(f)
@@ -253,7 +289,7 @@ def predict(elo, home, away):
 
 # ─── Pronos FIGÉS (24 h avant le coup d'envoi) ───────────────────────────────
 def load_frozen():
-    p = os.path.join(ROOT, "data", "l1_pronos.json")
+    p = data_path("pronos")
     try:
         with open(p, encoding="utf-8") as f:
             return json.load(f).get("pronos", {})
@@ -261,7 +297,7 @@ def load_frozen():
         return {}
 
 def save_frozen(pronos):
-    p = os.path.join(ROOT, "data", "l1_pronos.json")
+    p = data_path("pronos")
     os.makedirs(os.path.dirname(p), exist_ok=True)
     with open(p, "w", encoding="utf-8") as f:
         json.dump({"_meta": {
@@ -398,7 +434,7 @@ def build(matches_raw, standings_raw, scorers_raw):
     return {
         "maj": paris(now).strftime("%d/%m/%Y à %H:%M") + " (Paris)",
         "today": now.strftime("%Y-%m-%d"),
-        "saison": "2026-2027", "journee": cur, "journees": jours,
+        "saison": LG["libelle"], "nom": LG["nom"], "slug": LG["slug"], "journee": cur, "journees": jours,
         "stats": stats, "matches": feed, "table": table,
         "projected": projected, "scorers": scorers,
         "credit": "Auteur : Nico-Mtn (https://github.com/Nico-Mtn). Projet gratuit, sans pub, sans paris.",
@@ -407,8 +443,8 @@ def build(matches_raw, standings_raw, scorers_raw):
 # ─── Rendu HTML (page autonome, codes visuels Pronostix) ─────────────────────
 PAGE = """<!DOCTYPE html><html lang="fr"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Pronostix — Ligue 1 2026-2027</title>
-<meta name="description" content="Pronostics IA gratuits de la Ligue 1 2026-2027 : calendrier, classement, buteurs. Sans publicité, sans paris. Par Nico-Mtn.">
+<title>Pronostix — __NOM__ __SAISON__</title>
+<meta name="description" content="Pronostics IA gratuits de __NOM__ __SAISON__ : calendrier, classement, buteurs. Sans publicité, sans paris. Par Nico-Mtn.">
 <style>
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -477,7 +513,7 @@ body{background:#0f1420;color:#e8ecf5}header{background:#161d2e;border-color:#24
 <header>
  <div class="hrow">
   <div><h1>Pronostix</h1><div class="tag">Nono le robot, roi des prono 👑</div>
-   <div class="sub">Ligue 1 · Saison __SAISON__</div></div>
+   <div class="sub">__NOM__ · Saison __SAISON__</div></div>
   <div class="pct"><div class="b" id="pct">—</div><div class="l">Fiabilité</div></div>
  </div>
  <div class="scorebar" id="scorebar"></div>
@@ -485,8 +521,7 @@ body{background:#0f1420;color:#e8ecf5}header{background:#161d2e;border-color:#24
 </header>
 <div class="wrap">
  <div class="compnav">
-  <a href="../">🏆 Coupe du Monde 2026</a>
-  <a href="./" class="on">🇫🇷 Ligue 1</a>
+  __NAV__
  </div>
  <div class="modebar">
   <button data-m="reel">⚽ Réel</button>
@@ -502,7 +537,7 @@ body{background:#0f1420;color:#e8ecf5}header{background:#161d2e;border-color:#24
  <div id="content"></div>
 </div>
 <footer>
- Ligue 1 __SAISON__ · Pronostics générés par modèle IA · Résultats réels via football-data.org<br>
+ __NOM__ __SAISON__ · Pronostics générés par modèle IA · Résultats réels via football-data.org<br>
  Créé par <a href="https://github.com/Nico-Mtn">Nico-Mtn</a> · Projet gratuit, sans publicité, sans paris
 </footer>
 <script>
@@ -626,12 +661,16 @@ Array.prototype.forEach.call(document.querySelectorAll(".modebar button"),functi
 render();
 </script></body></html>"""
 
-def main():
+def build_league(lg):
+    """Génère la page complète d'UN championnat."""
+    set_league(lg)
     os.makedirs(OUTDIR, exist_ok=True)
     m, s, b = fetch_all()
     payload = build(m, s, b)
-    html = PAGE.replace("__SAISON__", payload["saison"]).replace(
-        "/*__DATA__*/null", json.dumps(payload, ensure_ascii=False))
+    html = (PAGE.replace("__NAV__", nav_html(lg["slug"]))
+                .replace("__NOM__", lg["nom"])
+                .replace("__SAISON__", payload["saison"])
+                .replace("/*__DATA__*/null", json.dumps(payload, ensure_ascii=False)))
     with open(os.path.join(OUTDIR, "index.html"), "w", encoding="utf-8") as f:
         f.write(html)
     with open(os.path.join(OUTDIR, "data.json"), "w", encoding="utf-8") as f:
@@ -641,8 +680,16 @@ def main():
     with open(os.path.join(OUTDIR, "content.sig"), "w", encoding="utf-8") as f:
         f.write(sig)
     st = payload["stats"]
-    print(f"[OK] ligue-1-france généré — {len(payload['matches'])} matchs | "
+    print(f"[OK] {lg['slug']} — {len(payload['matches'])} matchs | "
           f"{st['joue']} joués : {st['exact']} exacts, {st['bon']} bons, {st['rate']} ratés")
+
+def main():
+    for lg in LEAGUES:
+        try:
+            build_league(lg)
+        except Exception as e:
+            # Un championnat en échec (API, données) ne doit pas empêcher les autres.
+            print(f"[ERREUR] {lg['slug']} : {e}", file=sys.stderr)
 
 if __name__ == "__main__":
     main()
