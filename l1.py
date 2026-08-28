@@ -26,7 +26,7 @@ Sorties (par championnat) : <slug>/index.html, <slug>/data.json,
 
 Usage : python3 l1.py   (variable d'env FOOTBALLDATA_KEY)
 """
-import os, sys, json, math, hashlib, datetime, urllib.request, urllib.error
+import os, sys, json, math, hashlib, datetime, unicodedata, urllib.request, urllib.error
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 API = "https://api.football-data.org/v4"
@@ -41,11 +41,13 @@ FREEZE_LEAD_H = 24           # gel du prono 24 h avant le coup d'envoi
 # Champ « flag » = code pays flagcdn. Le drapeau est servi en IMAGE et non en emoji :
 # celui de l'Angleterre est une séquence de balises Unicode que la majorité des
 # systèmes n'affiche pas, et remplace par un drapeau noir générique.
+# Champ « couleur » = teinte de l'onglet actif du championnat, pour qu'on sache d'un
+# coup d'oeil où l'on se trouve : bleu marine pour la Ligue 1, rouge pour la Premier League.
 LEAGUES = [
     {"slug": "ligue-1-france", "prefix": "l1", "code": "FL1", "nom": "Ligue 1",
-     "flag": "fr", "saison": 2026, "libelle": "2026-2027"},
+     "flag": "fr", "couleur": "#173a7a", "saison": 2026, "libelle": "2026-2027"},
     {"slug": "premier-league-england", "prefix": "pl", "code": "PL", "nom": "Premier League",
-     "flag": "gb-eng", "saison": 2026, "libelle": "2026-2027"},
+     "flag": "gb-eng", "couleur": "#c8102e", "saison": 2026, "libelle": "2026-2027"},
 ]
 LG = LEAGUES[0]              # championnat courant (réassigné par set_league)
 OUTDIR = os.path.join(ROOT, LG["slug"])
@@ -75,9 +77,12 @@ def nav_html(current_slug):
     """Sélecteur de compétition : Accueil + un onglet par championnat suivi."""
     items = ['<a href="../"><span class="ic">🏠</span> Accueil</a>']
     for lg in LEAGUES:
-        cls = ' class="on"' if lg["slug"] == current_slug else ""
-        href = "./" if lg["slug"] == current_slug else f"../{lg['slug']}/"
-        items.append(f'<a href="{href}"{cls}>{flag_img(lg["flag"])} {lg["nom"]}</a>')
+        on = lg["slug"] == current_slug
+        cls = ' class="on"' if on else ""
+        # La teinte n'est appliquée qu'à l'onglet actif : les autres restent neutres.
+        sty = f' style="background:{lg["couleur"]};border-color:{lg["couleur"]}"' if on else ""
+        href = "./" if on else f"../{lg['slug']}/"
+        items.append(f'<a href="{href}"{cls}{sty}>{flag_img(lg["flag"])} {lg["nom"]}</a>')
     return "\n  ".join(items)
 
 # ─── Référentiel des clubs ───────────────────────────────────────────────────
@@ -569,7 +574,20 @@ def build(matches_raw, standings_raw, scorers_raw):
         at = api_teams.get(key) or {}
         nom = rf.get("nom") or key
         noms[key] = {"n": nom, "a": rf.get("abbr") or nom}
-        pv, cur = prev_tbl.get(key), pos_now.get(key)
+        cur = pos_now.get(key)
+        # Classement de la saison précédente. Un club absent du classement N-1 de
+        # l'élite est un PROMU : on va chercher son rang en division inférieure dans
+        # le référentiel (Ligue 2 n'est pas couverte par le plan gratuit de l'API).
+        pv = prev_tbl.get(key)
+        if pv:
+            prev = {"pos": pv["pos"], "pts": pv["pts"], "sur": pv["sur"], "promu": False,
+                    "division": LG["nom"], "saison": f"{PREV_SEASON}-{PREV_SEASON + 1}"}
+        else:
+            n1 = rf.get("n1") or {}
+            prev = ({"pos": n1["pos"], "pts": n1.get("pts"), "sur": n1.get("sur"),
+                     "promu": True, "division": n1.get("division"),
+                     "saison": n1.get("saison") or f"{PREV_SEASON}-{PREV_SEASON + 1}"}
+                    if n1.get("pos") else None)
         clubs.append({
             "team": key, "nom": nom, "abbr": rf.get("abbr") or nom,
             "crest": crests.get(key) or at.get("crest"),
@@ -577,13 +595,16 @@ def build(matches_raw, standings_raw, scorers_raw):
             "stade": rf.get("stade") or at.get("venue"),
             "capacite": rf.get("capacite"),
             "titres": rf.get("titres"),
-            "prev": ({"pos": pv["pos"], "pts": pv["pts"], "sur": pv["sur"],
-                      "saison": f"{PREV_SEASON}-{PREV_SEASON + 1}"} if pv else None),
+            "prev": prev,
             "dom": (bil.get(key) or {}).get("dom") or {"j": 0, "v": 0, "n": 0, "p": 0},
             "ext": (bil.get(key) or {}).get("ext") or {"j": 0, "v": 0, "n": 0, "p": 0},
             "pos": (cur or {}).get("pos"), "pts": (cur or {}).get("pts"),
         })
-    clubs.sort(key=lambda c: (c["pos"] is None, c["pos"] or 0, c["nom"]))
+    # Ordre alphabétique : on cherche un club par son nom, pas par son rang.
+    # Les accents sont neutralisés pour que « Étoile » se range bien entre E et F.
+    def alpha(c):
+        return unicodedata.normalize("NFKD", c["nom"].lower()).encode("ascii", "ignore")
+    clubs.sort(key=alpha)
 
     jours = sorted({f["j"] for f in feed if f["j"]})
     cur = None
@@ -622,9 +643,12 @@ PAGE = """<!DOCTYPE html><html lang="fr"><head>
 </script>
 <style>
 :root{--bg:#f4f6fb;--fg:#1b2333;--card:#fff;--bd:#e6e9f2;--line:#eef0f6;--soft:#eef1f8;
---mut:#5a6478;--acc:#2246c7;--gold:#e8a20c;--ok:#16a34a;--ko:#dc2626;--sh:rgba(34,70,199,.10)}
+--mut:#5a6478;--acc:#2246c7;--gold:#e8a20c;--ok:#15803d;--ko:#dc2626;--sh:rgba(34,70,199,.10);
+/* --lien = accent utilisé sur du TEXTE. En thème sombre, le bleu de marque n'offre
+   pas un contraste suffisant sur fond foncé : on le remplace par une teinte claire. */
+--lien:#2246c7;--surok:#fff;--surgold:#3a2a00}
 html[data-theme="dark"]{--bg:#0f1420;--fg:#e8ecf5;--card:#161d2e;--bd:#242d42;--line:#242d42;
---soft:#242d42;--mut:#94a0b8;--sh:rgba(0,0,0,.35)}
+--soft:#242d42;--mut:#94a0b8;--sh:rgba(0,0,0,.35);--lien:#d8e3ff;--ok:#22c55e;--surok:#06280f}
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
 background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
@@ -634,7 +658,7 @@ header{background:var(--card);border-bottom:1px solid var(--bd);padding:12px 0 1
 .brand{display:flex;align-items:center;gap:10px;min-width:0}
 .brand img{width:38px;height:38px;border-radius:10px;object-fit:cover;flex:none}
 h1{margin:0;font-size:19px;font-weight:900}
-.tag{color:var(--acc);font-weight:700;font-size:12px}
+.tag{color:var(--lien);font-weight:700;font-size:12px}
 .sub{font-size:11px;opacity:.6;text-transform:uppercase;letter-spacing:.05em}
 .pct{margin-left:auto;text-align:center;flex:none}
 .pct .b{font-size:22px;font-weight:900;color:var(--gold);line-height:1}
@@ -642,7 +666,7 @@ h1{margin:0;font-size:19px;font-weight:900}
 .theme{flex:none;display:flex;gap:2px;background:var(--soft);border-radius:99px;padding:3px}
 .theme button{border:0;background:transparent;color:var(--mut);width:28px;height:26px;border-radius:99px;
 cursor:pointer;font-size:13px;line-height:1;padding:0}
-.theme button.on{background:var(--card);color:var(--acc);box-shadow:0 1px 3px var(--sh)}
+.theme button.on{background:var(--card);color:var(--lien);box-shadow:0 1px 3px var(--sh)}
 .scorebar{max-width:820px;margin:10px auto 0;padding:0 14px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .sc{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:9px 6px;text-align:center}
 .sc b{display:block;font-size:17px;font-weight:900}.sc span{font-size:10px;opacity:.6;text-transform:uppercase}
@@ -659,7 +683,8 @@ border:1px solid var(--bd);color:var(--mut)}
 border-radius:12px;padding:4px}
 .modebar button{flex:1;padding:9px;border:0;border-radius:9px;background:transparent;font-weight:800;
 font-size:14px;color:var(--mut);cursor:pointer}
-.modebar button.on{background:var(--acc);color:#fff}
+.modebar button.on[data-m="reel"]{background:var(--ok);color:var(--surok)}
+.modebar button.on[data-m="prono"]{background:var(--gold);color:var(--surgold)}
 .note{text-align:center;font-size:12px;opacity:.7;margin:6px 0 10px}
 nav.tabs{display:flex;gap:8px;margin:10px 0 16px;flex-wrap:wrap}
 nav.tabs button{flex:1;min-width:104px;padding:10px;border-radius:12px;border:1px solid var(--bd);
@@ -693,15 +718,15 @@ th{text-align:left;font-size:10px;opacity:.55;text-transform:uppercase;padding:6
 td{padding:8px 4px;border-top:1px solid var(--line)}
 td.n{text-align:center;width:26px;font-weight:800}
 td.p{text-align:center;font-weight:900}
-tr.c1 td.n{color:var(--ok)}tr.c2 td.n{color:var(--acc)}tr.c3 td.n{color:var(--ko)}
+tr.c1 td.n{color:var(--ok)}tr.c2 td.n{color:var(--lien)}tr.c3 td.n{color:var(--ko)}
 .tm{display:flex;align-items:center;gap:8px}.tm img{width:20px;height:20px;object-fit:contain}
 .empty{text-align:center;opacity:.6;padding:26px 10px;font-size:14px}
 .tn{cursor:pointer;border-bottom:1px dotted rgba(127,127,127,.5)}
-.tn:hover{color:var(--acc)}
+.tn:hover{color:var(--lien)}
 .alt{margin-top:6px;text-align:center;font-size:11px}
 .alt button{border:0;background:var(--soft);color:inherit;font:inherit;font-size:11px;
 font-weight:700;padding:3px 10px;border-radius:99px;cursor:pointer}
-.alt button:hover{color:var(--acc)}
+.alt button:hover{color:var(--lien)}
 .alt .v2{margin-left:6px;font-weight:900;color:var(--gold)}
 .jsel{display:flex;gap:6px;overflow-x:auto;padding:4px 0 10px;-webkit-overflow-scrolling:touch}
 .jsel button{flex:none;padding:7px 13px;border-radius:99px;border:1px solid var(--bd);background:var(--card);
@@ -709,7 +734,7 @@ font-weight:800;font-size:12px;color:var(--mut);cursor:pointer}
 .jsel button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
 .fold{width:100%;margin-top:8px;padding:12px;border-radius:12px;border:1px dashed rgba(127,127,127,.35);
 background:transparent;color:inherit;font:inherit;font-weight:800;font-size:13px;cursor:pointer;opacity:.75}
-.fold:hover{opacity:1;border-color:var(--acc);color:var(--acc)}
+.fold:hover{opacity:1;border-color:var(--lien);color:var(--lien)}
 .dyn-row{display:flex;align-items:center;gap:10px;padding:11px 2px}
 .dyn-row+.dyn-row{border-top:1px solid var(--line)}
 .dyn-row .nm{flex:1;font-weight:700}
@@ -721,7 +746,7 @@ display:flex;align-items:center;justify-content:center;color:#fff}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:10px}
 .club{display:flex;align-items:center;gap:10px;padding:12px;border-radius:14px;border:1px solid var(--bd);
 background:var(--card);cursor:pointer;text-align:left;font:inherit;color:inherit;width:100%}
-.club:hover{border-color:var(--acc);box-shadow:0 4px 14px var(--sh)}
+.club:hover{border-color:var(--lien);box-shadow:0 4px 14px var(--sh)}
 .club img{width:30px;height:30px;object-fit:contain;flex:none}
 .club .in{min-width:0;flex:1}
 .club .nm{display:block;font-weight:800;font-size:13px;line-height:1.25}
@@ -741,7 +766,7 @@ width:30px;height:30px;border-radius:50%;font-size:16px;cursor:pointer;color:inh
 .shead{display:flex;align-items:center;gap:12px}
 .shead img{width:46px;height:46px;object-fit:contain;flex:none}
 footer{text-align:center;font-size:11px;opacity:.55;padding:22px 14px;line-height:1.7}
-footer a{color:var(--acc)}
+footer a{color:var(--lien)}
 .lg{display:inline}.sm{display:none}
 @media(max-width:560px){.lg{display:none}.sm{display:inline}
 .compnav a{font-size:13px;padding:10px 6px}nav.tabs button{min-width:0;flex:1 1 44%}}
@@ -888,7 +913,9 @@ function openTeam(name){
   +fact("Fondé en", c.fonde||"—")
   +fact("Titres de champion", c.titres==null?"—":c.titres)
   +fact("Saison "+(c.prev?c.prev.saison:"précédente"),
-        c.prev?ord(c.prev.pos):"—", c.prev?(c.prev.pts+" pts"):"non disputée")
+        c.prev?ord(c.prev.pos):"—",
+        c.prev?("de "+esc(c.prev.division||"")+(c.prev.pts!=null?" · "+c.prev.pts+" pts":"")
+                +(c.prev.promu?" · promu":"")):"donnée manquante")
   +fact("Stade", '<span style="font-size:13px">'+esc(c.stade||"—")+'</span>')
   +fact("Capacité", num(c.capacite), c.capacite?"places":"")
   +fact("À domicile", (c.dom?c.dom.v:0)+" / "+(c.dom?c.dom.j:0), "victoires / matchs")
