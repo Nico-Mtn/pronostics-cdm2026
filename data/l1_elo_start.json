@@ -1,0 +1,140 @@
+{
+  "_meta": {
+    "role": "Elo de DÉPART de la saison : résultats réels de la saison précédente (walk-forward) régressés vers la moyenne, + ajustement qualitatif de pré-saison (data/l1_mercato.json). Figé pour reproductibilité.",
+    "regression": 0.25,
+    "promu_elo": 1420.0,
+    "calcule_le": "2026-08-28T11:30:45Z",
+    "author": "Nico-Mtn"
+  },
+  "saison": 2026,
+  "elo": {
+    "Angers SCO": 1447.8,
+    "Auxerre": 1476.8,
+    "Brest": 1464.3,
+    "Le Havre": 1467.7,
+    "Le Mans": 1420.0,
+    "Lille": 1554.5,
+    "Lorient": 1500.6,
+    "Marseille": 1531.5,
+    "Monaco": 1524.2,
+    "Nice": 1444.2,
+    "Olympique Lyon": 1535.7,
+    "PSG": 1596.8,
+    "Paris FC": 1510.5,
+    "RC Lens": 1573.8,
+    "Stade Rennais": 1546.7,
+    "Strasbourg": 1524.5,
+    "Toulouse": 1497.9,
+    "Troyes": 1420.0
+  },
+  "detail": {
+    "Angers SCO": {
+      "base": 1447.8,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Auxerre": {
+      "base": 1476.8,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Brest": {
+      "base": 1464.3,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Le Havre": {
+      "base": 1467.7,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Le Mans": {
+      "base": 1420.0,
+      "mercato": 0.0,
+      "source": "promu (aucun match en N-1)",
+      "note": ""
+    },
+    "Lille": {
+      "base": 1554.5,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Lorient": {
+      "base": 1500.6,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Marseille": {
+      "base": 1531.5,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Monaco": {
+      "base": 1524.2,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Nice": {
+      "base": 1444.2,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Olympique Lyon": {
+      "base": 1535.7,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "PSG": {
+      "base": 1596.8,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Paris FC": {
+      "base": 1510.5,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "RC Lens": {
+      "base": 1573.8,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Stade Rennais": {
+      "base": 1546.7,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Strasbourg": {
+      "base": 1524.5,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Toulouse": {
+      "base": 1497.9,
+      "mercato": 0.0,
+      "source": "saison précédente (régressée)",
+      "note": ""
+    },
+    "Troyes": {
+      "base": 1420.0,
+      "mercato": 0.0,
+      "source": "promu (aucun match en N-1)",
+      "note": ""
+    }
+  }
+}

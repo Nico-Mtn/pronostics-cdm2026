@@ -1,0 +1,25 @@
+{
+  "_meta": {
+    "role": "Pronostics Ligue 1 FIGÉS 24 h avant le coup d'envoi (affichage = notation, aucune dérive). Écrit par l1.py.",
+    "author": "Nico-Mtn",
+    "credit": "Auteur : Nico-Mtn (https://github.com/Nico-Mtn). Réutilisation libre, crédit apprécié."
+  },
+  "pronos": {
+    "559702": {
+      "sh": 2,
+      "sa": 1,
+      "issue": "V",
+      "conf": 39,
+      "proba": {
+        "v": 39,
+        "n": 29,
+        "d": 32
+      },
+      "eh": 1565,
+      "ea": 1597,
+      "home": "Lille",
+      "away": "PSG",
+      "frozen_at": "2026-08-28T11:30:44Z"
+    }
+  }
+}
