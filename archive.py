@@ -20,16 +20,50 @@ l'indique explicitement pour qu'on ne confonde pas avec un prono réellement jou
 
 Usage : python3 archive.py   (variable d'env FOOTBALLDATA_KEY)
 """
-import os, sys, json, hashlib, datetime
+import os, sys, json, time, hashlib, datetime
 import l1  # réutilise le moteur : Elo, Dixon-Coles, walk-forward, affichage des noms
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
-# Saisons à archiver. « saison » = année de départ (2025 => saison 2025-2026).
-ARCHIVES = [
-    {"slug": "ligue-1-france-2025-2026", "code": "FL1", "nom": "Ligue 1",
-     "drapeau": "🇫🇷", "saison": 2025, "libelle": "2025-2026"},
-]
+# Première saison archivée. Chaque championnat de l1.LEAGUES est archivé de cette
+# année-là jusqu'à la saison précédant celle en cours. « saison » = année de départ
+# (2025 => saison 2025-2026).
+PREMIERE_SAISON = 2020
+
+def archives():
+    """Liste des saisons à archiver, dérivée des championnats suivis : aucune
+    saisie manuelle, et une nouvelle compétition hérite automatiquement de ses archives."""
+    out = []
+    for lg in l1.LEAGUES:
+        for an in range(PREMIERE_SAISON, lg["saison"]):
+            out.append({"slug": f'{lg["slug"]}-{an}-{an + 1}', "code": lg["code"],
+                        "nom": lg["nom"], "flag": lg["flag"], "saison": an,
+                        "libelle": f"{an}-{an + 1}"})
+    return out
+
+# ─── Politique d'appel API ───────────────────────────────────────────────────
+# Une saison archivée est FIGÉE : une fois son cache écrit, plus aucune requête
+# n'est nécessaire. Le mode évite de griller le quota du plan gratuit (10 req/min)
+# pendant les mises à jour de routine, qui tournent toutes les 30 minutes.
+#   cache (défaut) : n'utilise QUE le cache local, ne contacte jamais l'API
+#   fetch          : contacte l'API pour les archives dont le cache manque
+#   force          : recontacte l'API pour toutes les archives
+MODE = (os.environ.get("ARCHIVES_MODE") or "cache").lower()
+QUOTA_MIN = 8          # requêtes/minute qu'on s'autorise (plan gratuit : 10)
+_appels = []
+
+def api_lent(path):
+    """Appel API auto-limité : on attend plutôt que de se faire couper par le quota."""
+    global _appels
+    maintenant = time.time()
+    _appels = [t for t in _appels if maintenant - t < 60]
+    if len(_appels) >= QUOTA_MIN:
+        pause = 60 - (maintenant - _appels[0]) + 1
+        print(f"[QUOTA] pause de {pause:.0f} s avant {path}", file=sys.stderr)
+        time.sleep(max(0, pause))
+        _appels = [t for t in _appels if time.time() - t < 60]
+    _appels.append(time.time())
+    return l1.api_get(path)
 
 # Barème de la note /10 (voir note_saison). Modifiable sans toucher au code.
 BAREME = {
@@ -441,30 +475,28 @@ def nav_html():
     return "\n  ".join(items)
 
 def build_archive(a):
-    l1.set_league({"slug": a["slug"], "prefix": "arch_" + a["slug"][:12],
+    # Le préfixe de données doit être UNIQUE par saison archivée, sinon deux saisons
+    # d'un même championnat se partageraient les mêmes fichiers de cache.
+    l1.set_league({"slug": a["slug"], "prefix": "arch_" + a["slug"],
                    "code": a["code"], "nom": a["nom"], "saison": a["saison"],
-                   "libelle": a["libelle"], "drapeau": a["drapeau"]})
+                   "libelle": a["libelle"], "flag": a["flag"]})
     outdir = os.path.join(ROOT, a["slug"])
-    os.makedirs(outdir, exist_ok=True)
     cache = os.path.join(ROOT, "data", f"archive_{a['slug']}.json")
 
-    # Une saison archivée est FIGÉE : ses résultats ne bougeront plus. Le cache local
-    # fait donc autorité, et l'API n'est appelée que s'il manque — ou si on force le
-    # rafraîchissement (ARCHIVES_FORCE=1). La page peut ainsi être régénérée à volonté
-    # après un changement de mise en forme, sans consommer une seule requête.
+    # Le cache local fait autorité (voir MODE). L'API n'est sollicitée qu'en mode
+    # « fetch » quand le cache manque, ou en mode « force ».
     m = s = b = None
-    force = os.environ.get("ARCHIVES_FORCE") == "1"
-    if os.path.exists(cache) and not force:
+    if os.path.exists(cache) and MODE != "force":
         try:
             with open(cache, encoding="utf-8") as f:
                 d = json.load(f)
             m, s, b = d.get("matches"), d.get("standings"), d.get("scorers")
         except Exception as e:
             print(f"[WARN] cache {cache} illisible : {e}", file=sys.stderr)
-    if not (m and m.get("matches")):
-        m = l1.api_get(f"/competitions/{a['code']}/matches?season={a['saison']}")
-        s = l1.api_get(f"/competitions/{a['code']}/standings?season={a['saison']}")
-        b = l1.api_get(f"/competitions/{a['code']}/scorers?season={a['saison']}&limit=20")
+    if not (m and m.get("matches")) and MODE in ("fetch", "force"):
+        m = api_lent(f"/competitions/{a['code']}/matches?season={a['saison']}")
+        s = api_lent(f"/competitions/{a['code']}/standings?season={a['saison']}")
+        b = api_lent(f"/competitions/{a['code']}/scorers?season={a['saison']}&limit=20")
         if m and m.get("matches"):
             try:
                 with open(cache, "w", encoding="utf-8") as f:
@@ -472,8 +504,13 @@ def build_archive(a):
             except Exception:
                 pass
     if not (m and m.get("matches")):
-        print(f"[SKIP] {a['slug']} : aucune donnée disponible", file=sys.stderr)
+        raison = ("cache absent, mode « cache »" if MODE == "cache"
+                  else "l'API n'a rien renvoyé (saison hors plan gratuit ?)")
+        print(f"[SKIP] {a['slug']} : {raison}", file=sys.stderr)
         return None
+    # Le dossier n'est créé qu'une fois les données en main : une saison indisponible
+    # ne laisse pas derrière elle un dossier vide que le hub aurait à filtrer.
+    os.makedirs(outdir, exist_ok=True)
 
     an = analyser(m, s, b)
     ed = edito(a["slug"])
@@ -517,11 +554,16 @@ def build_archive(a):
     return payload
 
 def main():
-    for a in ARCHIVES:
+    liste = archives()
+    print(f"[INFO] mode « {MODE} » — {len(liste)} saison(s) à traiter", file=sys.stderr)
+    ok = 0
+    for a in liste:
         try:
-            build_archive(a)
+            if build_archive(a):
+                ok += 1
         except Exception as e:
             print(f"[ERREUR] {a['slug']} : {e}", file=sys.stderr)
+    print(f"[OK] {ok}/{len(liste)} archive(s) générée(s)")
 
 if __name__ == "__main__":
     main()
