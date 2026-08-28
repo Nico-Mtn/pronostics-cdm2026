@@ -1,0 +1,16 @@
+{
+  "name": "Pronostix — Pronostics IA Coupe du Monde 2026",
+  "short_name": "Pronostix",
+  "description": "Pronostics IA de la Coupe du Monde 2026, mis à jour chaque jour avec les vrais scores et la dynamique des équipes.",
+  "lang": "fr",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f6fb",
+  "theme_color": "#1746a2",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
