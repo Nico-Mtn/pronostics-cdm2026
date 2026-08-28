@@ -1,1 +1,90 @@
+name: Archives - saisons passees
 
+# Generation des saisons archivees. Volontairement MANUEL : une saison archivee est
+# figee, il n'y a rien a rafraichir une fois son cache ecrit. Ce workflow n'existe
+# que pour aller chercher a l'API les saisons qui manquent encore, en respectant
+# le quota du plan gratuit (10 requetes/minute, d'ou une execution longue).
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "fetch = ne telecharge que les saisons manquantes | force = retelecharge tout"
+        type: choice
+        default: fetch
+        options: [fetch, force]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      changed: ${{ steps.detect.outputs.changed }}
+    steps:
+      - name: Recuperer le depot
+        uses: actions/checkout@v5
+
+      - name: Installer Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Generer les archives
+        env:
+          FOOTBALLDATA_KEY: ${{ secrets.FOOTBALLDATA_KEY }}
+          ARCHIVES_MODE: ${{ inputs.mode }}
+        run: python archive.py
+
+      - name: Regenerer la page d'accueil
+        run: python hub.py
+
+      - name: Detecter un vrai changement de contenu
+        id: detect
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Aucune archive nouvelle - rien a publier."
+          fi
+
+      - name: Committer les archives
+        if: steps.detect.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A ':(glob)*-[0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]' \
+                     data/archive_*.json index.html hub.sig
+          git diff --staged --quiet || git commit -m "Archives - generation $(date -u +%Y-%m-%d) [skip ci]"
+          git push || echo "Rien a pousser"
+
+      - name: Configurer Pages
+        if: steps.detect.outputs.changed == 'true'
+        uses: actions/configure-pages@v5
+
+      - name: Preparer l'artefact (site = racine du depot)
+        if: steps.detect.outputs.changed == 'true'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: "."
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deployer sur GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
