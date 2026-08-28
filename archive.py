@@ -288,8 +288,8 @@ font-weight:800;font-size:12px;color:var(--mut);cursor:pointer}
 .jsel button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
 .m{display:flex;align-items:center;gap:10px;padding:11px 2px}
 .m+.m{border-top:1px solid var(--line)}
-.m .lg{display:inline}.m .sm{display:none}
-@media(max-width:560px){.m .lg{display:none}.m .sm{display:inline}}
+.lg{display:inline}.sm{display:none}
+@media(max-width:560px){.lg{display:none}.sm{display:inline}}
 .m .t{flex:1;display:flex;align-items:center;gap:7px;min-width:0}
 .m .t.a{justify-content:flex-end;text-align:right}
 .m .t b{font-weight:700;font-size:14px}
