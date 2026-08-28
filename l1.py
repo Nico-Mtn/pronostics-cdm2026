@@ -686,6 +686,17 @@ font-size:14px;color:var(--mut);cursor:pointer}
 .modebar button.on[data-m="reel"]{background:var(--ok);color:var(--surok)}
 .modebar button.on[data-m="prono"]{background:var(--gold);color:var(--surgold)}
 .note{text-align:center;font-size:12px;opacity:.7;margin:6px 0 10px}
+/* Rappel d'abonnement : toujours présent, jamais masqué définitivement. Un lecteur
+   déjà abonné à une autre compétition doit pouvoir s'abonner à celle-ci. */
+.notif{display:flex;align-items:center;gap:11px;padding:12px 14px;margin:0 0 12px;
+border-radius:14px;border:1px solid var(--bd);background:var(--card)}
+.notif .ic{font-size:19px;flex:none}
+.notif .lbl{flex:1;font-size:13px;line-height:1.45}
+.notif .det{font-size:11px;opacity:.6}
+.notif button{flex:none;padding:8px 14px;border-radius:99px;border:0;cursor:pointer;
+font:inherit;font-weight:800;font-size:13px;background:var(--acc);color:#fff}
+.notif button[data-on="1"]{background:var(--ok);color:var(--surok)}
+.notif button[disabled]{opacity:.55;cursor:default}
 nav.tabs{display:flex;gap:8px;margin:10px 0 16px;flex-wrap:wrap}
 nav.tabs button{flex:1;min-width:104px;padding:10px;border-radius:12px;border:1px solid var(--bd);
 background:var(--card);font-weight:800;font-size:13px;color:var(--mut);cursor:pointer}
@@ -797,6 +808,12 @@ footer a{color:var(--lien)}
   <button data-m="prono">🤖 Prono de Nono</button>
  </div>
  <div class="note" id="note"></div>
+ <div class="notif" id="notif" hidden>
+  <span class="ic">🔔</span>
+  <span class="lbl">Recevoir les notifications <b>__NOM__</b><br>
+   <span class="det">Les affiches 1 h avant le coup d'envoi, le bilan le lendemain à 9 h.</span></span>
+  <button id="notifBtn" type="button">Activer</button>
+ </div>
  <nav class="tabs" id="tabs">
   <button data-v="clubs">🛡️ Clubs</button>
   <button data-v="feed" class="on">🔥 Live feed</button>
@@ -812,6 +829,13 @@ footer a{color:var(--lien)}
 <script>
 var DATA = /*__DATA__*/null;
 var view="feed", mode="reel", sub="clt";
+/* Un abonnement push par COMPÉTITION : le lecteur choisit ce qu'il veut suivre.
+   La clé publique VAPID est publique par construction — elle n'a rien d'un secret. */
+var PUSH = {
+ topic: "__SLUG__",
+ base: "https://pronobot-push.nicolasmartin-contact.workers.dev",
+ cle: "BEqVoqWHGNDWSknn8vx4a65zPx39eqGtEnt9wQ3tVW6z81BPxbdOe5kVdWeApywW27Qrd8NbT0KPUPvjzrUbhYw"
+};
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){
  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
 function logo(u){return u?'<img src="'+esc(u)+'" alt="" loading="lazy">':'';}
@@ -1073,6 +1097,76 @@ document.addEventListener("click",function(e){
  var el=e.target.closest?e.target.closest("[data-team]"):null;
  if(el&&el.dataset.team){openTeam(el.dataset.team);}
 });
+
+/* ─── Notifications de journée ─────────────────────────────────────────────
+   Le service worker vit à la RACINE du site : un seul scope pour toutes les
+   compétitions, donc un seul abonnement par appareil, portant la liste des
+   championnats suivis. */
+function b64(s){
+ var p="=".repeat((4-s.length%4)%4), b=atob((s+p).replace(/-/g,"+").replace(/_/g,"/"));
+ return Uint8Array.from(b, function(c){return c.charCodeAt(0);});
+}
+/* Racine du site, quelle que soit la page : /pronostix/ligue-1-france/ -> /pronostix/
+   C'est le scope du service worker, donc celui de l'abonnement push. */
+function racine(){
+ var p=location.pathname;
+ if(p.charAt(p.length-1)!=="/") p=p.slice(0,p.lastIndexOf("/")+1);
+ return p.replace(/[^/]+\/$/,"");
+}
+var notifBtn=document.getElementById("notifBtn"), notifBox=document.getElementById("notif");
+function etatBouton(actif, texte, off){
+ notifBtn.dataset.on = actif ? "1" : "0";
+ notifBtn.textContent = texte;
+ notifBtn.disabled = !!off;
+}
+async function reg(){
+ if(!("serviceWorker" in navigator) || !("PushManager" in window)) return null;
+ return navigator.serviceWorker.register(racine()+"sw.js", {scope: racine()});
+}
+async function initNotif(){
+ if(!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return;
+ notifBox.hidden=false;
+ try{
+  var r=await reg(); if(!r) return;
+  await navigator.serviceWorker.ready;
+  var s=await r.pushManager.getSubscription();
+  if(!s){ etatBouton(false,"Activer"); return; }
+  var t=await fetch(PUSH.base+"/topics?endpoint="+encodeURIComponent(s.endpoint))
+        .then(function(x){return x.json();}).catch(function(){return {topics:[]};});
+  etatBouton((t.topics||[]).indexOf(PUSH.topic)>=0,
+             (t.topics||[]).indexOf(PUSH.topic)>=0 ? "✓ Activé" : "Activer");
+ }catch(e){ etatBouton(false,"Activer"); }
+}
+async function basculer(){
+ var actif = notifBtn.dataset.on==="1";
+ etatBouton(actif,"…",true);
+ try{
+  var r=await reg(); await navigator.serviceWorker.ready;
+  var s=await r.pushManager.getSubscription();
+  if(actif){
+   if(s) await fetch(PUSH.base+"/unsubscribe",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({endpoint:s.endpoint, topics:[PUSH.topic]})});
+   etatBouton(false,"Activer"); return;
+  }
+  if(Notification.permission!=="granted"){
+   var p=await Notification.requestPermission();
+   if(p!=="granted"){ etatBouton(false,"Activer"); 
+    document.getElementById("note").innerHTML="Notifications refusées par le navigateur. "
+     +"Vous pouvez les réautoriser dans les réglages du site."; return; }
+  }
+  if(!s) s=await r.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:b64(PUSH.cle)});
+  await fetch(PUSH.base+"/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},
+       body:JSON.stringify({subscription:s.toJSON(), topics:[PUSH.topic]})});
+  etatBouton(true,"✓ Activé");
+ }catch(e){ etatBouton(false,"Réessayer"); }
+}
+if(notifBtn){ notifBtn.onclick=basculer; initNotif(); }
+
+/* Lien profond « #cal-J3 » : une notification ouvre directement sa journée. */
+(function(){
+ var m=/^#cal-J(\d+)$/.exec(location.hash||"");
+ if(m){ view="cal"; calJ=parseInt(m[1],10); }
+})();
 Array.prototype.forEach.call(document.querySelectorAll("#tabs button"),function(b){
  b.onclick=function(){view=b.dataset.v;render();};});
 Array.prototype.forEach.call(document.querySelectorAll(".modebar button"),function(b){
@@ -1087,6 +1181,7 @@ def build_league(lg):
     m, s, b = fetch_all()
     payload = build(m, s, b)
     html = (PAGE.replace("__NAV__", nav_html(lg["slug"]))
+                .replace("__SLUG__", lg["slug"])
                 .replace("__NOM__", lg["nom"])
                 .replace("__SAISON__", payload["saison"])
                 .replace("/*__DATA__*/null", json.dumps(payload, ensure_ascii=False)))
