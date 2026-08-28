@@ -42,6 +42,94 @@
       "home": "Strasbourg",
       "away": "RC Lens",
       "frozen_at": "2026-08-28T15:17:51Z"
+    },
+    "559705": {
+      "sh": 2,
+      "sa": 1,
+      "issue": "V",
+      "conf": 51,
+      "second": {
+        "sh": 1,
+        "sa": 1,
+        "issue": "N",
+        "conf": 27
+      },
+      "proba": {
+        "v": 51,
+        "n": 27,
+        "d": 22
+      },
+      "eh": 1501,
+      "ea": 1421,
+      "home": "Lorient",
+      "away": "Troyes",
+      "frozen_at": "2026-08-28T21:27:41Z"
+    },
+    "559706": {
+      "sh": 1,
+      "sa": 0,
+      "issue": "V",
+      "conf": 52,
+      "second": {
+        "sh": 1,
+        "sa": 1,
+        "issue": "N",
+        "conf": 27
+      },
+      "proba": {
+        "v": 52,
+        "n": 27,
+        "d": 21
+      },
+      "eh": 1549,
+      "ea": 1456,
+      "home": "Olympique Lyon",
+      "away": "Le Havre",
+      "frozen_at": "2026-08-28T21:27:41Z"
+    },
+    "559708": {
+      "sh": 2,
+      "sa": 1,
+      "issue": "V",
+      "conf": 46,
+      "second": {
+        "sh": 1,
+        "sa": 1,
+        "issue": "N",
+        "conf": 28
+      },
+      "proba": {
+        "v": 46,
+        "n": 28,
+        "d": 26
+      },
+      "eh": 1469,
+      "ea": 1437,
+      "home": "Auxerre",
+      "away": "Angers SCO",
+      "frozen_at": "2026-08-28T21:27:41Z"
+    },
+    "559710": {
+      "sh": 2,
+      "sa": 1,
+      "issue": "V",
+      "conf": 40,
+      "second": {
+        "sh": 1,
+        "sa": 2,
+        "issue": "D",
+        "conf": 31
+      },
+      "proba": {
+        "v": 40,
+        "n": 29,
+        "d": 31
+      },
+      "eh": 1465,
+      "ea": 1485,
+      "home": "Brest",
+      "away": "Toulouse",
+      "frozen_at": "2026-08-28T21:27:41Z"
     }
   }
 }

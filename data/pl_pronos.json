@@ -80,6 +80,28 @@
       "home": "Coventry City",
       "away": "Hull City",
       "frozen_at": "2026-08-28T14:04:19Z"
+    },
+    "560558": {
+      "sh": 2,
+      "sa": 1,
+      "issue": "V",
+      "conf": 38,
+      "second": {
+        "sh": 1,
+        "sa": 2,
+        "issue": "D",
+        "conf": 33
+      },
+      "proba": {
+        "v": 38,
+        "n": 29,
+        "d": 33
+      },
+      "eh": 1445,
+      "ea": 1482,
+      "home": "Tottenham",
+      "away": "Newcastle",
+      "frozen_at": "2026-08-28T21:27:43Z"
     }
   }
 }
