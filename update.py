@@ -1967,7 +1967,23 @@ var wrap=document.querySelector('.wrap');if(!wrap)return;
 var el=document.getElementById('champbar');
 if(!CH){if(el)el.remove();return;}
 if(!el){el=document.createElement('div');el.id='champbar';wrap.insertBefore(el,wrap.firstChild);}
-el.innerHTML='<div class="cl"><span class="tr">🏆</span> Champion du monde 2026</div><div class="cn">'+fimg(CHC)+' '+esc(CH)+'</div>';
+el.innerHTML='<div class="cl"><span class="tr">🏆</span> Compétition terminée · Champion du monde 2026</div><div class="cn">'+fimg(CHC)+' '+esc(CH)+'</div>';
+}catch(e){}}
+
+// Navigation inter-compétitions (mode Saison) : la CdM est archivée, la Ligue 1 est en cours.
+if(!document.getElementById('compnav-css')){var s3=document.createElement('style');s3.id='compnav-css';
+s3.textContent='#compnav{display:flex;gap:8px;margin:12px 0 2px}'
++'#compnav a{flex:1;text-align:center;padding:11px;border-radius:12px;text-decoration:none;font-weight:800;font-size:14px;'
++'background:rgba(127,127,127,.10);color:inherit;opacity:.75;border:1px solid rgba(127,127,127,.18)}'
++'#compnav a.on{background:#2246c7;color:#fff;opacity:1;border-color:#2246c7}';
+document.head.appendChild(s3);}
+function ensureCompNav(){try{
+var wrap=document.querySelector('.wrap');if(!wrap)return;
+if(document.getElementById('compnav'))return;
+var n=document.createElement('div');n.id='compnav';
+n.innerHTML='<a href="./" class="on">🏆 Coupe du Monde 2026</a>'
+           +'<a href="./ligue-1-france/">🇫🇷 Ligue 1 2026-27</a>';
+wrap.insertBefore(n,wrap.firstChild);
 }catch(e){}}
 
 if(!document.getElementById('bilan-css')){var s2=document.createElement('style');s2.id='bilan-css';
@@ -2067,8 +2083,8 @@ b.onclick=function(){try{view='bilan';}catch(e){}try{render();}catch(e){}};nav.a
 
 if(typeof render==='function'){var _r=render;render=function(){try{_r();}catch(e){}
 try{if(typeof view!=='undefined'&&view==='bilan'){var c=document.getElementById('content');if(c)c.innerHTML=bilanHtml();}}catch(e){}
-ensureChampBar();};}
-ensureChampBar();
+ensureChampBar();ensureCompNav();};}
+ensureChampBar();ensureCompNav();
 try{if(typeof view!=='undefined'){view='bilan';if(typeof render==='function')render();}}catch(e){}
 }catch(e){}
 })();</script>"""
