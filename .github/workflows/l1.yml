@@ -2,11 +2,6 @@ name: Championnats - mise a jour
 
 on:
   workflow_dispatch:
-    inputs:
-      archives:
-        description: "Regenerer les pages d'archives (saisons passees)"
-        type: boolean
-        default: false
   schedule:
     - cron: "*/30 11-22 * * *"
 
@@ -39,14 +34,12 @@ jobs:
           FOOTBALLDATA_KEY: ${{ secrets.FOOTBALLDATA_KEY }}
         run: python l1.py
 
-      # Une saison archivee est figee : archive.py repart de son cache local et
-      # n'appelle l'API que si le cache manque. La page est donc regeneree a chaque
-      # run (utile apres un changement de mise en forme) sans consommer de quota.
-      # ARCHIVES_FORCE=1 force le rafraichissement depuis l'API.
-      - name: Generer les archives (saisons passees)
+      # Les archives sont regenerees a chaque run pour suivre les changements de mise
+      # en forme, mais en mode « cache » : aucune requete API n'est consommee ici.
+      # Le telechargement des saisons manquantes se fait via le workflow « Archives ».
+      - name: Regenerer les pages d'archives (cache seul)
         env:
-          FOOTBALLDATA_KEY: ${{ secrets.FOOTBALLDATA_KEY }}
-          ARCHIVES_FORCE: ${{ inputs.archives && '1' || '0' }}
+          ARCHIVES_MODE: cache
         run: python archive.py
 
       - name: Generer la page d'accueil
@@ -55,7 +48,7 @@ jobs:
       - name: Detecter un vrai changement de contenu
         id: detect
         run: |
-          if [ -n "$(git status --porcelain -- ligue-1-france premier-league-england ligue-1-france-2025-2026 hub.sig)" ]; then
+          if [ -n "$(git status --porcelain -- ligue-1-france premier-league-england hub.sig)" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -66,11 +59,11 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          for f in ligue-1-france premier-league-england ligue-1-france-2025-2026 \
-                   index.html hub.sig \
+          for f in ligue-1-france premier-league-england index.html hub.sig \
                    data/l1_pronos.json data/l1_cache.json data/l1_elo_start.json \
                    data/pl_pronos.json data/pl_cache.json data/pl_elo_start.json \
-                   data/archive_ligue-1-france-2025-2026.json; do
+                   data/l1_teams.json data/l1_prev_table.json \
+                   data/pl_teams.json data/pl_prev_table.json; do
             [ -e "$f" ] && git add "$f"
           done
           git diff --staged --quiet || git commit -m "Championnats - MAJ auto $(date -u +%Y-%m-%d) [skip ci]"
