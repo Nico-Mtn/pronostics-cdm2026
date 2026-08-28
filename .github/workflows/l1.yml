@@ -39,17 +39,15 @@ jobs:
           FOOTBALLDATA_KEY: ${{ secrets.FOOTBALLDATA_KEY }}
         run: python l1.py
 
-      # Une saison archivee est figee : inutile de la recalculer toutes les 30 min.
-      # On ne la genere que si elle manque, ou sur demande explicite (economie de quota API).
+      # Une saison archivee est figee : archive.py repart de son cache local et
+      # n'appelle l'API que si le cache manque. La page est donc regeneree a chaque
+      # run (utile apres un changement de mise en forme) sans consommer de quota.
+      # ARCHIVES_FORCE=1 force le rafraichissement depuis l'API.
       - name: Generer les archives (saisons passees)
         env:
           FOOTBALLDATA_KEY: ${{ secrets.FOOTBALLDATA_KEY }}
-        run: |
-          if [ "${{ inputs.archives }}" = "true" ] || [ ! -f "ligue-1-france-2025-2026/index.html" ]; then
-            python archive.py
-          else
-            echo "Archives deja en place - aucune requete API consommee."
-          fi
+          ARCHIVES_FORCE: ${{ inputs.archives && '1' || '0' }}
+        run: python archive.py
 
       - name: Generer la page d'accueil
         run: python hub.py
