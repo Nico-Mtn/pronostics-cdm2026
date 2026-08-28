@@ -1,0 +1,79 @@
+name: Ligue 1 — mise à jour
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/30 11-22 * * *"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      changed: ${{ steps.detect.outputs.changed }}
+    steps:
+      - name: Recuperer le depot
+        uses: actions/checkout@v5
+
+      - name: Installer Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Generer la page Ligue 1
+        env:
+          FOOTBALLDATA_KEY: ${{ secrets.FOOTBALLDATA_KEY }}
+        run: python l1.py
+
+      - name: Detecter un vrai changement de contenu
+        id: detect
+        run: |
+          if [ -n "$(git status --porcelain -- ligue-1-france/content.sig)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Committer les donnees Ligue 1 (si contenu modifie)
+        if: steps.detect.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          for f in ligue-1-france/index.html ligue-1-france/data.json ligue-1-france/content.sig \
+                   data/l1_pronos.json data/l1_cache.json data/l1_elo_start.json; do
+            [ -e "$f" ] && git add "$f"
+          done
+          git diff --staged --quiet || git commit -m "Ligue 1 - MAJ auto $(date -u +%Y-%m-%d) [skip ci]"
+          git push || echo "Rien a pousser"
+
+      - name: Configurer Pages
+        if: steps.detect.outputs.changed == 'true'
+        uses: actions/configure-pages@v5
+
+      - name: Preparer l'artefact (site = racine du depot)
+        if: steps.detect.outputs.changed == 'true'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: "."
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deployer sur GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
