@@ -1,1 +1,72 @@
+{
+  "_meta": {
+    "role": "Référentiel des clubs : nom d'affichage long, abréviation courte (écrans étroits), stade, capacité et titres de champion national. Complète l'API football-data, qui ne fournit ni la capacité du stade ni le palmarès.",
+    "cle": "La clé de chaque entrée est l'identifiant utilisé par l'application, c'est-à-dire le shortName officiel renvoyé par football-data (« Olympique Lyon », « Man United »…). Ne pas la modifier sans regénérer data/<prefix>_pronos.json et data/<prefix>_elo_start.json, qui sont indexés dessus.",
+    "champs": {
+      "nom": "libellé complet, affiché partout où la place le permet",
+      "abbr": "abréviation affichée sur les écrans étroits (< 560 px) dans les lignes de match",
+      "stade": "nom du stade — prioritaire sur le champ venue de l'API, souvent en retard sur les naming rights",
+      "capacite": "nombre de places ; null si inconnue (la fiche affiche alors « — »)",
+      "titres": "nombre de titres de CHAMPION NATIONAL uniquement (ni coupes nationales, ni compétitions européennes) ; 0 = jamais champion, null = non renseigné"
+    },
+    "sources": {
+      "ligue_1": "Wikipédia — Championnat de France de football 2026-2027 (tableau des participants, colonne « Capacité en L1 » : jauge homologuée pour le championnat, et non capacité brute de l'enceinte) et Championnat de France de football (tableau du palmarès).",
+      "premier_league": "Capacités : articles Wikipédia de chaque stade. Palmarès : Wikipédia — List of English football champions (First Division + Premier League cumulés).",
+      "releve_le": "2026-08-28"
+    },
+    "reserves": [
+      "Premier League : la page Wikipédia « 2026-27 Premier League » était encore à l'état d'ébauche au relevé. La liste des 20 clubs a été reconstituée par recoupement (17 maintenus, promus Coventry City, Ipswich Town et Hull City) puis vérifiée sur le classement 2026-2027 après la 1re journée.",
+      "Arsenal est compté à 14 titres : la page de palmarès s'arrêtait à l'édition 2024-2025 et n'intégrait pas le titre 2025-2026. Mettre 13 pour rester strictement conforme à la source.",
+      "LOSC Lille est compté à 4 titres : Wikipédia distingue l'Olympique lillois (champion 1933) du LOSC. Mettre 5 si la convention retenue fusionne les deux clubs.",
+      "Manchester City (extension en cours, livraison annoncée fin 2026) et Crystal Palace (reconstruction de la Main Stand jusqu'à l'été 2027) peuvent voir leur capacité évoluer en cours de saison.",
+      "Les capacités varient de quelques centaines de places selon les sources (Wikipédia, worldfootball, footballgroundguide). L'ordre de grandeur est fiable, le chiffre exact ne l'est pas au siège près.",
+      "Nantes et Metz ne jouent pas en Ligue 1 en 2026-2027 : seuls leur nom et leur abréviation sont renseignés, pour l'archive 2025-2026. Stade, capacité et titres restent à null tant qu'ils n'ont pas été relevés à une source."
+    ],
+    "author": "Nico-Mtn",
+    "credit": "Auteur : Nico-Mtn (https://github.com/Nico-Mtn). Réutilisation libre, crédit apprécié."
+  },
+  "clubs": {
+    "PSG": {"nom": "Paris Saint-Germain", "abbr": "PSG", "stade": "Parc des Princes", "capacite": 47929, "titres": 14},
+    "RC Lens": {"nom": "RC Lens", "abbr": "Lens", "stade": "Stade Bollaert-Delelis", "capacite": 38223, "titres": 1},
+    "Lille": {"nom": "LOSC Lille", "abbr": "LOSC", "stade": "Decathlon Arena — Stade Pierre-Mauroy", "capacite": 50186, "titres": 4},
+    "Olympique Lyon": {"nom": "Olympique Lyonnais", "abbr": "OL", "stade": "Groupama Stadium", "capacite": 57206, "titres": 7},
+    "Marseille": {"nom": "Olympique de Marseille", "abbr": "OM", "stade": "CEPAC Vélodrome", "capacite": 66312, "titres": 9},
+    "Stade Rennais": {"nom": "Stade Rennais FC", "abbr": "Rennes", "stade": "Roazhon Park", "capacite": 29778, "titres": 0},
+    "Monaco": {"nom": "AS Monaco", "abbr": "Monaco", "stade": "Stade Louis-II", "capacite": 16500, "titres": 8},
+    "Strasbourg": {"nom": "RC Strasbourg Alsace", "abbr": "Strasbourg", "stade": "Stade de la Meinau", "capacite": 32000, "titres": 1},
+    "Toulouse": {"nom": "Toulouse FC", "abbr": "TFC", "stade": "Stadium de Toulouse", "capacite": 33150, "titres": 0},
+    "Lorient": {"nom": "FC Lorient", "abbr": "Lorient", "stade": "Stade du Moustoir", "capacite": 18100, "titres": 0},
+    "Paris FC": {"nom": "Paris FC", "abbr": "Paris FC", "stade": "Stade Jean-Bouin", "capacite": 19607, "titres": 0},
+    "Brest": {"nom": "Stade Brestois 29", "abbr": "Brest", "stade": "Stade Francis-Le Blé", "capacite": 15220, "titres": 0},
+    "Angers SCO": {"nom": "Angers SCO", "abbr": "Angers", "stade": "Stade Raymond-Kopa", "capacite": 19800, "titres": 0},
+    "Le Havre": {"nom": "Le Havre AC", "abbr": "Le Havre", "stade": "Stade CMA CGM Océane", "capacite": 25178, "titres": 0},
+    "Auxerre": {"nom": "AJ Auxerre", "abbr": "Auxerre", "stade": "Stade de l'Abbé-Deschamps", "capacite": 18541, "titres": 1},
+    "Nice": {"nom": "OGC Nice", "abbr": "Nice", "stade": "Allianz Riviera", "capacite": 35596, "titres": 4},
+    "Troyes": {"nom": "ESTAC Troyes", "abbr": "ESTAC", "stade": "Stade de l'Aube", "capacite": 21877, "titres": 0},
+    "Le Mans": {"nom": "Le Mans FC", "abbr": "Le Mans", "stade": "Stade Marie-Marvingt", "capacite": 25064, "titres": 0},
 
+    "Nantes": {"nom": "FC Nantes", "abbr": "Nantes", "stade": null, "capacite": null, "titres": null},
+    "FC Metz": {"nom": "FC Metz", "abbr": "Metz", "stade": null, "capacite": null, "titres": null},
+
+    "Arsenal": {"nom": "Arsenal FC", "abbr": "Arsenal", "stade": "Emirates Stadium", "capacite": 60704, "titres": 14},
+    "Aston Villa": {"nom": "Aston Villa FC", "abbr": "Aston Villa", "stade": "Villa Park", "capacite": 43205, "titres": 7},
+    "Bournemouth": {"nom": "AFC Bournemouth", "abbr": "Bournemouth", "stade": "Vitality Stadium", "capacite": 12357, "titres": 0},
+    "Brentford": {"nom": "Brentford FC", "abbr": "Brentford", "stade": "Gtech Community Stadium", "capacite": 17250, "titres": 0},
+    "Brighton Hove": {"nom": "Brighton & Hove Albion", "abbr": "Brighton", "stade": "American Express Stadium", "capacite": 31876, "titres": 0},
+    "Chelsea": {"nom": "Chelsea FC", "abbr": "Chelsea", "stade": "Stamford Bridge", "capacite": 40044, "titres": 6},
+    "Coventry City": {"nom": "Coventry City FC", "abbr": "Coventry", "stade": "Coventry Building Society Arena", "capacite": 32609, "titres": 0},
+    "Crystal Palace": {"nom": "Crystal Palace FC", "abbr": "Palace", "stade": "Selhurst Park", "capacite": 25486, "titres": 0},
+    "Everton": {"nom": "Everton FC", "abbr": "Everton", "stade": "Hill Dickinson Stadium", "capacite": 52769, "titres": 9},
+    "Fulham": {"nom": "Fulham FC", "abbr": "Fulham", "stade": "Craven Cottage", "capacite": 27782, "titres": 0},
+    "Hull City": {"nom": "Hull City AFC", "abbr": "Hull", "stade": "MKM Stadium", "capacite": 25586, "titres": 0},
+    "Ipswich Town": {"nom": "Ipswich Town FC", "abbr": "Ipswich", "stade": "Portman Road", "capacite": 30056, "titres": 1},
+    "Leeds United": {"nom": "Leeds United FC", "abbr": "Leeds", "stade": "Elland Road", "capacite": 37645, "titres": 3},
+    "Liverpool": {"nom": "Liverpool FC", "abbr": "Liverpool", "stade": "Anfield", "capacite": 61276, "titres": 20},
+    "Man City": {"nom": "Manchester City", "abbr": "Man City", "stade": "Etihad Stadium", "capacite": 52900, "titres": 10},
+    "Man United": {"nom": "Manchester United", "abbr": "Man Utd", "stade": "Old Trafford", "capacite": 74500, "titres": 20},
+    "Newcastle": {"nom": "Newcastle United", "abbr": "Newcastle", "stade": "St James' Park", "capacite": 52264, "titres": 4},
+    "Nottingham": {"nom": "Nottingham Forest", "abbr": "Forest", "stade": "City Ground", "capacite": 30445, "titres": 1},
+    "Sunderland": {"nom": "Sunderland AFC", "abbr": "Sunderland", "stade": "Stadium of Light", "capacite": 49000, "titres": 6},
+    "Tottenham": {"nom": "Tottenham Hotspur", "abbr": "Tottenham", "stade": "Tottenham Hotspur Stadium", "capacite": 62850, "titres": 2}
+  }
+}
