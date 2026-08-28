@@ -20,6 +20,28 @@
       "home": "Lille",
       "away": "PSG",
       "frozen_at": "2026-08-28T11:30:44Z"
+    },
+    "559704": {
+      "sh": 1,
+      "sa": 2,
+      "issue": "D",
+      "conf": 36,
+      "second": {
+        "sh": 2,
+        "sa": 1,
+        "issue": "V",
+        "conf": 35
+      },
+      "proba": {
+        "v": 35,
+        "n": 29,
+        "d": 36
+      },
+      "eh": 1513,
+      "ea": 1581,
+      "home": "Strasbourg",
+      "away": "RC Lens",
+      "frozen_at": "2026-08-28T15:17:51Z"
     }
   }
 }
