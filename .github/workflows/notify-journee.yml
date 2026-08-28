@@ -1,0 +1,57 @@
+name: Notifications de journee
+
+# Deux envois par championnat, decides par notify/send-journee.mjs :
+#   - ANNONCE : 1 h avant le premier coup d'envoi d'une journee
+#   - RESUME  : le lendemain a 9 h (Paris), sur la derniere journee terminee
+#
+# Declenchement par les Cron Triggers Cloudflare (l'ordonnanceur GitHub saute
+# regulierement des executions, ce qui est redhibitoire pour une notification
+# a l'heure). Le Worker appelle ce workflow via l'API workflow_dispatch.
+# L'etat data/notify_state.json garantit qu'aucun message ne part deux fois.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Simuler sans rien envoyer (verification du message)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: "notify"
+  cancel-in-progress: false
+
+jobs:
+  notifier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Recuperer le depot
+        uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Installer web-push
+        working-directory: notify
+        run: npm install web-push --no-save
+
+      - name: Decider et envoyer
+        env:
+          VAPID_PUBLIC: ${{ secrets.VAPID_PUBLIC }}
+          VAPID_PRIVATE: ${{ secrets.VAPID_PRIVATE }}
+          SUBS_URL: ${{ secrets.SUBS_URL }}
+          LIST_SECRET: ${{ secrets.PUSH_LIST_SECRET }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+        run: node notify/send-journee.mjs
+
+      - name: Memoriser ce qui a ete envoye
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/notify_state.json 2>/dev/null || true
+          git diff --staged --quiet || git commit -m "Notifications - etat des envois [skip ci]"
+          git push || echo "Rien a pousser"
