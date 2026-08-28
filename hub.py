@@ -17,7 +17,7 @@ aucune saisie manuelle, aucun doublon de vérité.
 
 Usage : python3 hub.py   (à lancer APRÈS update.py / l1.py)
 """
-import os, json, hashlib, datetime
+import os, re, json, hashlib, datetime
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -31,12 +31,32 @@ COMPETITIONS = [
      "famille": "championnat", "statut": "en_cours", "saison": "2026-2027"},
     {"slug": "premier-league-england", "nom": "Premier League", "lieu": "Angleterre",
      "flag": "gb-eng", "famille": "championnat", "statut": "en_cours", "saison": "2026-2027"},
-    {"slug": "ligue-1-france-2025-2026", "nom": "Ligue 1", "lieu": "France", "flag": "fr",
-     "famille": "championnat", "statut": "passee", "saison": "2025-2026"},
     {"slug": "pronostics-cdm2026", "nom": "Coupe du Monde 2026",
      "lieu": "États-Unis · Canada · Mexique", "emoji": "🏆",
      "famille": "coupe", "statut": "passee", "saison": "2026"},
 ]
+
+# Un dossier d'archive s'appelle « <slug du championnat>-<AAAA>-<AAAA> ».
+ARCHIVE_RE = re.compile(r"^(?P<base>.+)-(?P<a>\d{4})-(?P<b>\d{4})$")
+
+def archives_par_championnat():
+    """Découvre les saisons archivées réellement présentes sur le disque, groupées par
+    championnat et triées de la plus récente à la plus ancienne. Rien n'est déclaré à
+    la main : une archive générée apparaît, une archive supprimée disparaît."""
+    out = {}
+    try:
+        dossiers = sorted(os.listdir(ROOT))
+    except Exception:
+        return out
+    for nom in dossiers:
+        m = ARCHIVE_RE.match(nom)
+        if not m or not os.path.exists(os.path.join(ROOT, nom, "data.json")):
+            continue
+        out.setdefault(m.group("base"), []).append(
+            {"slug": nom, "saison": f'{m.group("a")}-{m.group("b")}', "an": int(m.group("a"))})
+    for v in out.values():
+        v.sort(key=lambda x: -x["an"])
+    return out
 
 def lire(slug):
     """Indicateurs d'une compétition depuis son data.json (silencieux si absent)."""
@@ -109,13 +129,41 @@ def carte(c):
             f'<div class="kpis">{kpis}</div></div>'
             f'<div class="go">→</div></a>')
 
+def bloc_archives():
+    """Championnats passés : une seule carte par championnat, celle de la saison la
+    plus récente. Les saisons antérieures restent accessibles par le sélecteur, sans
+    allonger la page à chaque année archivée."""
+    arch = archives_par_championnat()
+    blocs = ""
+    for c in COMPETITIONS:
+        if c["famille"] != "championnat" or c["statut"] != "en_cours":
+            continue
+        saisons = arch.get(c["slug"]) or []
+        if not saisons:
+            continue
+        recente = saisons[0]
+        vue = dict(c, slug=recente["slug"], statut="passee", saison=recente["saison"])
+        blocs += '<div class="arch">' + carte(vue)
+        if len(saisons) > 1:
+            opts = "".join(
+                f'<option value="./{s["slug"]}/"{" selected" if s["slug"] == recente["slug"] else ""}>'
+                f'{s["saison"]}</option>' for s in saisons)
+            blocs += (f'<label class="pick"><span>Saison</span>'
+                      f'<select data-nav aria-label="Choisir une saison de {esc(c["nom"])}">'
+                      f'{opts}</select></label>')
+        blocs += '</div>'
+    return blocs
+
 def section(titre, icone, famille):
     blocs = ""
-    for statut, label in (("en_cours", "En cours"), ("passee", "Passées")):
-        items = [c for c in COMPETITIONS if c["famille"] == famille and c["statut"] == statut]
-        if not items:
-            continue
-        blocs += f'<div class="sub">{label}</div>' + "".join(carte(c) for c in items)
+    encours = [c for c in COMPETITIONS if c["famille"] == famille and c["statut"] == "en_cours"]
+    if encours:
+        blocs += '<div class="sub">En cours</div>' + "".join(carte(c) for c in encours)
+    passees = (bloc_archives() if famille == "championnat"
+               else "".join(carte(c) for c in COMPETITIONS
+                            if c["famille"] == famille and c["statut"] == "passee"))
+    if passees:
+        blocs += '<div class="sub">Passées</div>' + passees
     if not blocs:
         return ""
     return (f'<section><h2><span class="ic">{icone}</span>{titre}</h2>{blocs}</section>')
@@ -182,6 +230,15 @@ background:var(--card);border:1px solid var(--bd);text-decoration:none;color:inh
 .kpi.win b{color:#3a2a00}
 .kpi.soft{opacity:.7}
 .go{font-size:19px;opacity:.35;flex:none}
+/* Bloc archive : la carte de la saison la plus récente, plus un sélecteur discret
+   qui donne accès aux saisons antérieures sans les empiler à l'écran. */
+.arch{margin-bottom:11px}
+.arch .card{margin-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0}
+.pick{display:flex;align-items:center;gap:9px;padding:9px 16px;border:1px solid var(--bd);
+border-top:0;border-radius:0 0 16px 16px;background:var(--card);font-size:12px}
+.pick span{opacity:.6;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.pick select{flex:1;min-width:0;font:inherit;font-weight:800;color:var(--fg);
+background:var(--soft);border:1px solid var(--bd);border-radius:9px;padding:6px 8px;cursor:pointer}
 footer{text-align:center;font-size:11px;opacity:.55;padding:16px;line-height:1.8}
 footer a{color:var(--acc)}
 </style></head><body>
@@ -217,6 +274,10 @@ Array.prototype.forEach.call(document.querySelectorAll("#theme button"),function
 window.matchMedia("(prefers-color-scheme:dark)").addEventListener("change",function(){
  if(document.documentElement.dataset.pref==="auto") applyTheme("auto");});
 applyTheme(document.documentElement.dataset.pref||"auto");
+
+/* Sélecteur de saison : changer d'option ouvre l'archive correspondante. */
+Array.prototype.forEach.call(document.querySelectorAll("select[data-nav]"),function(s){
+ s.onchange=function(){ if(s.value) location.href=s.value; };});
 </script>
 </body></html>"""
 
