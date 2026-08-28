@@ -212,23 +212,52 @@ PAGE = """<!DOCTYPE html><html lang="fr"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Pronostix — __NOM__ __LIB__ (archive)</title>
 <meta name="description" content="Archive de la saison __LIB__ de __NOM__ : résultats, classement, buteurs, fiabilité des pronostics. Sans publicité, sans paris.">
+<link rel="preconnect" href="https://flagcdn.com">
+<link rel="icon" type="image/png" href="../icon-192.png">
+<link rel="apple-touch-icon" href="../icon-192.png">
+<meta property="og:title" content="Pronostix — __NOM__ __LIB__ (archive)">
+<meta property="og:description" content="Archive d'une saison complète : résultats, classement, buteurs, fiabilité des pronostics.">
+<meta property="og:image" content="../logo.png">
+<meta name="theme-color" content="#2246c7">
+<script>
+/* Thème appliqué AVANT le premier rendu : évite le flash blanc en mode sombre.
+   « auto » suit le système ; le choix explicite est conservé d'une visite à l'autre. */
+(function(){try{
+ var p=localStorage.getItem("px-theme")||"auto";
+ var d=p==="dark"||(p==="auto"&&window.matchMedia("(prefers-color-scheme:dark)").matches);
+ document.documentElement.dataset.theme=d?"dark":"light";
+ document.documentElement.dataset.pref=p;
+}catch(e){document.documentElement.dataset.theme="light";}})();
+</script>
 <style>
+:root{--bg:#f4f6fb;--fg:#1b2333;--card:#fff;--bd:#e6e9f2;--line:#eef0f6;--soft:#eef1f8;
+--mut:#5a6478;--acc:#2246c7;--gold:#e8a20c;--ok:#16a34a;--ko:#dc2626;--sh:rgba(34,70,199,.10)}
+html[data-theme="dark"]{--bg:#0f1420;--fg:#e8ecf5;--card:#161d2e;--bd:#242d42;--line:#242d42;
+--soft:#242d42;--mut:#94a0b8;--sh:rgba(0,0,0,.35)}
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-background:#f4f6fb;color:#1b2333;-webkit-font-smoothing:antialiased}
+background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
 .wrap{max-width:820px;margin:0 auto;padding:0 14px 44px}
-header{background:#fff;border-bottom:1px solid #e6e9f2;padding:16px 0 12px}
+header{background:var(--card);border-bottom:1px solid var(--bd);padding:14px 0 12px}
 .hrow{max-width:820px;margin:0 auto;padding:0 14px;display:flex;align-items:center;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand img{width:38px;height:38px;border-radius:10px;object-fit:cover;flex:none}
 h1{margin:0;font-size:20px;font-weight:900}
 .sub{font-size:11px;opacity:.6;text-transform:uppercase;letter-spacing:.05em;margin-top:3px}
 .arch{margin-left:auto;font-size:10px;font-weight:800;padding:4px 10px;border-radius:99px;
-background:#eef1f8;color:#5a6478;text-transform:uppercase;letter-spacing:.05em}
+background:var(--soft);color:var(--mut);text-transform:uppercase;letter-spacing:.05em}
+.theme{flex:none;display:flex;gap:2px;background:var(--soft);border-radius:99px;padding:3px}
+.theme button{border:0;background:transparent;color:var(--mut);width:28px;height:26px;border-radius:99px;
+cursor:pointer;font-size:13px;line-height:1;padding:0}
+.theme button.on{background:var(--card);color:var(--acc);box-shadow:0 1px 3px var(--sh)}
 .compnav{display:flex;gap:8px;margin:14px 0 8px;flex-wrap:wrap}
-.compnav a{flex:1;min-width:120px;text-align:center;padding:11px;border-radius:12px;text-decoration:none;
-font-weight:800;font-size:13px;background:#fff;border:1px solid #e6e9f2;color:#5a6478}
+.compnav a{flex:1;min-width:120px;display:flex;align-items:center;justify-content:center;gap:7px;
+padding:11px;border-radius:12px;text-decoration:none;
+font-weight:800;font-size:13px;background:var(--card);border:1px solid var(--bd);color:var(--mut)}
+.flg{border-radius:3px;object-fit:cover;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.10)}
 .hero{border-radius:18px;padding:22px 18px;text-align:center;margin:6px 0 18px;
 background:linear-gradient(135deg,rgba(246,196,83,.22),rgba(232,162,12,.10));border:1px solid rgba(232,162,12,.35)}
-.hero .nt{font-size:44px;font-weight:900;line-height:1;color:#e8a20c}
+.hero .nt{font-size:44px;font-weight:900;line-height:1;color:var(--gold)}
 .hero .sur{font-size:14px;opacity:.6;font-weight:700}
 .hero .vd{font-size:14px;font-weight:700;margin-top:8px}
 .card{background:#fff;border:1px solid #e6e9f2;border-radius:16px;padding:18px 16px;margin-bottom:16px}
@@ -237,7 +266,7 @@ background:linear-gradient(135deg,rgba(246,196,83,.22),rgba(232,162,12,.10));bor
 font-size:15px;background:linear-gradient(135deg,#f6c453,#e8a20c);flex:none}
 .ctitle h3{margin:0;font-size:15px;font-weight:800}
 .crit{display:flex;align-items:center;gap:10px;padding:9px 0}
-.crit+.crit{border-top:1px solid #eef0f6}
+.crit+.crit{border-top:1px solid var(--line)}
 .crit .lb{flex:1;font-size:13px}
 .crit .bar{width:110px;height:7px;border-radius:5px;background:rgba(127,127,127,.14);overflow:hidden;flex:none}
 .crit .bar i{display:block;height:100%;background:linear-gradient(90deg,#f6c453,#e8a20c)}
@@ -246,19 +275,21 @@ font-size:15px;background:linear-gradient(135deg,#f6c453,#e8a20c);flex:none}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:10px}
 .st{text-align:center;padding:13px 6px;border-radius:13px;background:rgba(127,127,127,.10)}
 .st b{display:block;font-size:20px;font-weight:900}.st span{font-size:10px;opacity:.7;text-transform:uppercase}
-.st.ok b{color:#16a34a}.st.ko b{color:#dc2626}
+.st.ok b{color:var(--ok)}.st.ko b{color:var(--ko)}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{text-align:left;font-size:10px;opacity:.55;text-transform:uppercase;padding:6px 4px;font-weight:800}
-td{padding:8px 4px;border-top:1px solid #eef0f6}
+td{padding:8px 4px;border-top:1px solid var(--line)}
 td.n{text-align:center;width:26px;font-weight:800}td.p{text-align:center;font-weight:900}
-tr.c1 td.n{color:#16a34a}tr.c3 td.n{color:#dc2626}
+tr.c1 td.n{color:var(--ok)}tr.c3 td.n{color:var(--ko)}
 .tm{display:flex;align-items:center;gap:8px}.tm img{width:20px;height:20px;object-fit:contain}
 .jsel{display:flex;gap:6px;overflow-x:auto;padding:4px 0 12px}
-.jsel button{flex:none;padding:7px 13px;border-radius:99px;border:1px solid #e6e9f2;background:#fff;
-font-weight:800;font-size:12px;color:#5a6478;cursor:pointer}
-.jsel button.on{background:#2246c7;color:#fff;border-color:#2246c7}
+.jsel button{flex:none;padding:7px 13px;border-radius:99px;border:1px solid var(--bd);background:var(--card);
+font-weight:800;font-size:12px;color:var(--mut);cursor:pointer}
+.jsel button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
 .m{display:flex;align-items:center;gap:10px;padding:11px 2px}
-.m+.m{border-top:1px solid #eef0f6}
+.m+.m{border-top:1px solid var(--line)}
+.m .lg{display:inline}.m .sm{display:none}
+@media(max-width:560px){.m .lg{display:none}.m .sm{display:inline}}
 .m .t{flex:1;display:flex;align-items:center;gap:7px;min-width:0}
 .m .t.a{justify-content:flex-end;text-align:right}
 .m .t b{font-weight:700;font-size:14px}
@@ -270,17 +301,20 @@ font-weight:800;font-size:12px;color:#5a6478;cursor:pointer}
 .bd.ex{background:#dcfce7;color:#166534}.bd.bo{background:#fef3c7;color:#92400e}.bd.ra{background:#fee2e2;color:#991b1b}
 .note{font-size:11px;opacity:.62;margin-top:10px;line-height:1.6}
 footer{text-align:center;font-size:11px;opacity:.55;padding:20px 14px;line-height:1.8}
-footer a{color:#2246c7}
-@media(prefers-color-scheme:dark){
-body{background:#0f1420;color:#e8ecf5}header{background:#161d2e;border-color:#242d42}
-.card,.compnav a,.jsel button{background:#161d2e;border-color:#242d42}
-.compnav a,.jsel button{color:#94a0b8}
-td,.m+.m,.crit+.crit{border-color:#242d42}.arch{background:#242d42;color:#94a0b8}}
+footer a{color:var(--acc)}
 </style></head><body>
 <header><div class="hrow">
- <div><h1>__NOM__ <span style="opacity:.5">__LIB__</span></h1>
-  <div class="sub">Archive · saison terminée</div></div>
+ <div class="brand">
+  <img src="../logo.png" alt="Pronostix">
+  <div><h1>__NOM__ <span style="opacity:.5">__LIB__</span></h1>
+   <div class="sub">Archive · saison terminée</div></div>
+ </div>
  <div class="arch">📚 Archive</div>
+ <div class="theme" id="theme" role="group" aria-label="Thème d'affichage">
+  <button data-t="light" title="Thème clair" aria-label="Thème clair">☀</button>
+  <button data-t="auto" title="Thème automatique" aria-label="Thème automatique">◐</button>
+  <button data-t="dark" title="Thème sombre" aria-label="Thème sombre">☾</button>
+ </div>
 </div></header>
 <div class="wrap">
  <div class="compnav">__NAV__</div>
@@ -296,6 +330,25 @@ var jSel = null;
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){
  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
 function logo(u){return u?'<img src="'+esc(u)+'" alt="" loading="lazy">':'';}
+/* Nom d'affichage : libellé complet, abréviation sur les écrans étroits. */
+function nmHtml(k){var n=(D.noms||{})[k];
+ if(!n) return esc(k);
+ if(n.a===n.n) return esc(n.n);
+ return '<span class="lg">'+esc(n.n)+'</span><span class="sm">'+esc(n.a)+'</span>';}
+
+function applyTheme(p){
+ try{localStorage.setItem("px-theme",p);}catch(e){}
+ var d=p==="dark"||(p==="auto"&&window.matchMedia("(prefers-color-scheme:dark)").matches);
+ document.documentElement.dataset.theme=d?"dark":"light";
+ document.documentElement.dataset.pref=p;
+ Array.prototype.forEach.call(document.querySelectorAll("#theme button"),function(b){
+  b.classList.toggle("on",b.dataset.t===p);});
+}
+Array.prototype.forEach.call(document.querySelectorAll("#theme button"),function(b){
+ b.onclick=function(){applyTheme(b.dataset.t);};});
+window.matchMedia("(prefers-color-scheme:dark)").addEventListener("change",function(){
+ if(document.documentElement.dataset.pref==="auto") applyTheme("auto");});
+applyTheme(document.documentElement.dataset.pref||"auto");
 function heroHtml(){
  var n=D.note;
  return '<div class="hero"><div class="nt">'+n.note+'<span class="sur"> / '+n.sur+'</span></div>'
@@ -334,7 +387,7 @@ function tableHtml(){
   +'<table><tr><th></th><th>Équipe</th><th>J</th><th>Diff</th><th>Pts</th></tr>';
  r.forEach(function(x){
   var c=x.pos<=3?"c1":(x.pos>=r.length-2?"c3":"");
-  h+='<tr class="'+c+'"><td class="n">'+x.pos+'</td><td><div class="tm">'+logo(x.crest)+esc(x.team)+'</div></td>'
+  h+='<tr class="'+c+'"><td class="n">'+x.pos+'</td><td><div class="tm">'+logo(x.crest)+nmHtml(x.team)+'</div></td>'
    +'<td class="n">'+(x.j||0)+'</td><td class="n">'+((x.diff>0?"+":"")+(x.diff||0))+'</td>'
    +'<td class="p">'+(x.pts||0)+'</td></tr>';
  });
@@ -350,7 +403,7 @@ function scorersHtml(){
    +'<div style="height:6px;border-radius:4px;background:rgba(127,127,127,.14);margin-top:5px;overflow:hidden">'
    +'<span style="display:block;height:100%;width:'+Math.round((p.goals||0)/mx*100)+'%;'
    +'background:linear-gradient(90deg,#f6c453,#e8a20c)"></span></div></td>'
-   +'<td style="opacity:.6;font-size:11px">'+esc(p.team)+'</td><td class="p">'+(p.goals||0)+'</td></tr>';
+   +'<td style="opacity:.6;font-size:11px">'+nmHtml(p.team)+'</td><td class="p">'+(p.goals||0)+'</td></tr>';
  });
  return h+'</table></div>';
 }
@@ -366,10 +419,10 @@ function journeeHtml(){
  ms.forEach(function(m){
   var bd=m.statut==="exact"?'<span class="bd ex">exact</span>':
          (m.statut==="bon"?'<span class="bd bo">bon</span>':'<span class="bd ra">raté</span>');
-  h+='<div class="m"><div class="t">'+logo(m.ch)+'<b>'+esc(m.home)+'</b></div>'
+  h+='<div class="m"><div class="t">'+logo(m.ch)+'<b>'+nmHtml(m.home)+'</b></div>'
    +'<div class="sc2"><div class="v">'+m.reel[0]+' – '+m.reel[1]+'</div>'
    +'<div class="pr">prono '+m.prono[0]+'–'+m.prono[1]+bd+'</div></div>'
-   +'<div class="t a"><b>'+esc(m.away)+'</b>'+logo(m.ca)+'</div></div>';
+   +'<div class="t a"><b>'+nmHtml(m.away)+'</b>'+logo(m.ca)+'</div></div>';
  });
  return sel+h+'</div>';
 }
@@ -381,9 +434,10 @@ draw();
 </script></body></html>"""
 
 def nav_html():
-    items = ['<a href="../">🏠 Accueil</a>']
+    """Même sélecteur que sur les pages de championnat : Accueil + championnats suivis."""
+    items = ['<a href="../"><span class="ic">🏠</span> Accueil</a>']
     for lg in l1.LEAGUES:
-        items.append(f'<a href="../{lg["slug"]}/">{lg["drapeau"]} {lg["nom"]}</a>')
+        items.append(f'<a href="../{lg["slug"]}/">{l1.flag_img(lg["flag"])} {lg["nom"]}</a>')
     return "\n  ".join(items)
 
 def build_archive(a):
@@ -421,9 +475,20 @@ def build_archive(a):
     if ed.get("resume"):
         res = ed["resume"]
 
+    # Noms d'affichage : même référentiel que les pages de championnat, pour qu'un
+    # club porte le même libellé sur toute la plateforme.
+    ref = l1.clubs_ref()
+    equipes = {m["home"] for m in an["matches"]} | {m["away"] for m in an["matches"]}
+    equipes |= {t["team"] for t in an["table"]} | {s["team"] for s in an["scorers"]}
+    noms = {}
+    for k in equipes:
+        rf = ref.get(k) or {}
+        n = rf.get("nom") or k
+        noms[k] = {"n": n, "a": rf.get("abbr") or n}
+
     payload = {"nom": a["nom"], "libelle": a["libelle"], "slug": a["slug"],
                "stats": an["stats"], "matches": an["matches"], "table": an["table"],
-               "scorers": an["scorers"], "journees": an["journees"],
+               "scorers": an["scorers"], "journees": an["journees"], "noms": noms,
                "buts_match": an["buts_match"], "note": note, "resume": res,
                "credit": "Auteur : Nico-Mtn (https://github.com/Nico-Mtn)."}
     html = (PAGE.replace("__NAV__", nav_html()).replace("__NOM__", a["nom"])
