@@ -61,8 +61,10 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A ':(glob)*-[0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]' \
-                     data/archive_*.json index.html hub.sig
+          # Ce workflow ne produit QUE des archives, index.html et hub.sig :
+          # un add global est donc sans risque, et evite les pieges de pathspec.
+          git add -A
+          git status --short | head -30
           git diff --staged --quiet || git commit -m "Archives - generation $(date -u +%Y-%m-%d) [skip ci]"
           git push || echo "Rien a pousser"
 
