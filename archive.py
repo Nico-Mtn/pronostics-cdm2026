@@ -448,19 +448,29 @@ def build_archive(a):
     os.makedirs(outdir, exist_ok=True)
     cache = os.path.join(ROOT, "data", f"archive_{a['slug']}.json")
 
-    m = l1.api_get(f"/competitions/{a['code']}/matches?season={a['saison']}")
-    s = l1.api_get(f"/competitions/{a['code']}/standings?season={a['saison']}")
-    b = l1.api_get(f"/competitions/{a['code']}/scorers?season={a['saison']}&limit=20")
-    if m and m.get("matches"):
+    # Une saison archivée est FIGÉE : ses résultats ne bougeront plus. Le cache local
+    # fait donc autorité, et l'API n'est appelée que s'il manque — ou si on force le
+    # rafraîchissement (ARCHIVES_FORCE=1). La page peut ainsi être régénérée à volonté
+    # après un changement de mise en forme, sans consommer une seule requête.
+    m = s = b = None
+    force = os.environ.get("ARCHIVES_FORCE") == "1"
+    if os.path.exists(cache) and not force:
         try:
-            with open(cache, "w", encoding="utf-8") as f:
-                json.dump({"matches": m, "standings": s, "scorers": b}, f, ensure_ascii=False)
-        except Exception:
-            pass
-    elif os.path.exists(cache):   # une archive est figée : le cache suffit ensuite
-        with open(cache, encoding="utf-8") as f:
-            d = json.load(f)
-        m, s, b = d.get("matches"), d.get("standings"), d.get("scorers")
+            with open(cache, encoding="utf-8") as f:
+                d = json.load(f)
+            m, s, b = d.get("matches"), d.get("standings"), d.get("scorers")
+        except Exception as e:
+            print(f"[WARN] cache {cache} illisible : {e}", file=sys.stderr)
+    if not (m and m.get("matches")):
+        m = l1.api_get(f"/competitions/{a['code']}/matches?season={a['saison']}")
+        s = l1.api_get(f"/competitions/{a['code']}/standings?season={a['saison']}")
+        b = l1.api_get(f"/competitions/{a['code']}/scorers?season={a['saison']}&limit=20")
+        if m and m.get("matches"):
+            try:
+                with open(cache, "w", encoding="utf-8") as f:
+                    json.dump({"matches": m, "standings": s, "scorers": b}, f, ensure_ascii=False)
+            except Exception:
+                pass
     if not (m and m.get("matches")):
         print(f"[SKIP] {a['slug']} : aucune donnée disponible", file=sys.stderr)
         return None
