@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # ============================================================================
-#  Pronostix — Ligue 1 (France), saison 2026-2027
+#  Pronostix — Championnats nationaux (template multi-compétitions)
 #  Auteur / Author : Nico-Mtn — https://github.com/Nico-Mtn
 #  Projet gratuit, sans publicité, sans paris.
 #  Réutilisation libre : un CRÉDIT au créateur (Nico-Mtn) serait grandement
@@ -8,20 +8,21 @@
 #  (Nico-Mtn) would be greatly appreciated.
 # ============================================================================
 """
-Génère la page /ligue-1-france : calendrier, pronostics, classement (réel +
-projeté) et buteurs du championnat de France, à partir de football-data.org
-(compétition FL1, incluse dans le plan GRATUIT).
+Génère UNE PAGE PAR CHAMPIONNAT (Ligue 1, Premier League, …) : fiches clubs,
+calendrier, pronostics, classement (réel + projeté), dynamique et buteurs,
+à partir de football-data.org. Toutes les compétitions listées dans LEAGUES
+sont incluses dans le plan GRATUIT.
 
 Reprend le fonctionnement éprouvé sur la Coupe du Monde 2026 :
   • moteur de prono Elo + Dixon-Coles (mêmes principes, adaptés au championnat) ;
-  • PRONO FIGÉ 24 h avant le coup d'envoi (data/l1_pronos.json) : le prono affiché
+  • PRONO FIGÉ 24 h avant le coup d'envoi (data/<prefix>_pronos.json) : le prono affiché
     la veille est EXACTEMENT celui qui sera noté — aucune dérive ;
   • notation exact / bon / raté et indice de fiabilité ;
   • mode « Réel » (résultats officiels) et « Prono de Nono » (projections).
 
-Sorties : ligue-1-france/index.html, ligue-1-france/data.json,
-          ligue-1-france/content.sig (déploiement conditionnel),
-          data/l1_pronos.json (pronos figés, committé).
+Sorties (par championnat) : <slug>/index.html, <slug>/data.json,
+          <slug>/content.sig (déploiement conditionnel),
+          data/<prefix>_pronos.json (pronos figés, committés).
 
 Usage : python3 l1.py   (variable d'env FOOTBALLDATA_KEY)
 """
@@ -34,14 +35,17 @@ FREEZE_LEAD_H = 24           # gel du prono 24 h avant le coup d'envoi
 
 # ─── Championnats suivis ─────────────────────────────────────────────────────
 # Ce fichier est un TEMPLATE : ajouter une entrée ci-dessous suffit à créer une
-# nouvelle page complète (live feed, calendrier, classement réel + projeté, buteurs).
-# `code` = identifiant football-data ; tous ceux listés ici sont en plan GRATUIT.
-# `prefix` = préfixe des fichiers de données (data/<prefix>_pronos.json, etc.).
+# nouvelle page complète (clubs, live feed, calendrier, classements, buteurs).
+# Champ « code » = identifiant football-data ; tous ceux listés ici sont en plan GRATUIT.
+# Champ « prefix » = préfixe des fichiers de données (data/<prefix>_pronos.json, etc.).
+# Champ « flag » = code pays flagcdn. Le drapeau est servi en IMAGE et non en emoji :
+# celui de l'Angleterre est une séquence de balises Unicode que la majorité des
+# systèmes n'affiche pas, et remplace par un drapeau noir générique.
 LEAGUES = [
     {"slug": "ligue-1-france", "prefix": "l1", "code": "FL1", "nom": "Ligue 1",
-     "drapeau": "🇫🇷", "saison": 2026, "libelle": "2026-2027"},
+     "flag": "fr", "saison": 2026, "libelle": "2026-2027"},
     {"slug": "premier-league-england", "prefix": "pl", "code": "PL", "nom": "Premier League",
-     "drapeau": "🏴", "saison": 2026, "libelle": "2026-2027"},
+     "flag": "gb-eng", "saison": 2026, "libelle": "2026-2027"},
 ]
 LG = LEAGUES[0]              # championnat courant (réassigné par set_league)
 OUTDIR = os.path.join(ROOT, LG["slug"])
@@ -62,15 +66,34 @@ def data_path(kind):
     """Chemin d'un fichier de données propre au championnat courant."""
     return os.path.join(ROOT, "data", f"{LG['prefix']}_{kind}.json")
 
+def flag_img(code, taille=20):
+    """Drapeau servi en image (rendu identique sur tous les systèmes)."""
+    return (f'<img class="flg" src="https://flagcdn.com/w40/{code}.png" '
+            f'width="{taille}" height="{int(taille * 0.75)}" alt="" loading="lazy">')
+
 def nav_html(current_slug):
-    """Sélecteur de compétition commun à toutes les pages."""
-    items = ['<a href="../">🏠 Accueil</a>',
-             '<a href="../pronostics-cdm2026/">🏆 Coupe du Monde 2026</a>']
+    """Sélecteur de compétition : Accueil + un onglet par championnat suivi."""
+    items = ['<a href="../"><span class="ic">🏠</span> Accueil</a>']
     for lg in LEAGUES:
         cls = ' class="on"' if lg["slug"] == current_slug else ""
         href = "./" if lg["slug"] == current_slug else f"../{lg['slug']}/"
-        items.append(f'<a href="{href}"{cls}>{lg["drapeau"]} {lg["nom"]}</a>')
+        items.append(f'<a href="{href}"{cls}>{flag_img(lg["flag"])} {lg["nom"]}</a>')
     return "\n  ".join(items)
+
+# ─── Référentiel des clubs ───────────────────────────────────────────────────
+# data/clubs_ref.json apporte ce que l'API ne fournit pas : nom d'affichage long,
+# abréviation pour les écrans étroits, capacité du stade et titres de champion.
+# Indexé sur le shortName football-data, qui sert d'identifiant partout dans l'app.
+_CLUBS = None
+def clubs_ref():
+    global _CLUBS
+    if _CLUBS is None:
+        try:
+            with open(os.path.join(ROOT, "data", "clubs_ref.json"), encoding="utf-8") as f:
+                _CLUBS = json.load(f).get("clubs") or {}
+        except Exception:
+            _CLUBS = {}
+    return _CLUBS
 
 # ─── Elo de départ des clubs ─────────────────────────────────────────────────
 # Il n'est PAS saisi de mémoire : il est calculé (voir compute_elo_start) à partir
@@ -88,12 +111,14 @@ REGRESSION = 0.25              # part de retour vers la moyenne entre deux saiso
 PROMU_ELO = 1420.0             # niveau de départ d'un promu (absent de la saison N-1)
 MERCATO_CAP = 60.0             # borne de l'ajustement mercato (en points Elo)
 HOME_ADV = 65.0        # avantage du terrain en points Elo (championnat)
-MU_L1 = 2.72           # total de buts moyen par match en Ligue 1
+MU_L1 = 2.72           # total de buts moyen par match (grands championnats européens)
 DC_RHO = -0.13         # correction Dixon-Coles sur les petits scores
 
-# Nom d'affichage : on privilégie le shortName OFFICIEL de l'API (« Paris SG »,
-# « Marseille »…), puis le nom complet, puis le trigramme. Aucun découpage maison
-# (qui produisait des libellés fautifs du type « de Marseille »).
+# Identifiant d'équipe : shortName OFFICIEL de l'API (« Paris SG », « Marseille »…),
+# puis nom complet, puis trigramme. Aucun découpage maison (qui produisait des
+# libellés fautifs du type « de Marseille »). Le NOM AFFICHÉ, lui, vient du
+# référentiel clubs_ref.json — l'identifiant, jamais, pour ne pas invalider les
+# pronos figés ni l'Elo de départ, qui sont indexés dessus.
 def disp(team):
     t = team or {}
     for k in ("shortName", "name"):
@@ -114,6 +139,32 @@ def api_get(path):
     except Exception as e:
         print(f"[WARN] API {path} : {e}", file=sys.stderr)
         return None
+
+def cached_get(kind, path, valide):
+    """Appel API mis en cache sur disque. Les données quasi statiques (fiche des
+    clubs, classement de la saison passée) ne sont demandées qu'une fois : le
+    quota du plan gratuit est limité, et ces valeurs ne bougent plus."""
+    p = data_path(kind)
+    try:
+        with open(p, encoding="utf-8") as f:
+            d = json.load(f)
+        if d.get("saison") == SEASON and valide(d.get("data")):
+            return d["data"]
+    except Exception:
+        pass
+    data = api_get(path)
+    if valide(data):
+        try:
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w", encoding="utf-8") as f:
+                json.dump({"_meta": {"role": f"Cache de {path} — données stables, "
+                                             "rafraîchies seulement si le fichier est supprimé.",
+                                     "author": "Nico-Mtn"},
+                           "saison": SEASON, "data": data}, f, ensure_ascii=False)
+        except Exception as e:
+            print(f"[WARN] écriture cache {kind} : {e}", file=sys.stderr)
+        return data
+    return None
 
 def fetch_all():
     """Renvoie (matches, standings, scorers) depuis football-data, ou du cache local."""
@@ -140,6 +191,32 @@ def fetch_all():
         except Exception:
             pass
     return None, None, None
+
+def fetch_teams():
+    """Fiche des clubs (année de création, stade, couleurs) — mise en cache."""
+    d = cached_get("teams", f"/competitions/{COMP}/teams?season={SEASON}",
+                   lambda x: bool(x and x.get("teams")))
+    out = {}
+    for t in (d or {}).get("teams", []):
+        out[disp(t)] = {"fonde": t.get("founded"), "venue": t.get("venue"),
+                        "crest": t.get("crest"), "tla": t.get("tla"),
+                        "site": t.get("website")}
+    return out
+
+def fetch_prev_table():
+    """Classement FINAL de la saison précédente — mis en cache (il ne bougera plus)."""
+    d = cached_get("prev_table", f"/competitions/{COMP}/standings?season={PREV_SEASON}",
+                   lambda x: bool(x and x.get("standings")))
+    out = {}
+    for blk in (d or {}).get("standings", []):
+        if blk.get("type") != "TOTAL":
+            continue
+        n = len(blk.get("table") or [])
+        for r in blk.get("table", []):
+            out[disp(r.get("team") or {})] = {"pos": r.get("position"), "pts": r.get("points"),
+                                              "sur": n}
+        break
+    return out
 
 # ─── Modèle : Elo live + Dixon-Coles ─────────────────────────────────────────
 def team_elo(elo, name):
@@ -170,8 +247,8 @@ def walk_forward(rows):
 
 def load_mercato():
     """Ajustements qualitatifs de PRÉ-SAISON, saisis à la main (jugement humain).
-    Format data/l1_mercato.json :
-        {"ajustements": {"Olympique Lyonnais": {"delta": -35, "note": "départ de 3 cadres"}}}
+    Format data/<prefix>_mercato.json :
+        {"ajustements": {"Olympique Lyon": {"delta": -35, "note": "départ de 3 cadres"}}}
     delta en points Elo, borné à ±MERCATO_CAP. Négatif = effectif déstabilisé (beaucoup
     de départs/arrivées, vente de joueurs cadres, nouveau staff → temps d'adaptation) ;
     positif = recrutement qui renforce nettement un groupe déjà en place."""
@@ -218,7 +295,6 @@ def compute_elo_start(teams_now):
 
     prev = prev_season_elo()
     mercato = load_mercato()
-    detail = {}
     if prev:
         avg = sum(prev.values()) / len(prev)
         base = {t: avg + (e - avg) * (1.0 - REGRESSION) for t, e in prev.items()}
@@ -242,14 +318,14 @@ def compute_elo_start(teams_now):
                 json.dump({"_meta": {
                     "role": "Elo de DÉPART de la saison : résultats réels de la saison "
                             "précédente (walk-forward) régressés vers la moyenne, + ajustement "
-                            "qualitatif de pré-saison (data/l1_mercato.json). Figé pour reproductibilité.",
+                            "qualitatif de pré-saison (data/<prefix>_mercato.json). Figé pour reproductibilité.",
                     "regression": REGRESSION, "promu_elo": PROMU_ELO,
                     "calcule_le": datetime.datetime.now(datetime.timezone.utc)
                                   .strftime("%Y-%m-%dT%H:%M:%SZ"),
                     "author": "Nico-Mtn"},
                     "saison": SEASON, "elo": elo, "detail": notes}, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            print(f"[WARN] écriture l1_elo_start.json : {e}", file=sys.stderr)
+            print(f"[WARN] écriture {path} : {e}", file=sys.stderr)
     return elo
 
 def _pois(k, lam):
@@ -323,6 +399,22 @@ def dynamique(rows):
     out.sort(key=lambda x: (-x["idx"], -x["diff"]))
     return out
 
+def bilans(rows):
+    """Bilan à domicile et à l'extérieur de chaque équipe (matchs joués uniquement)."""
+    b = {}
+    def slot(t, ou):
+        return b.setdefault(t, {"dom": {"j": 0, "v": 0, "n": 0, "p": 0},
+                                "ext": {"j": 0, "v": 0, "n": 0, "p": 0}})[ou]
+    for r in rows:
+        if not r["played"]:
+            continue
+        h, a = slot(r["home"], "dom"), slot(r["away"], "ext")
+        h["j"] += 1; a["j"] += 1
+        if r["sh"] > r["sa"]:   h["v"] += 1; a["p"] += 1
+        elif r["sh"] < r["sa"]: h["p"] += 1; a["v"] += 1
+        else:                   h["n"] += 1; a["n"] += 1
+    return b
+
 # ─── Pronos FIGÉS (24 h avant le coup d'envoi) ───────────────────────────────
 def load_frozen():
     p = data_path("pronos")
@@ -337,7 +429,7 @@ def save_frozen(pronos):
     os.makedirs(os.path.dirname(p), exist_ok=True)
     with open(p, "w", encoding="utf-8") as f:
         json.dump({"_meta": {
-            "role": "Pronostics Ligue 1 FIGÉS 24 h avant le coup d'envoi "
+            "role": "Pronostics FIGÉS 24 h avant le coup d'envoi "
                     "(affichage = notation, aucune dérive). Écrit par l1.py.",
             "author": "Nico-Mtn",
             "credit": "Auteur : Nico-Mtn (https://github.com/Nico-Mtn). Réutilisation libre, crédit apprécié."},
@@ -376,7 +468,6 @@ def build(matches_raw, standings_raw, scorers_raw):
         rows.append({
             "id": m.get("id"), "j": m.get("matchday"), "dt": dt,
             "home": hn, "away": an,
-            "hs": hn, "as_": an,
             "ch": ht.get("crest"), "ca": at.get("crest"),
             "sh": ft.get("home") if played else None,
             "sa": ft.get("away") if played else None,
@@ -415,7 +506,7 @@ def build(matches_raw, standings_raw, scorers_raw):
             "heure": (d.strftime("%H:%M") if d else ""),
             "iso": (d.strftime("%Y-%m-%d") if d else ""),
             "sort": (r["dt"].strftime("%Y-%m-%dT%H:%M:%SZ") if r["dt"] else ""),
-            "home": r["hs"], "away": r["as_"], "ch": r["ch"], "ca": r["ca"],
+            "home": r["home"], "away": r["away"], "ch": r["ch"], "ca": r["ca"],
             "prono": [pred["sh"], pred["sa"]] if pred else None,
             "issue": pred.get("issue") if pred else None,
             "conf": pred.get("conf") if pred else None,
@@ -464,6 +555,36 @@ def build(matches_raw, standings_raw, scorers_raw):
                         "crest": t.get("crest"), "goals": s.get("goals") or 0,
                         "assists": s.get("assists") or 0})
 
+    # Fiches clubs : API (année de création, stade) + référentiel (capacité, titres,
+    # nom d'affichage) + calculs maison (bilan domicile / extérieur).
+    api_teams, prev_tbl, ref = fetch_teams(), fetch_prev_table(), clubs_ref()
+    bil = bilans(rows)
+    crests = {}
+    for r in rows:
+        crests.setdefault(r["home"], r["ch"]); crests.setdefault(r["away"], r["ca"])
+    pos_now = {t["team"]: t for t in table}
+    clubs, noms = [], {}
+    for key in teams:
+        rf = ref.get(key) or {}
+        at = api_teams.get(key) or {}
+        nom = rf.get("nom") or key
+        noms[key] = {"n": nom, "a": rf.get("abbr") or nom}
+        pv, cur = prev_tbl.get(key), pos_now.get(key)
+        clubs.append({
+            "team": key, "nom": nom, "abbr": rf.get("abbr") or nom,
+            "crest": crests.get(key) or at.get("crest"),
+            "fonde": at.get("fonde"),
+            "stade": rf.get("stade") or at.get("venue"),
+            "capacite": rf.get("capacite"),
+            "titres": rf.get("titres"),
+            "prev": ({"pos": pv["pos"], "pts": pv["pts"], "sur": pv["sur"],
+                      "saison": f"{PREV_SEASON}-{PREV_SEASON + 1}"} if pv else None),
+            "dom": (bil.get(key) or {}).get("dom") or {"j": 0, "v": 0, "n": 0, "p": 0},
+            "ext": (bil.get(key) or {}).get("ext") or {"j": 0, "v": 0, "n": 0, "p": 0},
+            "pos": (cur or {}).get("pos"), "pts": (cur or {}).get("pts"),
+        })
+    clubs.sort(key=lambda c: (c["pos"] is None, c["pos"] or 0, c["nom"]))
+
     jours = sorted({f["j"] for f in feed if f["j"]})
     cur = None
     for j in jours:
@@ -473,7 +594,7 @@ def build(matches_raw, standings_raw, scorers_raw):
         "today": now.strftime("%Y-%m-%d"),
         "saison": LG["libelle"], "nom": LG["nom"], "slug": LG["slug"], "journee": cur, "journees": jours,
         "stats": stats, "matches": feed, "table": table, "dyn": dynamique(rows),
-        "projected": projected, "scorers": scorers,
+        "projected": projected, "scorers": scorers, "clubs": clubs, "noms": noms,
         "credit": "Auteur : Nico-Mtn (https://github.com/Nico-Mtn). Projet gratuit, sans pub, sans paris.",
     }
 
@@ -481,109 +602,163 @@ def build(matches_raw, standings_raw, scorers_raw):
 PAGE = """<!DOCTYPE html><html lang="fr"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Pronostix — __NOM__ __SAISON__</title>
-<meta name="description" content="Pronostics IA gratuits de __NOM__ __SAISON__ : calendrier, classement, buteurs. Sans publicité, sans paris. Par Nico-Mtn.">
+<meta name="description" content="Pronostics IA gratuits de __NOM__ __SAISON__ : fiches clubs, calendrier, classement, buteurs. Sans publicité, sans paris. Par Nico-Mtn.">
+<link rel="preconnect" href="https://flagcdn.com">
+<link rel="icon" type="image/png" href="../icon-192.png">
+<link rel="apple-touch-icon" href="../icon-192.png">
+<meta property="og:title" content="Pronostix — __NOM__ __SAISON__">
+<meta property="og:description" content="Pronostics IA gratuits, sans publicité et sans paris.">
+<meta property="og:image" content="../logo.png">
+<meta name="theme-color" content="#2246c7">
+<script>
+/* Thème appliqué AVANT le premier rendu : évite le flash blanc en mode sombre.
+   « auto » suit le système ; le choix explicite est conservé d'une visite à l'autre. */
+(function(){try{
+ var p=localStorage.getItem("px-theme")||"auto";
+ var d=p==="dark"||(p==="auto"&&window.matchMedia("(prefers-color-scheme:dark)").matches);
+ document.documentElement.dataset.theme=d?"dark":"light";
+ document.documentElement.dataset.pref=p;
+}catch(e){document.documentElement.dataset.theme="light";}})();
+</script>
 <style>
+:root{--bg:#f4f6fb;--fg:#1b2333;--card:#fff;--bd:#e6e9f2;--line:#eef0f6;--soft:#eef1f8;
+--mut:#5a6478;--acc:#2246c7;--gold:#e8a20c;--ok:#16a34a;--ko:#dc2626;--sh:rgba(34,70,199,.10)}
+html[data-theme="dark"]{--bg:#0f1420;--fg:#e8ecf5;--card:#161d2e;--bd:#242d42;--line:#242d42;
+--soft:#242d42;--mut:#94a0b8;--sh:rgba(0,0,0,.35)}
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-background:#f4f6fb;color:#1b2333;-webkit-font-smoothing:antialiased}
+background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
 .wrap{max-width:820px;margin:0 auto;padding:0 14px 40px}
-header{background:#fff;border-bottom:1px solid #e6e9f2;padding:14px 0 10px;position:sticky;top:0;z-index:9}
+header{background:var(--card);border-bottom:1px solid var(--bd);padding:12px 0 10px;position:sticky;top:0;z-index:9}
 .hrow{max-width:820px;margin:0 auto;padding:0 14px;display:flex;align-items:center;gap:12px}
-h1{margin:0;font-size:20px;font-weight:900}
-.tag{color:#2246c7;font-weight:700;font-size:12px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand img{width:38px;height:38px;border-radius:10px;object-fit:cover;flex:none}
+h1{margin:0;font-size:19px;font-weight:900}
+.tag{color:var(--acc);font-weight:700;font-size:12px}
 .sub{font-size:11px;opacity:.6;text-transform:uppercase;letter-spacing:.05em}
-.pct{margin-left:auto;text-align:center}.pct .b{font-size:22px;font-weight:900;color:#e8a20c;line-height:1}
+.pct{margin-left:auto;text-align:center;flex:none}
+.pct .b{font-size:22px;font-weight:900;color:var(--gold);line-height:1}
 .pct .l{font-size:10px;opacity:.6;text-transform:uppercase}
+.theme{flex:none;display:flex;gap:2px;background:var(--soft);border-radius:99px;padding:3px}
+.theme button{border:0;background:transparent;color:var(--mut);width:28px;height:26px;border-radius:99px;
+cursor:pointer;font-size:13px;line-height:1;padding:0}
+.theme button.on{background:var(--card);color:var(--acc);box-shadow:0 1px 3px var(--sh)}
 .scorebar{max-width:820px;margin:10px auto 0;padding:0 14px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.sc{background:#fff;border:1px solid #e6e9f2;border-radius:12px;padding:9px 6px;text-align:center}
+.sc{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:9px 6px;text-align:center}
 .sc b{display:block;font-size:17px;font-weight:900}.sc span{font-size:10px;opacity:.6;text-transform:uppercase}
-.sc.ok b{color:#16a34a}.sc.ko b{color:#dc2626}
+.sc.ok b{color:var(--ok)}.sc.ko b{color:var(--ko)}
 .maj{max-width:820px;margin:8px auto 0;padding:0 14px;text-align:center;font-size:11px;opacity:.6}
 .compnav{display:flex;gap:8px;margin:14px 0 6px}
-.compnav a{flex:1;text-align:center;padding:11px;border-radius:12px;text-decoration:none;font-weight:800;
-font-size:14px;background:#fff;border:1px solid #e6e9f2;color:#5a6478}
-.compnav a.on{background:#2246c7;color:#fff;border-color:#2246c7}
-.modebar{display:flex;gap:8px;margin:10px 0 4px;background:#fff;border:1px solid #e6e9f2;border-radius:12px;padding:4px}
+.compnav a{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:11px 8px;
+border-radius:12px;text-decoration:none;font-weight:800;font-size:14px;background:var(--card);
+border:1px solid var(--bd);color:var(--mut)}
+.compnav a.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.compnav .ic{font-size:15px}
+.flg{border-radius:3px;object-fit:cover;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.10)}
+.modebar{display:flex;gap:8px;margin:10px 0 4px;background:var(--card);border:1px solid var(--bd);
+border-radius:12px;padding:4px}
 .modebar button{flex:1;padding:9px;border:0;border-radius:9px;background:transparent;font-weight:800;
-font-size:14px;color:#5a6478;cursor:pointer}
-.modebar button.on{background:#2246c7;color:#fff}
+font-size:14px;color:var(--mut);cursor:pointer}
+.modebar button.on{background:var(--acc);color:#fff}
 .note{text-align:center;font-size:12px;opacity:.7;margin:6px 0 10px}
 nav.tabs{display:flex;gap:8px;margin:10px 0 16px;flex-wrap:wrap}
-nav.tabs button{flex:1;min-width:110px;padding:10px;border-radius:12px;border:1px solid #e6e9f2;background:#fff;
-font-weight:800;font-size:13px;color:#5a6478;cursor:pointer}
-nav.tabs button.on{background:#2246c7;color:#fff;border-color:#2246c7}
-.card{background:#fff;border:1px solid #e6e9f2;border-radius:16px;padding:16px;margin-bottom:16px}
+nav.tabs button{flex:1;min-width:104px;padding:10px;border-radius:12px;border:1px solid var(--bd);
+background:var(--card);font-weight:800;font-size:13px;color:var(--mut);cursor:pointer}
+nav.tabs button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.subnav{display:flex;gap:6px;margin:0 0 14px}
+.subnav button{flex:1;padding:8px;border-radius:99px;border:1px solid var(--bd);background:var(--card);
+font-weight:800;font-size:12px;color:var(--mut);cursor:pointer}
+.subnav button.on{background:var(--gold);color:#3a2a00;border-color:var(--gold)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:16px;margin-bottom:16px}
 .ctitle{display:flex;align-items:center;gap:9px;margin-bottom:14px}
 .ctitle .ic{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;
 font-size:15px;background:linear-gradient(135deg,#f6c453,#e8a20c);flex:none}
 .ctitle h3{margin:0;font-size:15px;font-weight:800}
-.day{font-size:11px;font-weight:800;opacity:.55;text-transform:uppercase;letter-spacing:.05em;margin:16px 0 8px}
 .m{display:flex;align-items:center;gap:10px;padding:12px 2px}
-.m+.m{border-top:1px solid #eef0f6}
+.m+.m{border-top:1px solid var(--line)}
 .m .t{flex:1;display:flex;align-items:center;gap:7px;min-width:0}
 .m .t.a{justify-content:flex-end;text-align:right}
 .m .t b{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .m img{width:22px;height:22px;object-fit:contain;flex:none}
 .sc2{flex:none;text-align:center;min-width:76px}
-.sc2 .v{font-size:17px;font-weight:900}.sc2 .k{font-size:9px;opacity:.55;text-transform:uppercase;letter-spacing:.04em}
-.sc2 .p{color:#e8a20c}
+.sc2 .v{font-size:17px;font-weight:900}
+.sc2 .k{font-size:9px;opacity:.55;text-transform:uppercase;letter-spacing:.04em}
+.sc2 .p{color:var(--gold)}
 .meta{display:flex;align-items:center;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:5px}
-.b{font-size:10px;font-weight:800;padding:2px 7px;border-radius:99px;background:#eef1f8;color:#5a6478}
+.b{font-size:10px;font-weight:800;padding:2px 7px;border-radius:99px;background:var(--soft);color:var(--mut)}
 .b.ex{background:#dcfce7;color:#166534}.b.bo{background:#fef3c7;color:#92400e}.b.ra{background:#fee2e2;color:#991b1b}
 .b.fg{background:#e0e7ff;color:#3730a3}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{text-align:left;font-size:10px;opacity:.55;text-transform:uppercase;padding:6px 4px;font-weight:800}
-td{padding:8px 4px;border-top:1px solid #eef0f6}
+td{padding:8px 4px;border-top:1px solid var(--line)}
 td.n{text-align:center;width:26px;font-weight:800}
 td.p{text-align:center;font-weight:900}
-tr.c1 td.n{color:#16a34a}tr.c2 td.n{color:#2246c7}tr.c3 td.n{color:#dc2626}
+tr.c1 td.n{color:var(--ok)}tr.c2 td.n{color:var(--acc)}tr.c3 td.n{color:var(--ko)}
 .tm{display:flex;align-items:center;gap:8px}.tm img{width:20px;height:20px;object-fit:contain}
 .empty{text-align:center;opacity:.6;padding:26px 10px;font-size:14px}
 .tn{cursor:pointer;border-bottom:1px dotted rgba(127,127,127,.5)}
-.tn:hover{color:#2246c7}
+.tn:hover{color:var(--acc)}
 .alt{margin-top:6px;text-align:center;font-size:11px}
-.alt button{border:0;background:rgba(127,127,127,.12);color:inherit;font:inherit;font-size:11px;
+.alt button{border:0;background:var(--soft);color:inherit;font:inherit;font-size:11px;
 font-weight:700;padding:3px 10px;border-radius:99px;cursor:pointer}
-.alt button:hover{background:rgba(34,70,199,.14);color:#2246c7}
-.alt .sc{margin-left:6px;font-weight:900;color:#e8a20c}
+.alt button:hover{color:var(--acc)}
+.alt .v2{margin-left:6px;font-weight:900;color:var(--gold)}
 .jsel{display:flex;gap:6px;overflow-x:auto;padding:4px 0 10px;-webkit-overflow-scrolling:touch}
-.jsel button{flex:none;padding:7px 13px;border-radius:99px;border:1px solid #e6e9f2;background:#fff;
-font-weight:800;font-size:12px;color:#5a6478;cursor:pointer}
-.jsel button.on{background:#2246c7;color:#fff;border-color:#2246c7}
+.jsel button{flex:none;padding:7px 13px;border-radius:99px;border:1px solid var(--bd);background:var(--card);
+font-weight:800;font-size:12px;color:var(--mut);cursor:pointer}
+.jsel button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
 .fold{width:100%;margin-top:8px;padding:12px;border-radius:12px;border:1px dashed rgba(127,127,127,.35);
 background:transparent;color:inherit;font:inherit;font-weight:800;font-size:13px;cursor:pointer;opacity:.75}
-.fold:hover{opacity:1;border-color:#2246c7;color:#2246c7}
+.fold:hover{opacity:1;border-color:var(--acc);color:var(--acc)}
 .dyn-row{display:flex;align-items:center;gap:10px;padding:11px 2px}
-.dyn-row+.dyn-row{border-top:1px solid #eef0f6}
+.dyn-row+.dyn-row{border-top:1px solid var(--line)}
 .dyn-row .nm{flex:1;font-weight:700}
 .serie{display:flex;gap:3px}
 .serie i{width:19px;height:19px;border-radius:6px;font-style:normal;font-size:10px;font-weight:900;
 display:flex;align-items:center;justify-content:center;color:#fff}
-.serie i.V{background:#16a34a}.serie i.N{background:#a1a1aa}.serie i.D{background:#dc2626}
+.serie i.V{background:var(--ok)}.serie i.N{background:#a1a1aa}.serie i.D{background:var(--ko)}
 .dyn-row .pt{font-weight:900;min-width:52px;text-align:right;font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:10px}
+.club{display:flex;align-items:center;gap:10px;padding:12px;border-radius:14px;border:1px solid var(--bd);
+background:var(--card);cursor:pointer;text-align:left;font:inherit;color:inherit;width:100%}
+.club:hover{border-color:var(--acc);box-shadow:0 4px 14px var(--sh)}
+.club img{width:30px;height:30px;object-fit:contain;flex:none}
+.club .in{min-width:0;flex:1}
+.club .nm{display:block;font-weight:800;font-size:13px;line-height:1.25}
+.club .ln{display:block;font-size:11px;opacity:.6;margin-top:3px}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:9px;margin:14px 0 4px}
+.fact{background:var(--soft);border-radius:12px;padding:11px 12px}
+.fact .k{font-size:10px;opacity:.65;text-transform:uppercase;letter-spacing:.04em}
+.fact .v{font-size:15px;font-weight:900;margin-top:3px}
+.fact .x{font-size:11px;opacity:.6;font-weight:600}
 .ovl{position:fixed;inset:0;background:rgba(10,14,25,.55);display:flex;align-items:flex-end;
 justify-content:center;z-index:50;padding:0}
-.sheet{background:#fff;width:100%;max-width:640px;max-height:86vh;overflow:auto;
+.sheet{background:var(--card);width:100%;max-width:640px;max-height:86vh;overflow:auto;
 border-radius:20px 20px 0 0;padding:20px 18px 28px}
 .sheet h3{margin:0 0 4px;font-size:19px;font-weight:900}
-.sheet .cls{position:sticky;top:0;float:right;border:0;background:rgba(127,127,127,.15);
+.sheet .cls{position:sticky;top:0;float:right;border:0;background:var(--soft);
 width:30px;height:30px;border-radius:50%;font-size:16px;cursor:pointer;color:inherit}
-@media(prefers-color-scheme:dark){.sheet{background:#161d2e}
-.jsel button{background:#161d2e;border-color:#242d42;color:#94a0b8}
-.dyn-row+.dyn-row{border-color:#242d42}}
+.shead{display:flex;align-items:center;gap:12px}
+.shead img{width:46px;height:46px;object-fit:contain;flex:none}
 footer{text-align:center;font-size:11px;opacity:.55;padding:22px 14px;line-height:1.7}
-footer a{color:#2246c7}
-@media(prefers-color-scheme:dark){
-body{background:#0f1420;color:#e8ecf5}header{background:#161d2e;border-color:#242d42}
-.card,.sc,.compnav a,nav.tabs button,.modebar{background:#161d2e;border-color:#242d42}
-.modebar button,nav.tabs button,.compnav a{color:#94a0b8}
-.m+.m,td{border-color:#242d42}.b{background:#242d42;color:#94a0b8}}
+footer a{color:var(--acc)}
+.lg{display:inline}.sm{display:none}
+@media(max-width:560px){.lg{display:none}.sm{display:inline}
+.compnav a{font-size:13px;padding:10px 6px}nav.tabs button{min-width:0;flex:1 1 44%}}
 </style></head><body>
 <header>
  <div class="hrow">
-  <div><h1>Pronostix</h1><div class="tag">Nono le robot, roi des prono 👑</div>
-   <div class="sub">__NOM__ · Saison __SAISON__</div></div>
+  <div class="brand">
+   <img src="../logo.png" alt="Pronostix">
+   <div><h1>Pronostix</h1><div class="tag">Nono le robot, roi des prono 👑</div>
+    <div class="sub">__NOM__ · Saison __SAISON__</div></div>
+  </div>
   <div class="pct"><div class="b" id="pct">—</div><div class="l">Fiabilité</div></div>
+  <div class="theme" id="theme" role="group" aria-label="Thème d'affichage">
+   <button data-t="light" title="Thème clair" aria-label="Thème clair">☀</button>
+   <button data-t="auto" title="Thème automatique" aria-label="Thème automatique">◐</button>
+   <button data-t="dark" title="Thème sombre" aria-label="Thème sombre">☾</button>
+  </div>
  </div>
  <div class="scorebar" id="scorebar"></div>
  <div class="maj" id="maj"></div>
@@ -598,11 +773,10 @@ body{background:#0f1420;color:#e8ecf5}header{background:#161d2e;border-color:#24
  </div>
  <div class="note" id="note"></div>
  <nav class="tabs" id="tabs">
+  <button data-v="clubs">🛡️ Clubs</button>
   <button data-v="feed" class="on">🔥 Live feed</button>
   <button data-v="cal">📅 Calendrier</button>
   <button data-v="clt">📊 Classement</button>
-  <button data-v="dyn">📈 Dynamique</button>
-  <button data-v="but">⚽ Buteurs</button>
  </nav>
  <div id="content"></div>
 </div>
@@ -612,10 +786,33 @@ body{background:#0f1420;color:#e8ecf5}header{background:#161d2e;border-color:#24
 </footer>
 <script>
 var DATA = /*__DATA__*/null;
-var view="feed", mode="reel";
+var view="feed", mode="reel", sub="clt";
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){
  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
 function logo(u){return u?'<img src="'+esc(u)+'" alt="" loading="lazy">':'';}
+/* Nom d'affichage : libellé complet, et abréviation sur les écrans étroits. */
+function nm(k){var n=(DATA.noms||{})[k];return n?n.n:k;}
+function nmHtml(k){var n=(DATA.noms||{})[k];
+ if(!n) return esc(k);
+ if(n.a===n.n) return esc(n.n);
+ return '<span class="lg">'+esc(n.n)+'</span><span class="sm">'+esc(n.a)+'</span>';}
+function num(v){return v==null?"—":String(v).replace(/\\B(?=(\\d{3})+(?!\\d))/g," ");}
+
+/* ─── Thème clair / sombre / auto ─────────────────────────────────────────── */
+function applyTheme(p){
+ try{localStorage.setItem("px-theme",p);}catch(e){}
+ var d=p==="dark"||(p==="auto"&&window.matchMedia("(prefers-color-scheme:dark)").matches);
+ document.documentElement.dataset.theme=d?"dark":"light";
+ document.documentElement.dataset.pref=p;
+ Array.prototype.forEach.call(document.querySelectorAll("#theme button"),function(b){
+  b.classList.toggle("on",b.dataset.t===p);});
+}
+Array.prototype.forEach.call(document.querySelectorAll("#theme button"),function(b){
+ b.onclick=function(){applyTheme(b.dataset.t);};});
+window.matchMedia("(prefers-color-scheme:dark)").addEventListener("change",function(){
+ if(document.documentElement.dataset.pref==="auto") applyTheme("auto");});
+applyTheme(document.documentElement.dataset.pref||"auto");
+
 function head(){
  var s=DATA.stats||{},j=s.joue||0,ok=(s.exact||0)+(s.bon||0);
  document.getElementById("pct").textContent = j?((ok/j*100).toFixed(1)+" %"):"—";
@@ -630,7 +827,6 @@ function head(){
   ? 'Mode <b>Prono de Nono</b> : pronostics, indice de confiance et projections IA (résultats réels inclus).'
   : 'Mode <b>Réel</b> : résultats et classement officiels, sans projection.';
 }
-function issueLbl(i){return i==="V"?"1":(i==="N"?"N":"2");}
 function matchRow(m){
  var right="";
  if(m.reel){
@@ -647,30 +843,64 @@ function matchRow(m){
   if(m.statut==="exact") b.push('<span class="b ex">✓ exact</span>');
   else if(m.statut==="bon") b.push('<span class="b bo">✓ bon</span>');
   else if(m.statut==="rate") b.push('<span class="b ra">✗ raté</span>');
-  if(m.conf!=null) b.push('<span class="b">confiance '+m.conf+' % · '+issueLbl(m.issue)+'</span>');
+  if(m.conf!=null) b.push('<span class="b">Indice : '+m.conf+' %</span>');
   if(!m.reel&&m.fige) b.push('<span class="b fg">prono figé</span>');
  }
  var alt="";
  if(mode==="prono"&&m.second){
   alt='<div class="alt"><button onclick="toggleAlt(this)" data-s="'+m.second.sh+' – '+m.second.sa
-   +'" data-c="'+m.second.conf+'">2ᵉ scénario · '+m.second.conf+' %</button></div>';
+   +'" data-c="'+m.second.conf+'">2ᵉ scénario · Indice : '+m.second.conf+' %</button></div>';
  }
- return '<div class="m"><div class="t">'+logo(m.ch)+'<b class="tn" data-team="'+esc(m.home)+'">'+esc(m.home)+'</b></div>'
+ return '<div class="m"><div class="t">'+logo(m.ch)+'<b class="tn" data-team="'+esc(m.home)+'">'+nmHtml(m.home)+'</b></div>'
  +'<div class="sc2">'+right+'</div>'
- +'<div class="t a"><b class="tn" data-team="'+esc(m.away)+'">'+esc(m.away)+'</b>'+logo(m.ca)+'</div></div>'
+ +'<div class="t a"><b class="tn" data-team="'+esc(m.away)+'">'+nmHtml(m.away)+'</b>'+logo(m.ca)+'</div></div>'
  +'<div class="meta">'+b.join(" ")+'</div>'+alt;
 }
 function toggleAlt(btn){
- if(btn.dataset.open==="1"){btn.dataset.open="0";btn.innerHTML='2ᵉ scénario · '+btn.dataset.c+' %';}
- else{btn.dataset.open="1";btn.innerHTML='2ᵉ scénario <span class="sc">'+btn.dataset.s+'</span> · '+btn.dataset.c+' %';}
+ if(btn.dataset.open==="1"){btn.dataset.open="0";
+  btn.innerHTML='2ᵉ scénario · Indice : '+btn.dataset.c+' %';}
+ else{btn.dataset.open="1";
+  btn.innerHTML='2ᵉ scénario <span class="v2">'+btn.dataset.s+'</span> · Indice : '+btn.dataset.c+' %';}
+}
+
+/* ─── Fiche club ──────────────────────────────────────────────────────────── */
+function clubOf(key){
+ var c=(DATA.clubs||[]).filter(function(x){return x.team===key;});
+ return c.length?c[0]:null;
+}
+function fact(k,v,x){
+ return '<div class="fact"><div class="k">'+esc(k)+'</div><div class="v">'+v
+  +(x?' <span class="x">'+esc(x)+'</span>':'')+'</div></div>';
 }
 function openTeam(name){
+ var c=clubOf(name)||{};
  var ms=(DATA.matches||[]).filter(function(m){return m.home===name||m.away===name;});
  var joues=ms.filter(function(m){return m.reel;}), avenir=ms.filter(function(m){return !m.reel;});
  var d=(DATA.dyn||[]).filter(function(x){return x.team===name;})[0];
- var h='<button class="cls" onclick="closeTeam()">×</button><h3>'+esc(name)+'</h3>';
- if(d){h+='<div class="serie" style="margin:10px 0 4px">'+d.serie.map(function(r){return '<i class="'+r+'">'+r+'</i>';}).join("")
-  +'</div><div style="font-size:12px;opacity:.7">'+d.pts+' pts sur '+d.sur+' · différence '+(d.diff>0?"+":"")+d.diff+' sur 5 matchs</div>';}
+ var h='<button class="cls" onclick="closeTeam()">×</button>'
+  +'<div class="shead">'+(c.crest?'<img src="'+esc(c.crest)+'" alt="">':'')
+  +'<div><h3>'+esc(c.nom||name)+'</h3>'
+  +'<div class="sub">'+(c.pos?(c.pos+"ᵉ du classement · "+(c.pts||0)+" pts"):"Saison en cours")+'</div>'
+  +'</div></div>';
+ h+='<div class="facts">'
+  +fact("Fondé en", c.fonde||"—")
+  +fact("Titres de champion", c.titres==null?"—":c.titres)
+  +fact("Saison "+(c.prev?c.prev.saison:"précédente"),
+        c.prev?(c.prev.pos+"ᵉ"):"—", c.prev?(c.prev.pts+" pts"):"non disputée")
+  +fact("Stade", '<span style="font-size:13px">'+esc(c.stade||"—")+'</span>')
+  +fact("Capacité", num(c.capacite), c.capacite?"places":"")
+  +fact("À domicile", (c.dom?c.dom.v:0)+" / "+(c.dom?c.dom.j:0), "victoires / matchs")
+  +fact("À l'extérieur", (c.ext?c.ext.v:0)+" / "+(c.ext?c.ext.j:0), "victoires / matchs")
+  +'</div>';
+ if(c.capacite==null||c.titres==null||!c.fonde){
+  h+='<div class="maj" style="text-align:left;margin:2px 0 0">Les champs affichant « — » ne sont pas '
+   +'encore renseignés : ils viennent de data/clubs_ref.json, complété à la main.</div>';
+ }
+ if(d){h+='<div class="ctitle" style="margin:18px 0 8px"><span class="ic">📈</span>'
+  +'<h3 style="font-size:14px">Dynamique</h3></div>'
+  +'<div class="serie">'+d.serie.map(function(r){return '<i class="'+r+'">'+r+'</i>';}).join("")
+  +'</div><div style="font-size:12px;opacity:.7;margin-top:6px">'+d.pts+' pts sur '+d.sur
+  +' · différence '+(d.diff>0?"+":"")+d.diff+' sur 5 matchs</div>';}
  h+='<div class="ctitle" style="margin:18px 0 8px"><span class="ic">✅</span><h3 style="font-size:14px">Derniers résultats</h3></div>';
  h+= joues.length? joues.slice(-5).reverse().map(matchRow).join("") : '<div class="empty">Aucun match joué.</div>';
  h+='<div class="ctitle" style="margin:18px 0 8px"><span class="ic">🔜</span><h3 style="font-size:14px">Prochains matchs</h3></div>';
@@ -681,6 +911,19 @@ function openTeam(name){
  document.body.appendChild(o);
 }
 function closeTeam(){var o=document.getElementById("ovl");if(o)o.remove();}
+function clubsHtml(){
+ var cs=DATA.clubs||[];
+ if(!cs.length) return '<div class="card"><div class="empty">Les fiches clubs arrivent avec le calendrier.</div></div>';
+ var h='<div class="card"><div class="ctitle"><span class="ic">🛡️</span><h3>Les '+cs.length
+  +' clubs de la saison</h3></div><div class="grid">';
+ cs.forEach(function(c){
+  var l=c.pos?(c.pos+"ᵉ · "+(c.pts||0)+" pts"):(c.stade||"");
+  h+='<button class="club" data-team="'+esc(c.team)+'">'+logo(c.crest)
+   +'<span class="in"><span class="nm">'+esc(c.nom)+'</span><span class="ln">'+esc(l)+'</span></span></button>';
+ });
+ return h+'</div><div class="maj" style="margin-top:12px">Touchez un club pour ouvrir sa fiche : '
+  +'identité, stade, bilan à domicile et à l\\'extérieur, derniers et prochains matchs.</div></div>';
+}
 function feedHtml(){
  var ms=(DATA.matches||[]).slice();
  var past=ms.filter(function(m){return m.reel;}).reverse().slice(0,10);
@@ -739,7 +982,7 @@ function dynHtml(){
  if(!d.length) return '<div class="card"><div class="empty">La dynamique apparaîtra dès les premiers matchs.</div></div>';
  var h='<div class="card"><div class="ctitle"><span class="ic">📈</span><h3>Dynamique sur les 5 derniers matchs</h3></div>';
  d.forEach(function(x){
-  h+='<div class="dyn-row"><span class="nm tn" data-team="'+esc(x.team)+'">'+esc(x.team)+'</span>'
+  h+='<div class="dyn-row"><span class="nm tn" data-team="'+esc(x.team)+'">'+nmHtml(x.team)+'</span>'
    +'<span class="serie">'+x.serie.map(function(r){return '<i class="'+r+'">'+r+'</i>';}).join("")+'</span>'
    +'<span class="pt">'+x.pts+'/'+x.sur+' pts</span></div>';
  });
@@ -752,8 +995,9 @@ function tableHtml(){
  +(mode==="prono"?"Classement projeté en fin de saison":"Classement officiel")+'</h3></div>'
  +'<table><tr><th></th><th>Équipe</th><th>J</th><th>G</th><th>N</th><th>P</th><th>Diff</th><th>Pts</th></tr>';
  rows.forEach(function(r){
-  var c=r.pos<=3?"c1":(r.pos<=6?"c2":(r.pos>=16?"c3":""));
-  t+='<tr class="'+c+'"><td class="n">'+r.pos+'</td><td><div class="tm">'+logo(r.crest)+esc(r.team)+'</div></td>'
+  var c=r.pos<=3?"c1":(r.pos<=6?"c2":(r.pos>=rows.length-2?"c3":""));
+  t+='<tr class="'+c+'"><td class="n">'+r.pos+'</td><td><div class="tm">'+logo(r.crest)
+  +'<span class="tn" data-team="'+esc(r.team)+'">'+nmHtml(r.team)+'</span></div></td>'
   +'<td class="n">'+(r.j||0)+'</td><td class="n">'+(r.g||0)+'</td><td class="n">'+(r.n||0)+'</td>'
   +'<td class="n">'+(r.p||0)+'</td><td class="n">'+((r.diff>0?"+":"")+(r.diff||0))+'</td>'
   +'<td class="p">'+(r.pts||0)+'</td></tr>';
@@ -768,12 +1012,22 @@ function scorersHtml(){
  var mx=s[0].goals||1,h='<div class="card"><div class="ctitle"><span class="ic">⚽</span><h3>Meilleurs buteurs</h3></div><table>';
  s.forEach(function(p,i){
   h+='<tr><td class="n">'+(i+1)+'</td><td><div class="tm">'+logo(p.crest)+'<b>'+esc(p.player)+'</b></div>'
-  +'<div style="height:6px;border-radius:4px;background:#eef1f8;margin-top:5px;overflow:hidden">'
+  +'<div style="height:6px;border-radius:4px;background:var(--soft);margin-top:5px;overflow:hidden">'
   +'<span style="display:block;height:100%;width:'+Math.round((p.goals||0)/mx*100)+'%;'
   +'background:linear-gradient(90deg,#f6c453,#e8a20c)"></span></div></td>'
-  +'<td style="opacity:.6;font-size:11px">'+esc(p.team)+'</td><td class="p">'+(p.goals||0)+'</td></tr>';
+  +'<td style="opacity:.6;font-size:11px"><span class="tn" data-team="'+esc(p.team)+'">'+nmHtml(p.team)+'</span></td>'
+  +'<td class="p">'+(p.goals||0)+'</td></tr>';
  });
  return h+'</table></div>';
+}
+/* L'onglet Classement regroupe les trois lectures d'une même réalité :
+   le classement, la forme récente et les buteurs. */
+function cltHtml(){
+ var s='<div class="subnav">'
+  +'<button data-s="clt" class="'+(sub==="clt"?"on":"")+'">📊 Classement</button>'
+  +'<button data-s="dyn" class="'+(sub==="dyn"?"on":"")+'">📈 Dynamique</button>'
+  +'<button data-s="but" class="'+(sub==="but"?"on":"")+'">⚽ Buteurs</button></div>';
+ return s+(sub==="dyn"?dynHtml():(sub==="but"?scorersHtml():tableHtml()));
 }
 function render(){
  head();
@@ -782,7 +1036,9 @@ function render(){
  Array.prototype.forEach.call(document.querySelectorAll(".modebar button"),function(b){
   b.classList.toggle("on",b.dataset.m===mode);});
  var c=document.getElementById("content");
- c.innerHTML = view==="feed"?feedHtml():(view==="cal"?calHtml():(view==="clt"?tableHtml():(view==="dyn"?dynHtml():scorersHtml())));
+ c.innerHTML = view==="clubs"?clubsHtml():(view==="feed"?feedHtml():(view==="cal"?calHtml():cltHtml()));
+ Array.prototype.forEach.call(document.querySelectorAll(".subnav button"),function(b){
+  b.onclick=function(){sub=b.dataset.s;render();};});
 }
 document.addEventListener("click",function(e){
  var el=e.target.closest?e.target.closest("[data-team]"):null;
@@ -815,7 +1071,8 @@ def build_league(lg):
         f.write(sig)
     st = payload["stats"]
     print(f"[OK] {lg['slug']} — {len(payload['matches'])} matchs | "
-          f"{st['joue']} joués : {st['exact']} exacts, {st['bon']} bons, {st['rate']} ratés")
+          f"{st['joue']} joués : {st['exact']} exacts, {st['bon']} bons, {st['rate']} ratés | "
+          f"{len(payload['clubs'])} clubs")
 
 def main():
     for lg in LEAGUES:
