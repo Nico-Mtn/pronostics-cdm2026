@@ -797,6 +797,8 @@ function nmHtml(k){var n=(DATA.noms||{})[k];
  if(n.a===n.n) return esc(n.n);
  return '<span class="lg">'+esc(n.n)+'</span><span class="sm">'+esc(n.a)+'</span>';}
 function num(v){return v==null?"—":String(v).replace(/\\B(?=(\\d{3})+(?!\\d))/g," ");}
+/* Ordinal français : 1er, puis 2ᵉ, 3ᵉ… */
+function ord(n){return n==1?"1er":(n+"ᵉ");}
 
 /* ─── Thème clair / sombre / auto ─────────────────────────────────────────── */
 function applyTheme(p){
@@ -880,13 +882,13 @@ function openTeam(name){
  var h='<button class="cls" onclick="closeTeam()">×</button>'
   +'<div class="shead">'+(c.crest?'<img src="'+esc(c.crest)+'" alt="">':'')
   +'<div><h3>'+esc(c.nom||name)+'</h3>'
-  +'<div class="sub">'+(c.pos?(c.pos+"ᵉ du classement · "+(c.pts||0)+" pts"):"Saison en cours")+'</div>'
+  +'<div class="sub">'+(c.pos?(ord(c.pos)+" du classement · "+(c.pts||0)+" pts"):"Saison en cours")+'</div>'
   +'</div></div>';
  h+='<div class="facts">'
   +fact("Fondé en", c.fonde||"—")
   +fact("Titres de champion", c.titres==null?"—":c.titres)
   +fact("Saison "+(c.prev?c.prev.saison:"précédente"),
-        c.prev?(c.prev.pos+"ᵉ"):"—", c.prev?(c.prev.pts+" pts"):"non disputée")
+        c.prev?ord(c.prev.pos):"—", c.prev?(c.prev.pts+" pts"):"non disputée")
   +fact("Stade", '<span style="font-size:13px">'+esc(c.stade||"—")+'</span>')
   +fact("Capacité", num(c.capacite), c.capacite?"places":"")
   +fact("À domicile", (c.dom?c.dom.v:0)+" / "+(c.dom?c.dom.j:0), "victoires / matchs")
@@ -917,7 +919,7 @@ function clubsHtml(){
  var h='<div class="card"><div class="ctitle"><span class="ic">🛡️</span><h3>Les '+cs.length
   +' clubs de la saison</h3></div><div class="grid">';
  cs.forEach(function(c){
-  var l=c.pos?(c.pos+"ᵉ · "+(c.pts||0)+" pts"):(c.stade||"");
+  var l=c.pos?(ord(c.pos)+" · "+(c.pts||0)+" pts"):(c.stade||"");
   h+='<button class="club" data-team="'+esc(c.team)+'">'+logo(c.crest)
    +'<span class="in"><span class="nm">'+esc(c.nom)+'</span><span class="ln">'+esc(l)+'</span></span></button>';
  });
