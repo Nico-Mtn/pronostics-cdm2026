@@ -64,7 +64,8 @@ def data_path(kind):
 
 def nav_html(current_slug):
     """Sélecteur de compétition commun à toutes les pages."""
-    items = ['<a href="../">🏆 Coupe du Monde 2026</a>']
+    items = ['<a href="../">🏠 Accueil</a>',
+             '<a href="../pronostics-cdm2026/">🏆 Coupe du Monde 2026</a>']
     for lg in LEAGUES:
         cls = ' class="on"' if lg["slug"] == current_slug else ""
         href = "./" if lg["slug"] == current_slug else f"../{lg['slug']}/"
