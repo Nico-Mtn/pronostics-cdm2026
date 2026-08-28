@@ -21,12 +21,14 @@ import os, json, hashlib, datetime
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
-# Déclaration des compétitions. `statut` : "en_cours" ou "passee".
+# Déclaration des compétitions. Le champ « statut » vaut "en_cours" ou "passee".
 COMPETITIONS = [
     {"slug": "ligue-1-france", "nom": "Ligue 1", "lieu": "France", "drapeau": "🇫🇷",
      "famille": "championnat", "statut": "en_cours", "saison": "2026-2027"},
     {"slug": "premier-league-england", "nom": "Premier League", "lieu": "Angleterre",
      "drapeau": "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "famille": "championnat", "statut": "en_cours", "saison": "2026-2027"},
+    {"slug": "ligue-1-france-2025-2026", "nom": "Ligue 1", "lieu": "France", "drapeau": "🇫🇷",
+     "famille": "championnat", "statut": "passee", "saison": "2025-2026"},
     {"slug": "pronostics-cdm2026", "nom": "Coupe du Monde 2026",
      "lieu": "États-Unis · Canada · Mexique", "drapeau": "🏆",
      "famille": "coupe", "statut": "passee", "saison": "2026"},
@@ -54,10 +56,14 @@ def lire(slug):
                 info["vainqueur"] = m["winner"]
     if not info.get("vainqueur") and ko.get("champion"):
         info["vainqueur"] = ko["champion"]
-    # Championnat : leader du classement réel
+    # Championnat : leader du classement réel (champion si la saison est archivée)
     tb = d.get("table") or []
     if tb:
         info["leader"] = tb[0].get("team")
+    # Saison archivée : note éditoriale sur 10 attribuée à la saison
+    nt = d.get("note") or {}
+    if nt.get("note") is not None:
+        info["note"] = nt["note"]
     return info
 
 def esc(s):
@@ -75,8 +81,12 @@ def carte(c):
         else:
             j = f'J{d["journee"]}' if d.get("journee") else f'{d["joue"]}/{d["total"]}'
             lignes.append(f'<span class="kpi"><b>{esc(j)}</b> en cours</span>')
-    if d.get("vainqueur"):
-        lignes.append(f'<span class="kpi win">🏆 {esc(d["vainqueur"])}</span>')
+    if d.get("note") is not None:
+        lignes.append(f'<span class="kpi"><b>{d["note"]}</b>/10 la saison</span>')
+    # Une compétition terminée met en avant son vainqueur, une en cours son leader
+    gagnant = d.get("vainqueur") or (d.get("leader") if c["statut"] == "passee" else None)
+    if gagnant:
+        lignes.append(f'<span class="kpi win">🏆 {esc(gagnant)}</span>')
     elif d.get("leader"):
         lignes.append(f'<span class="kpi">🥇 {esc(d["leader"])}</span>')
     kpis = "".join(lignes) or '<span class="kpi soft">bientôt disponible</span>'
