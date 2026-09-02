@@ -196,6 +196,28 @@
       "home": "Monaco",
       "away": "Marseille",
       "frozen_at": "2026-08-29T21:23:41Z"
+    },
+    "559696": {
+      "sh": 1,
+      "sa": 2,
+      "issue": "D",
+      "conf": 37,
+      "second": {
+        "sh": 2,
+        "sa": 1,
+        "issue": "V",
+        "conf": 34
+      },
+      "proba": {
+        "v": 34,
+        "n": 29,
+        "d": 37
+      },
+      "eh": 1486,
+      "ea": 1564,
+      "home": "Toulouse",
+      "away": "Lille",
+      "frozen_at": "2026-09-02T21:10:36Z"
     }
   }
 }
