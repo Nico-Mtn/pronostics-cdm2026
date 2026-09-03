@@ -218,6 +218,28 @@
       "home": "Toulouse",
       "away": "Lille",
       "frozen_at": "2026-09-02T21:10:36Z"
+    },
+    "559699": {
+      "sh": 1,
+      "sa": 0,
+      "issue": "V",
+      "conf": 52,
+      "second": {
+        "sh": 1,
+        "sa": 1,
+        "issue": "N",
+        "conf": 27
+      },
+      "proba": {
+        "v": 52,
+        "n": 27,
+        "d": 21
+      },
+      "eh": 1545,
+      "ea": 1453,
+      "home": "Olympique Lyon",
+      "away": "Auxerre",
+      "frozen_at": "2026-09-03T18:14:39Z"
     }
   }
 }
