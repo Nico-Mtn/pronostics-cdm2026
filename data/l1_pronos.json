@@ -240,6 +240,28 @@
       "home": "Olympique Lyon",
       "away": "Auxerre",
       "frozen_at": "2026-09-03T18:14:39Z"
+    },
+    "559697": {
+      "sh": 2,
+      "sa": 1,
+      "issue": "V",
+      "conf": 48,
+      "second": {
+        "sh": 1,
+        "sa": 1,
+        "issue": "N",
+        "conf": 28
+      },
+      "proba": {
+        "v": 48,
+        "n": 28,
+        "d": 25
+      },
+      "eh": 1598,
+      "ea": 1546,
+      "home": "PSG",
+      "away": "Monaco",
+      "frozen_at": "2026-09-03T21:10:50Z"
     }
   }
 }

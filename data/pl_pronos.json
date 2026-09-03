@@ -212,6 +212,28 @@
       "home": "Aston Villa",
       "away": "Arsenal",
       "frozen_at": "2026-08-30T21:44:08Z"
+    },
+    "560566": {
+      "sh": 1,
+      "sa": 2,
+      "issue": "D",
+      "conf": 38,
+      "second": {
+        "sh": 2,
+        "sa": 1,
+        "issue": "V",
+        "conf": 33
+      },
+      "proba": {
+        "v": 33,
+        "n": 29,
+        "d": 38
+      },
+      "eh": 1425,
+      "ea": 1516,
+      "home": "Ipswich Town",
+      "away": "Liverpool",
+      "frozen_at": "2026-09-03T21:10:52Z"
     }
   }
 }
