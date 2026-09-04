@@ -752,6 +752,20 @@ font-size:15px;background:linear-gradient(135deg,#f6c453,#e8a20c);flex:none}
 .jrn{font-size:11px;font-weight:800;opacity:.5;text-transform:uppercase;letter-spacing:.07em;
 margin:16px 0 2px;padding-top:12px;border-top:1px solid var(--line)}
 .jrn:first-child{margin-top:0;padding-top:0;border-top:0}
+/* Journée terminée : dépliant. On garde le balisage natif details/summary, donc
+   le pli fonctionne même si le JS n'a pas encore pris la main. */
+.jsec+.jsec{border-top:1px solid var(--line)}
+.jsec>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;
+padding:13px 2px;font-size:11px;font-weight:800;opacity:.62;text-transform:uppercase;
+letter-spacing:.07em}
+.jsec>summary::-webkit-details-marker{display:none}
+.jsec>summary::before{content:"▸";font-size:10px;opacity:.8}
+.jsec[open]>summary::before{content:"▾"}
+.jsec>summary:hover{opacity:1;color:var(--lien)}
+.jsec>summary .cnt{margin-left:auto;font-weight:700;text-transform:none;letter-spacing:0;
+font-size:11px;opacity:.9}
+.jsec[open]>summary{opacity:.85}
+.sc2 .v.h{font-size:15px;font-weight:800}
 .sc2 .v.dir{color:var(--ko)}
 .b.dir{background:var(--ko);color:#fff}
 .b{font-size:10px;font-weight:800;padding:2px 7px;border-radius:99px;background:var(--soft);color:var(--mut)}
@@ -915,7 +929,7 @@ function head(){
    répéter le badge « J2 » sur chacune des neuf rencontres. */
 function matchRow(m, opt){
  opt = opt || {};
- var right="";
+ var right="", dansScore=false;
  if(m.live && m.direct){
   right='<div class="v dir">'+m.direct[0]+" – "+m.direct[1]+'</div><div class="k">en direct</div>';
  }else if(m.reel){
@@ -923,13 +937,16 @@ function matchRow(m, opt){
  }else if(mode==="prono"&&m.prono){
   right='<div class="v p">'+m.prono[0]+" – "+m.prono[1]+'</div><div class="k">pronostic</div>';
  }else{
-  // Match à venir : le tiret suffit. L'heure était répétée juste en dessous.
-  right='<div class="v" style="opacity:.35">–</div>';
+  // Match à venir sans pronostic affiché : plutôt qu'un tiret vide, la case du
+  // score porte l'heure et la date. On ne les répète donc plus en dessous.
+  right='<div class="v h">'+esc(m.heure||"—")+'</div>'
+      + (m.date?'<div class="k">'+esc(m.date)+'</div>':'');
+  dansScore=true;
  }
  var b=[];
  if(m.j && !opt.sansJournee) b.push('<span class="b">J'+m.j+'</span>');
  if(m.live) b.push('<span class="b dir">● en direct</span>');
- if(m.date) b.push('<span class="b">'+esc(m.date)+(m.heure?" · "+esc(m.heure):"")+'</span>');
+ if(m.date && !dansScore) b.push('<span class="b">'+esc(m.date)+(m.heure?" · "+esc(m.heure):"")+'</span>');
  if(mode==="prono"){
   if(m.statut==="exact") b.push('<span class="b ex">✓ exact</span>');
   else if(m.statut==="bon") b.push('<span class="b bo">✓ bon</span>');
@@ -1017,13 +1034,26 @@ function clubsHtml(){
  return h+'</div><div class="maj" style="margin-top:12px">Touchez un club pour ouvrir sa fiche : '
   +'identité, stade, bilan à domicile et à l\\'extérieur, derniers et prochains matchs.</div></div>';
 }
-/* Regroupe une liste de matchs par journée, en conservant l'ordre reçu. */
-function sections(ms){
+/* Mémorise quelles journées terminées sont dépliées, pour que l'état survive à
+   un changement d'onglet ou de mode. */
+var feedOuvert={};
+/* Regroupe une liste de matchs par journée, en conservant l'ordre reçu.
+   opt.pliable : chaque journée devient un dépliant (la première est ouverte). */
+function sections(ms, opt){
+ opt = opt || {};
  var ordre=[], par={};
  ms.forEach(function(m){var j=m.j||0; if(!par[j]){par[j]=[];ordre.push(j);} par[j].push(m);});
- return ordre.map(function(j){
-  return '<div class="jrn">Journée '+j+'</div>'
-   + par[j].map(function(m){return matchRow(m,{sansJournee:true});}).join("");
+ return ordre.map(function(j, i){
+  var lignes=par[j].map(function(m){return matchRow(m,{sansJournee:true});}).join("");
+  if(!opt.pliable) return '<div class="jrn">Journée '+j+'</div>'+lignes;
+  if(feedOuvert[j]===undefined) feedOuvert[j] = (i===0);
+  var n=par[j].length;
+  var reussis=par[j].filter(function(m){return m.statut==="exact"||m.statut==="bon";}).length;
+  var compte = (mode==="prono") ? (reussis+'/'+n+' réussis') : (n+(n>1?' matchs':' match'));
+  return '<details class="jsec"'+(feedOuvert[j]?' open':'')
+   +' ontoggle="feedOuvert['+j+']=this.open">'
+   +'<summary>Journée '+j+'<span class="cnt">'+compte+'</span></summary>'
+   +lignes+'</details>';
  }).join("");
 }
 function feedHtml(){
@@ -1043,7 +1073,7 @@ function feedHtml(){
  }
  if(past.length){
   h+='<div class="card"><div class="ctitle"><span class="ic">✅</span><h3>Derniers résultats</h3></div>'
-   + sections(past) + '</div>';
+   + sections(past,{pliable:true}) + '</div>';
  }
  return h;
 }
