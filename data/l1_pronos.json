@@ -284,6 +284,50 @@
       "home": "RC Lens",
       "away": "Lorient",
       "frozen_at": "2026-09-04T17:53:58Z"
+    },
+    "559693": {
+      "sh": 2,
+      "sa": 1,
+      "issue": "V",
+      "conf": 41,
+      "second": {
+        "sh": 1,
+        "sa": 2,
+        "issue": "D",
+        "conf": 30
+      },
+      "proba": {
+        "v": 41,
+        "n": 29,
+        "d": 30
+      },
+      "eh": 1456,
+      "ea": 1465,
+      "home": "Le Havre",
+      "away": "Brest",
+      "frozen_at": "2026-09-04T20:02:19Z"
+    },
+    "559701": {
+      "sh": 2,
+      "sa": 1,
+      "issue": "V",
+      "conf": 45,
+      "second": {
+        "sh": 1,
+        "sa": 1,
+        "issue": "N",
+        "conf": 28
+      },
+      "proba": {
+        "v": 45,
+        "n": 28,
+        "d": 27
+      },
+      "eh": 1444,
+      "ea": 1419,
+      "home": "Nice",
+      "away": "Le Mans",
+      "frozen_at": "2026-09-04T20:02:19Z"
     }
   }
 }
