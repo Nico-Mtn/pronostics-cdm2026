@@ -766,6 +766,15 @@ letter-spacing:.07em}
 font-size:11px;opacity:.9}
 .jsec[open]>summary{opacity:.85}
 .sc2 .v.h{font-size:15px;font-weight:800}
+/* Rappel du pronostic sous un score réel ou en direct. */
+.sc2 .pr{font-size:11px;font-weight:800;color:var(--gold);margin-top:3px;white-space:nowrap}
+/* Fiche club : les résultats passés sont repliés sous un titre de section. */
+.jsec.res{margin-top:18px;border-top:1px solid var(--line)}
+.jsec.res>summary{padding:14px 0 8px;font-size:14px;font-weight:800;
+text-transform:none;letter-spacing:0;opacity:.95}
+.jsec.res>summary .ic{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;
+justify-content:center;font-size:13px;background:linear-gradient(135deg,#f6c453,#e8a20c);flex:none}
+.jsec.res>summary .cnt{opacity:.6}
 .sc2 .v.dir{color:var(--ko)}
 .b.dir{background:var(--ko);color:#fff}
 .b{font-size:10px;font-weight:800;padding:2px 7px;border-radius:99px;background:var(--soft);color:var(--mut)}
@@ -930,10 +939,14 @@ function head(){
 function matchRow(m, opt){
  opt = opt || {};
  var right="", dansScore=false;
+ // En mode prono, le score affiché est le RÉEL (ou celui en direct) : sans rappel
+ // du pronostic, un badge « raté » ne dit pas ce que Nono avait annoncé.
+ var rappel = (mode==="prono" && m.prono && (m.reel || m.live))
+   ? '<div class="pr">prono '+m.prono[0]+'–'+m.prono[1]+'</div>' : '';
  if(m.live && m.direct){
-  right='<div class="v dir">'+m.direct[0]+" – "+m.direct[1]+'</div><div class="k">en direct</div>';
+  right='<div class="v dir">'+m.direct[0]+" – "+m.direct[1]+'</div><div class="k">en direct</div>'+rappel;
  }else if(m.reel){
-  right='<div class="v">'+m.reel[0]+" – "+m.reel[1]+'</div><div class="k">score final</div>';
+  right='<div class="v">'+m.reel[0]+" – "+m.reel[1]+'</div><div class="k">score final</div>'+rappel;
  }else if(mode==="prono"&&m.prono){
   right='<div class="v p">'+m.prono[0]+" – "+m.prono[1]+'</div><div class="k">pronostic</div>';
  }else{
@@ -1011,10 +1024,19 @@ function openTeam(name){
   +'<div class="serie">'+d.serie.map(function(r){return '<i class="'+r+'">'+r+'</i>';}).join("")
   +'</div><div style="font-size:12px;opacity:.7;margin-top:6px">'+d.pts+' pts sur '+d.sur
   +' · différence '+(d.diff>0?"+":"")+d.diff+' sur 5 matchs</div>';}
- h+='<div class="ctitle" style="margin:18px 0 8px"><span class="ic">✅</span><h3 style="font-size:14px">Derniers résultats</h3></div>';
- h+= joues.length? joues.slice(-5).reverse().map(matchRow).join("") : '<div class="empty">Aucun match joué.</div>';
+ // Ce qui arrive d'abord : on ouvre une fiche club surtout pour savoir qui il
+ // affronte ensuite. Le passé reste accessible, replié, juste en dessous.
  h+='<div class="ctitle" style="margin:18px 0 8px"><span class="ic">🔜</span><h3 style="font-size:14px">Prochains matchs</h3></div>';
- h+= avenir.length? avenir.slice(0,5).map(matchRow).join("") : '<div class="empty">Aucun match à venir.</div>';
+ h+= avenir.length ? avenir.slice(0,5).map(function(m){return matchRow(m);}).join("")
+                   : '<div class="empty">Aucun match à venir.</div>';
+ var derniers = joues.slice(-5).reverse();
+ h+='<details class="jsec res"><summary><span class="ic">✅</span>'
+  +'<span class="ttl">Derniers résultats</span>'
+  +'<span class="cnt">'+(derniers.length ? derniers.length+(derniers.length>1?' matchs':' match') : 'aucun')
+  +'</span></summary>'
+  + (derniers.length ? derniers.map(function(m){return matchRow(m);}).join("")
+                     : '<div class="empty">Aucun match joué.</div>')
+  +'</details>';
  var o=document.createElement("div");o.className="ovl";o.id="ovl";
  o.onclick=function(e){if(e.target===o)closeTeam();};
  o.innerHTML='<div class="sheet">'+h+'</div>';
