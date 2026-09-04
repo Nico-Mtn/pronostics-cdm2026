@@ -74,16 +74,23 @@ def flag_img(code, taille=20):
             f'width="{taille}" height="{int(taille * 0.75)}" alt="" loading="lazy">')
 
 def nav_html(current_slug):
-    """Sélecteur de compétition : Accueil + un onglet par championnat suivi."""
-    items = ['<a href="../"><span class="ic">🏠</span> Accueil</a>']
+    """Sélecteur de compétition, en icônes seules.
+
+    Un drapeau dit « Premier League » plus vite qu'un libellé, et la barre du haut
+    retrouve la place nécessaire au sélecteur de mode. Le nom reste porté par
+    `title` et `aria-label` : rien n'est perdu pour un lecteur d'écran.
+    """
+    items = ['<a href="../" title="Accueil" aria-label="Accueil"><span class="ic">🏠</span></a>']
     for lg in LEAGUES:
         on = lg["slug"] == current_slug
         cls = ' class="on"' if on else ""
         # La teinte n'est appliquée qu'à l'onglet actif : les autres restent neutres.
         sty = f' style="background:{lg["couleur"]};border-color:{lg["couleur"]}"' if on else ""
         href = "./" if on else f"../{lg['slug']}/"
-        items.append(f'<a href="{href}"{cls}{sty}>{flag_img(lg["flag"])} {lg["nom"]}</a>')
-    return "\n  ".join(items)
+        aria = ' aria-current="page"' if on else ""
+        items.append(f'<a href="{href}"{cls}{sty} title="{lg["nom"]}" '
+                     f'aria-label="{lg["nom"]}"{aria}>{flag_img(lg["flag"], 24)}</a>')
+    return "\n   ".join(items)
 
 # ─── Référentiel des clubs ───────────────────────────────────────────────────
 # data/clubs_ref.json apporte ce que l'API ne fournit pas : nom d'affichage long,
@@ -436,6 +443,61 @@ def bilans(rows):
         else:                   h["n"] += 1; a["n"] += 1
     return b
 
+def saison_stats(rows, feed, crests):
+    """Statistiques de la saison en cours, calculées sur les seuls matchs joués.
+
+    Volontairement recalculées depuis les rencontres plutôt que reprises du
+    classement de l'API : le classement peut accuser un retard de quelques
+    heures sur les derniers résultats, ces chiffres ne le doivent pas.
+    """
+    joues = [r for r in rows if r["played"]]
+    if not joues:
+        return None
+    buts = sum(r["sh"] + r["sa"] for r in joues)
+    # Meilleure journée : seules les journées intégralement disputées sont
+    # comparables. Une journée à moitié jouée fausserait le ratio.
+    par_j, total_j = {}, {}
+    for r in rows:
+        if not r["j"]:
+            continue
+        total_j[r["j"]] = total_j.get(r["j"], 0) + 1
+        if r["played"]:
+            e = par_j.setdefault(r["j"], {"j": r["j"], "matchs": 0, "buts": 0})
+            e["matchs"] += 1; e["buts"] += r["sh"] + r["sa"]
+    completes = [e for j, e in par_j.items() if e["matchs"] == total_j.get(j)]
+    meilleure = None
+    if completes:
+        for e in completes:
+            e["ratio"] = round(e["buts"] / e["matchs"], 2)
+        meilleure = max(completes, key=lambda e: (e["ratio"], e["buts"]))
+    # Attaque et défense sur l'ensemble des rencontres jouées.
+    bp, bc = {}, {}
+    for r in joues:
+        bp[r["home"]] = bp.get(r["home"], 0) + r["sh"]
+        bp[r["away"]] = bp.get(r["away"], 0) + r["sa"]
+        bc[r["home"]] = bc.get(r["home"], 0) + r["sa"]
+        bc[r["away"]] = bc.get(r["away"], 0) + r["sh"]
+    def extreme(d, best):
+        if not d:
+            return None
+        v = best(d.values())
+        eq = sorted(k for k, x in d.items() if x == v)
+        return {"v": v, "teams": [{"team": k, "crest": crests.get(k)} for k in eq]}
+    # Match le plus prolifique : à égalité de buts, le plus récent l'emporte.
+    top = max(joues, key=lambda r: (r["sh"] + r["sa"],
+                                    r["dt"] or datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)))
+    lig = next((f for f in feed if f["id"] == top["id"]), None)
+    return {
+        "matchs": len(joues), "buts": buts,
+        "bpm": round(buts / len(joues), 2),
+        "journee": meilleure,
+        "attaque": extreme(bp, max), "defense": extreme(bc, min),
+        "carton": {"home": top["home"], "away": top["away"],
+                   "ch": top["ch"], "ca": top["ca"],
+                   "sh": top["sh"], "sa": top["sa"], "buts": top["sh"] + top["sa"],
+                   "j": top["j"], "date": (lig or {}).get("date", "")},
+    }
+
 # ─── Pronos FIGÉS (24 h avant le coup d'envoi) ───────────────────────────────
 def load_frozen():
     p = data_path("pronos")
@@ -642,6 +704,7 @@ def build(matches_raw, standings_raw, scorers_raw):
         "today": now.strftime("%Y-%m-%d"),
         "saison": LG["libelle"], "nom": LG["nom"], "slug": LG["slug"], "journee": cur, "journees": jours,
         "stats": stats, "matches": feed, "table": table, "dyn": dynamique(rows),
+        "sstats": saison_stats(rows, feed, crests),
         "projected": projected, "scorers": scorers, "clubs": clubs, "noms": noms,
         "credit": "Auteur : Nico-Mtn (https://github.com/Nico-Mtn). Projet gratuit, sans pub, sans paris.",
     }
@@ -687,9 +750,12 @@ header{background:var(--card);border-bottom:1px solid var(--bd);padding:12px 0 1
 h1{margin:0;font-size:19px;font-weight:900}
 .tag{color:var(--lien);font-weight:700;font-size:12px}
 .sub{font-size:11px;opacity:.6;text-transform:uppercase;letter-spacing:.05em}
+/* Fiabilité et compteurs sont des indicateurs de PRONO : ils disparaissent en
+   mode Réel, où la page ne parle que de résultats officiels. */
 .pct{margin-left:auto;text-align:center;flex:none}
 .pct .b{font-size:22px;font-weight:900;color:var(--gold);line-height:1}
 .pct .l{font-size:10px;opacity:.6;text-transform:uppercase}
+[hidden]{display:none !important}
 .theme{flex:none;display:flex;gap:2px;background:var(--soft);border-radius:99px;padding:3px}
 .theme button{border:0;background:transparent;color:var(--mut);width:28px;height:26px;border-radius:99px;
 cursor:pointer;font-size:13px;line-height:1;padding:0}
@@ -699,19 +765,36 @@ cursor:pointer;font-size:13px;line-height:1;padding:0}
 .sc b{display:block;font-size:17px;font-weight:900}.sc span{font-size:10px;opacity:.6;text-transform:uppercase}
 .sc.ok b{color:var(--ok)}.sc.ko b{color:var(--ko)}
 .maj{max-width:820px;margin:8px auto 0;padding:0 14px;text-align:center;font-size:11px;opacity:.6}
-.compnav{display:flex;gap:8px;margin:14px 0 6px}
-.compnav a{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:11px 8px;
-border-radius:12px;text-decoration:none;font-weight:800;font-size:14px;background:var(--card);
-border:1px solid var(--bd);color:var(--mut)}
-.compnav a.on{background:var(--acc);color:#fff;border-color:var(--acc)}
-.compnav .ic{font-size:15px}
+/* Barre du haut : la compétition à gauche (icônes seules), le mode à droite.
+   Les deux décisions les plus structurantes de la page tiennent sur une ligne. */
+.toprow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:16px 0 10px}
+.compnav{display:flex;gap:6px;flex:none;background:var(--card);border:1px solid var(--bd);
+border-radius:14px;padding:4px}
+.compnav a{width:42px;height:38px;display:flex;align-items:center;justify-content:center;
+border-radius:10px;text-decoration:none;background:transparent;color:var(--mut);
+border:1px solid transparent;transition:transform .12s ease}
+.compnav a:hover{transform:translateY(-1px);background:var(--soft)}
+.compnav a.on{color:#fff;box-shadow:0 2px 8px var(--sh)}
+.compnav a.on:hover{background:inherit}
+.compnav .ic{font-size:17px;line-height:1}
+.compnav .flg{width:24px;height:18px}
 .flg{border-radius:3px;object-fit:cover;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.10)}
-.modebar{display:flex;gap:8px;margin:10px 0 4px;background:var(--card);border:1px solid var(--bd);
-border-radius:12px;padding:4px}
-.modebar button{flex:1;padding:9px;border:0;border-radius:9px;background:transparent;font-weight:800;
-font-size:14px;color:var(--mut);cursor:pointer}
-.modebar button.on[data-m="reel"]{background:var(--ok);color:var(--surok)}
-.modebar button.on[data-m="prono"]{background:var(--gold);color:var(--surgold)}
+/* Sélecteur de mode : interrupteur segmenté avec pastille glissante. C'est le
+   geste principal de la page, il doit se voir et se comprendre d'un coup d'œil. */
+.modebar{position:relative;display:flex;flex:1 1 250px;background:var(--card);
+border:1px solid var(--bd);border-radius:14px;padding:4px}
+.modebar .glide{position:absolute;top:4px;left:4px;width:calc(50% - 4px);
+height:calc(100% - 8px);border-radius:10px;background:var(--ok);
+transition:transform .22s cubic-bezier(.4,0,.2,1),background .22s ease}
+.modebar[data-m="prono"] .glide{transform:translateX(100%);background:var(--gold)}
+.modebar button{position:relative;z-index:1;flex:1;padding:9px 6px;border:0;border-radius:10px;
+background:transparent;font:inherit;font-weight:800;font-size:14px;color:var(--mut);cursor:pointer;
+display:flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;
+transition:color .18s ease}
+.modebar button .e{font-size:16px;line-height:1}
+.modebar button.on[data-m="reel"]{color:var(--surok)}
+.modebar button.on[data-m="prono"]{color:var(--surgold)}
+@media(prefers-reduced-motion:reduce){.modebar .glide{transition:none}}
 .note{text-align:center;font-size:12px;opacity:.7;margin:6px 0 10px}
 /* Rappel d'abonnement : toujours présent, jamais masqué définitivement. Un lecteur
    déjà abonné à une autre compétition doit pouvoir s'abonner à celle-ci. */
@@ -728,8 +811,10 @@ nav.tabs{display:flex;gap:8px;margin:10px 0 16px;flex-wrap:wrap}
 nav.tabs button{flex:1;min-width:104px;padding:10px;border-radius:12px;border:1px solid var(--bd);
 background:var(--card);font-weight:800;font-size:13px;color:var(--mut);cursor:pointer}
 nav.tabs button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
-.subnav{display:flex;gap:6px;margin:0 0 14px}
-.subnav button{flex:1;padding:8px;border-radius:99px;border:1px solid var(--bd);background:var(--card);
+.subnav{display:flex;gap:6px;margin:0 0 14px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+padding-bottom:2px}
+.subnav button{flex:1 0 auto;white-space:nowrap;padding:8px 12px;border-radius:99px;
+border:1px solid var(--bd);background:var(--card);
 font-weight:800;font-size:12px;color:var(--mut);cursor:pointer}
 .subnav button.on{background:var(--gold);color:#3a2a00;border-color:var(--gold)}
 .card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:16px;margin-bottom:16px}
@@ -766,6 +851,10 @@ letter-spacing:.07em}
 font-size:11px;opacity:.9}
 .jsec[open]>summary{opacity:.85}
 .sc2 .v.h{font-size:15px;font-weight:800}
+/* Date et heure au-dessus du score : quand une rencontre est jouée, savoir QUAND
+   compte autant que le résultat, et l'information n'a plus à figurer en badge. */
+.sc2 .dt{font-size:10px;font-weight:700;opacity:.55;line-height:1.3;margin-bottom:3px;
+white-space:nowrap}
 /* Rappel du pronostic sous un score réel ou en direct. */
 .sc2 .pr{font-size:11px;font-weight:800;color:var(--gold);margin-top:3px;white-space:nowrap}
 /* Fiche club : les résultats passés sont repliés sous un titre de section. */
@@ -834,9 +923,23 @@ width:30px;height:30px;border-radius:50%;font-size:16px;cursor:pointer;color:inh
 .shead img{width:46px;height:46px;object-fit:contain;flex:none}
 footer{text-align:center;font-size:11px;opacity:.55;padding:22px 14px;line-height:1.7}
 footer a{color:var(--lien)}
+/* Pastilles d'icône : dégradé doré en thème clair, blanc franc en thème sombre.
+   Sur fond nuit, le doré perdait tout contraste avec le pictogramme. */
+html[data-theme="dark"] .ctitle .ic,
+html[data-theme="dark"] .jsec.res>summary .ic{background:#fff}
+/* Statistiques de la saison : une grille de cartes lisibles d'un coup d'œil. */
+.stg{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:11px}
+.st{background:var(--soft);border-radius:14px;padding:13px 14px}
+.st .k{font-size:10px;opacity:.65;text-transform:uppercase;letter-spacing:.04em}
+.st .v{font-size:22px;font-weight:900;margin-top:4px;line-height:1.15;color:var(--gold)}
+.st .x{font-size:11px;opacity:.65;font-weight:600;margin-top:3px;line-height:1.45}
+.st .who{display:flex;align-items:center;gap:7px;margin-top:6px;font-size:13px;font-weight:800}
+.st .who img{width:20px;height:20px;object-fit:contain;flex:none}
+.st .who+.who{margin-top:4px}
 .lg{display:inline}.sm{display:none}
 @media(max-width:560px){.lg{display:none}.sm{display:inline}
-.compnav a{font-size:13px;padding:10px 6px}nav.tabs button{min-width:0;flex:1 1 44%}}
+.compnav a{width:38px;height:36px}nav.tabs button{min-width:0;flex:1 1 44%}
+.modebar button{font-size:13px}}
 </style></head><body>
 <header>
  <div class="hrow">
@@ -845,23 +948,25 @@ footer a{color:var(--lien)}
    <div><h1>Pronostix</h1><div class="tag">Nono le robot, roi des prono 👑</div>
     <div class="sub">__NOM__ · Saison __SAISON__</div></div>
   </div>
-  <div class="pct"><div class="b" id="pct">—</div><div class="l">Fiabilité</div></div>
+  <div class="pct" id="pct-box" hidden><div class="b" id="pct">—</div><div class="l">Fiabilité</div></div>
   <div class="theme" id="theme" role="group" aria-label="Thème d'affichage">
    <button data-t="light" title="Thème clair" aria-label="Thème clair">☀</button>
    <button data-t="auto" title="Thème automatique" aria-label="Thème automatique">◐</button>
    <button data-t="dark" title="Thème sombre" aria-label="Thème sombre">☾</button>
   </div>
  </div>
- <div class="scorebar" id="scorebar"></div>
- <div class="maj" id="maj"></div>
+ <div class="scorebar" id="scorebar" hidden></div>
 </header>
 <div class="wrap">
- <div class="compnav">
-  __NAV__
- </div>
- <div class="modebar">
-  <button data-m="reel" class="on">⚽ Réel</button>
-  <button data-m="prono">🤖 Prono de Nono</button>
+ <div class="toprow">
+  <nav class="compnav" aria-label="Compétition">
+   __NAV__
+  </nav>
+  <div class="modebar" id="modebar" data-m="reel" role="group" aria-label="Mode d'affichage">
+   <span class="glide" aria-hidden="true"></span>
+   <button data-m="reel" class="on" aria-pressed="true"><span class="e">⚽</span> Réel</button>
+   <button data-m="prono" aria-pressed="false"><span class="e">🤖</span> Prono de Nono</button>
+  </div>
  </div>
  <div class="note" id="note"></div>
  <div class="notif" id="notif" hidden>
@@ -878,6 +983,7 @@ footer a{color:var(--lien)}
  </nav>
  <div id="content"></div>
 </div>
+<div class="maj" id="maj"></div>
 <footer>
  __NOM__ __SAISON__ · Pronostics générés par modèle IA · Résultats réels via football-data.org<br>
  Créé par <a href="https://github.com/Nico-Mtn">Nico-Mtn</a> · Projet gratuit, sans publicité, sans paris
@@ -921,18 +1027,26 @@ window.matchMedia("(prefers-color-scheme:dark)").addEventListener("change",funct
 applyTheme(document.documentElement.dataset.pref||"auto");
 
 function head(){
- var s=DATA.stats||{},j=s.joue||0,ok=(s.exact||0)+(s.bon||0);
- document.getElementById("pct").textContent = j?((ok/j*100).toFixed(1)+" %"):"—";
- document.getElementById("scorebar").innerHTML =
-  '<div class="sc"><b>'+j+'</b><span>joués</span></div>'
- +'<div class="sc ok"><b>'+(s.exact||0)+'</b><span>exacts</span></div>'
- +'<div class="sc ok"><b>'+(s.bon||0)+'</b><span>bons</span></div>'
- +'<div class="sc ko"><b>'+(s.rate||0)+'</b><span>ratés</span></div>';
+ var s=DATA.stats||{},j=s.joue||0,ok=(s.exact||0)+(s.bon||0),pr=(mode==="prono");
+ // Fiabilité, exacts, bons, ratés : ces compteurs jugent les pronostics. En mode
+ // Réel la page ne montre que des faits officiels, ils n'ont donc rien à y faire.
+ document.getElementById("pct-box").hidden = !pr;
+ document.getElementById("scorebar").hidden = !pr;
+ if(pr){
+  document.getElementById("pct").textContent = j?((ok/j*100).toFixed(1)+" %"):"—";
+  document.getElementById("scorebar").innerHTML =
+   '<div class="sc"><b>'+j+'</b><span>joués</span></div>'
+  +'<div class="sc ok"><b>'+(s.exact||0)+'</b><span>exacts</span></div>'
+  +'<div class="sc ok"><b>'+(s.bon||0)+'</b><span>bons</span></div>'
+  +'<div class="sc ko"><b>'+(s.rate||0)+'</b><span>ratés</span></div>';
+ }
  document.getElementById("maj").textContent =
   "Dernière mise à jour : "+DATA.maj+" — "+j+"/"+(s.total||0)+" matchs joués";
- document.getElementById("note").innerHTML = (mode==="prono")
+ document.getElementById("note").innerHTML = pr
   ? 'Mode <b>Prono de Nono</b> : pronostics, indice de confiance et projections IA (résultats réels inclus).'
   : 'Mode <b>Réel</b> : résultats et classement officiels, sans projection.';
+ var mb=document.getElementById("modebar");
+ if(mb) mb.dataset.m=mode;
 }
 /* opt.sansJournee : la ligne est déjà dans une section de journée, inutile de
    répéter le badge « J2 » sur chacune des neuf rencontres. */
@@ -943,10 +1057,16 @@ function matchRow(m, opt){
  // du pronostic, un badge « raté » ne dit pas ce que Nono avait annoncé.
  var rappel = (mode==="prono" && m.prono && (m.reel || m.live))
    ? '<div class="pr">prono '+m.prono[0]+'–'+m.prono[1]+'</div>' : '';
+ // Quand la rencontre s'est jouée, la date coiffe le score plutôt que d'être
+ // reléguée en badge sous la ligne : on lit « quand » puis « combien ».
+ var quand = m.date
+   ? '<div class="dt">'+esc(m.date)+(m.heure?" · "+esc(m.heure):"")+'</div>' : '';
  if(m.live && m.direct){
-  right='<div class="v dir">'+m.direct[0]+" – "+m.direct[1]+'</div><div class="k">en direct</div>'+rappel;
+  right=quand+'<div class="v dir">'+m.direct[0]+" – "+m.direct[1]+'</div><div class="k">en direct</div>'+rappel;
+  dansScore=true;
  }else if(m.reel){
-  right='<div class="v">'+m.reel[0]+" – "+m.reel[1]+'</div><div class="k">score final</div>'+rappel;
+  right=quand+'<div class="v">'+m.reel[0]+" – "+m.reel[1]+'</div><div class="k">score final</div>'+rappel;
+  dansScore=true;
  }else if(mode==="prono"&&m.prono){
   right='<div class="v p">'+m.prono[0]+" – "+m.prono[1]+'</div><div class="k">pronostic</div>';
  }else{
@@ -972,10 +1092,13 @@ function matchRow(m, opt){
   alt='<div class="alt"><button onclick="toggleAlt(this)" data-s="'+m.second.sh+' – '+m.second.sa
    +'" data-c="'+m.second.conf+'">2ᵉ scénario · Indice : '+m.second.conf+' %</button></div>';
  }
+ // Sans badge à afficher, on n'émet pas la ligne : un conteneur vide laisserait
+ // un blanc inexpliqué sous chaque rencontre terminée du mode Réel.
+ var meta = b.length ? '<div class="meta">'+b.join(" ")+'</div>' : '';
  return '<div class="m"><div class="t">'+logo(m.ch)+'<b class="tn" data-team="'+esc(m.home)+'">'+nmHtml(m.home)+'</b></div>'
  +'<div class="sc2">'+right+'</div>'
  +'<div class="t a"><b class="tn" data-team="'+esc(m.away)+'">'+nmHtml(m.away)+'</b>'+logo(m.ca)+'</div></div>'
- +'<div class="meta">'+b.join(" ")+'</div>'+alt;
+ +meta+alt;
 }
 function toggleAlt(btn){
  if(btn.dataset.open==="1"){btn.dataset.open="0";
@@ -1187,21 +1310,66 @@ function scorersHtml(){
  });
  return h+'</table></div>';
 }
-/* L'onglet Classement regroupe les trois lectures d'une même réalité :
-   le classement, la forme récente et les buteurs. */
+/* Statistiques de la saison en cours. Uniquement des faits mesurés sur les
+   rencontres jouées : rien de pronostiqué, la carte vaut dans les deux modes. */
+function equipes(e){
+ if(!e||!e.teams||!e.teams.length) return "";
+ return e.teams.map(function(t){
+  return '<div class="who">'+logo(t.crest)
+   +'<span class="tn" data-team="'+esc(t.team)+'">'+nmHtml(t.team)+'</span></div>';
+ }).join("");
+}
+function statsHtml(){
+ var s=DATA.sstats;
+ if(!s) return '<div class="card"><div class="empty">Les statistiques apparaîtront dès les premiers matchs.</div></div>';
+ var h='<div class="card"><div class="ctitle"><span class="ic">📐</span>'
+  +'<h3>Statistiques de la saison</h3></div><div class="stg">';
+ h+='<div class="st"><div class="k">Buts par match</div><div class="v">'+s.bpm.toFixed(2).replace(".",",")
+  +'</div><div class="x">'+s.buts+' buts en '+s.matchs+' match'+(s.matchs>1?"s":"")+'</div></div>';
+ if(s.journee){
+  h+='<div class="st"><div class="k">Meilleure journée</div><div class="v">J'+s.journee.j
+   +'</div><div class="x">'+s.journee.ratio.toFixed(2).replace(".",",")+' but'
+   +(s.journee.ratio>=2?"s":"")+' par match · '+s.journee.buts+' buts en '
+   +s.journee.matchs+' rencontres</div></div>';
+ }
+ if(s.attaque){
+  h+='<div class="st"><div class="k">Meilleure attaque</div><div class="v">'+s.attaque.v
+   +' buts</div>'+equipes(s.attaque)+'</div>';
+ }
+ if(s.defense){
+  h+='<div class="st"><div class="k">Meilleure défense</div><div class="v">'+s.defense.v
+   +' encaissé'+(s.defense.v>1?"s":"")+'</div>'+equipes(s.defense)+'</div>';
+ }
+ var c=s.carton;
+ if(c){
+  h+='<div class="st"><div class="k">Match le plus prolifique</div><div class="v">'+c.buts
+   +' buts</div><div class="who">'+logo(c.ch)
+   +'<span class="tn" data-team="'+esc(c.home)+'">'+nmHtml(c.home)+'</span>'
+   +'<span style="opacity:.7">'+c.sh+' – '+c.sa+'</span>'
+   +'<span class="tn" data-team="'+esc(c.away)+'">'+nmHtml(c.away)+'</span>'+logo(c.ca)+'</div>'
+   +'<div class="x">'+(c.j?'J'+c.j:"")+(c.j&&c.date?" · ":"")+esc(c.date||"")+'</div></div>';
+ }
+ return h+'</div><div class="maj" style="margin-top:12px;text-align:left">Calculé sur les '
+  +s.matchs+' rencontres déjà disputées, hors pronostics.</div></div>';
+}
+/* L'onglet Classement regroupe les lectures d'une même réalité : le classement,
+   la forme récente, les buteurs et les statistiques de la saison. */
 function cltHtml(){
  var s='<div class="subnav">'
   +'<button data-s="clt" class="'+(sub==="clt"?"on":"")+'">📊 Classement</button>'
   +'<button data-s="dyn" class="'+(sub==="dyn"?"on":"")+'">📈 Dynamique</button>'
-  +'<button data-s="but" class="'+(sub==="but"?"on":"")+'">⚽ Buteurs</button></div>';
- return s+(sub==="dyn"?dynHtml():(sub==="but"?scorersHtml():tableHtml()));
+  +'<button data-s="but" class="'+(sub==="but"?"on":"")+'">⚽ Buteurs</button>'
+  +'<button data-s="sta" class="'+(sub==="sta"?"on":"")+'">📐 Stats</button></div>';
+ var v=(sub==="dyn")?dynHtml():(sub==="but")?scorersHtml():(sub==="sta")?statsHtml():tableHtml();
+ return s+v;
 }
 function render(){
  head();
  Array.prototype.forEach.call(document.querySelectorAll("#tabs button"),function(b){
   b.classList.toggle("on",b.dataset.v===view);});
  Array.prototype.forEach.call(document.querySelectorAll(".modebar button"),function(b){
-  b.classList.toggle("on",b.dataset.m===mode);});
+  var on=b.dataset.m===mode;
+  b.classList.toggle("on",on); b.setAttribute("aria-pressed",on?"true":"false");});
  var c=document.getElementById("content");
  c.innerHTML = view==="clubs"?clubsHtml():(view==="feed"?feedHtml():(view==="cal"?calHtml():cltHtml()));
  Array.prototype.forEach.call(document.querySelectorAll(".subnav button"),function(b){
