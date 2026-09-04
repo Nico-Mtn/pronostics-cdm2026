@@ -234,6 +234,138 @@
       "home": "Ipswich Town",
       "away": "Liverpool",
       "frozen_at": "2026-09-03T21:10:52Z"
+    },
+    "560571": {
+      "sh": 2,
+      "sa": 1,
+      "issue": "V",
+      "conf": 38,
+      "second": {
+        "sh": 1,
+        "sa": 2,
+        "issue": "D",
+        "conf": 33
+      },
+      "proba": {
+        "v": 38,
+        "n": 29,
+        "d": 33
+      },
+      "eh": 1496,
+      "ea": 1533,
+      "home": "Newcastle",
+      "away": "Bournemouth",
+      "frozen_at": "2026-09-04T14:37:28Z"
+    },
+    "560562": {
+      "sh": 2,
+      "sa": 1,
+      "issue": "V",
+      "conf": 47,
+      "second": {
+        "sh": 1,
+        "sa": 1,
+        "issue": "N",
+        "conf": 28
+      },
+      "proba": {
+        "v": 47,
+        "n": 28,
+        "d": 25
+      },
+      "eh": 1481,
+      "ea": 1432,
+      "home": "Nottingham",
+      "away": "Tottenham",
+      "frozen_at": "2026-09-04T14:37:28Z"
+    },
+    "560563": {
+      "sh": 2,
+      "sa": 0,
+      "issue": "V",
+      "conf": 64,
+      "second": {
+        "sh": 1,
+        "sa": 1,
+        "issue": "N",
+        "conf": 23
+      },
+      "proba": {
+        "v": 64,
+        "n": 23,
+        "d": 12
+      },
+      "eh": 1614,
+      "ea": 1402,
+      "home": "Man City",
+      "away": "Coventry City",
+      "frozen_at": "2026-09-04T14:37:28Z"
+    },
+    "560564": {
+      "sh": 2,
+      "sa": 1,
+      "issue": "V",
+      "conf": 42,
+      "second": {
+        "sh": 1,
+        "sa": 2,
+        "issue": "D",
+        "conf": 30
+      },
+      "proba": {
+        "v": 42,
+        "n": 29,
+        "d": 30
+      },
+      "eh": 1507,
+      "ea": 1509,
+      "home": "Brighton Hove",
+      "away": "Leeds United",
+      "frozen_at": "2026-09-04T14:37:28Z"
+    },
+    "560565": {
+      "sh": 2,
+      "sa": 1,
+      "issue": "V",
+      "conf": 44,
+      "second": {
+        "sh": 1,
+        "sa": 1,
+        "issue": "N",
+        "conf": 28
+      },
+      "proba": {
+        "v": 44,
+        "n": 28,
+        "d": 27
+      },
+      "eh": 1518,
+      "ea": 1498,
+      "home": "Brentford",
+      "away": "Sunderland",
+      "frozen_at": "2026-09-04T14:37:28Z"
+    },
+    "560568": {
+      "sh": 2,
+      "sa": 1,
+      "issue": "V",
+      "conf": 45,
+      "second": {
+        "sh": 1,
+        "sa": 1,
+        "issue": "N",
+        "conf": 28
+      },
+      "proba": {
+        "v": 45,
+        "n": 28,
+        "d": 27
+      },
+      "eh": 1471,
+      "ea": 1448,
+      "home": "Fulham",
+      "away": "Crystal Palace",
+      "frozen_at": "2026-09-04T14:37:28Z"
     }
   }
 }
