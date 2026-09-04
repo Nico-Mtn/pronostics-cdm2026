@@ -936,6 +936,14 @@ html[data-theme="dark"] .jsec.res>summary .ic{background:#fff}
 .st .who{display:flex;align-items:center;gap:7px;margin-top:6px;font-size:13px;font-weight:800}
 .st .who img{width:20px;height:20px;object-fit:contain;flex:none}
 .st .who+.who{margin-top:4px}
+/* Le match le plus prolifique est une affiche, pas un chiffre : il prend toute
+   la largeur pour que le score respire entre les deux blasons. */
+.st.aff{grid-column:1/-1}
+.aff .row{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:7px;
+flex-wrap:wrap;font-size:14px;font-weight:800}
+.aff .row img{width:24px;height:24px;object-fit:contain;flex:none}
+.aff .sco{font-size:21px;font-weight:900;color:var(--gold);padding:0 4px;white-space:nowrap}
+.aff .x{text-align:center;margin-top:6px}
 .lg{display:inline}.sm{display:none}
 @media(max-width:560px){.lg{display:none}.sm{display:inline}
 .compnav a{width:38px;height:36px}nav.tabs button{min-width:0;flex:1 1 44%}
@@ -1342,12 +1350,12 @@ function statsHtml(){
  }
  var c=s.carton;
  if(c){
-  h+='<div class="st"><div class="k">Match le plus prolifique</div><div class="v">'+c.buts
-   +' buts</div><div class="who">'+logo(c.ch)
+  h+='<div class="st aff"><div class="k">Match le plus prolifique</div>'
+   +'<div class="row">'+logo(c.ch)
    +'<span class="tn" data-team="'+esc(c.home)+'">'+nmHtml(c.home)+'</span>'
-   +'<span style="opacity:.7">'+c.sh+' – '+c.sa+'</span>'
+   +'<span class="sco">'+c.sh+' – '+c.sa+'</span>'
    +'<span class="tn" data-team="'+esc(c.away)+'">'+nmHtml(c.away)+'</span>'+logo(c.ca)+'</div>'
-   +'<div class="x">'+(c.j?'J'+c.j:"")+(c.j&&c.date?" · ":"")+esc(c.date||"")+'</div></div>';
+   +'<div class="x">'+c.buts+' buts'+(c.j?' · J'+c.j:"")+(c.date?' · '+esc(c.date):"")+'</div></div>';
  }
  return h+'</div><div class="maj" style="margin-top:12px;text-align:left">Calculé sur les '
   +s.matchs+' rencontres déjà disputées, hors pronostics.</div></div>';
