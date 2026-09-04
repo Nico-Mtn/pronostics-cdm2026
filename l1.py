@@ -1059,7 +1059,15 @@ function sections(ms, opt){
 function feedHtml(){
  var ms=(DATA.matches||[]).slice();
  var direct=ms.filter(function(m){return m.live;});
- var past=ms.filter(function(m){return m.reel;}).reverse().slice(0,10);
+ // Journées ENTIÈRES : un plafond en nombre de matchs coupait la journée la plus
+ // ancienne en plein milieu, et le dépliant annonçait « 8 matchs » sur une
+ // journée qui en compte 9.
+ var past=[], vues=[];
+ ms.filter(function(m){return m.reel;}).reverse().forEach(function(m){
+  var j=m.j||0;
+  if(vues.indexOf(j)<0){ if(vues.length>=3) return; vues.push(j); }
+  past.push(m);
+ });
  var next=ms.filter(function(m){return !m.reel && !m.live;}).slice(0,10);
  var h="";
  if(!ms.length) return '<div class="card"><div class="empty">Calendrier bientôt disponible.</div></div>';
