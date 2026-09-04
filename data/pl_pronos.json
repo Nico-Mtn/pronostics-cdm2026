@@ -366,6 +366,28 @@
       "home": "Fulham",
       "away": "Crystal Palace",
       "frozen_at": "2026-09-04T14:37:28Z"
+    },
+    "560569": {
+      "sh": 2,
+      "sa": 1,
+      "issue": "V",
+      "conf": 36,
+      "second": {
+        "sh": 1,
+        "sa": 2,
+        "issue": "D",
+        "conf": 35
+      },
+      "proba": {
+        "v": 36,
+        "n": 29,
+        "d": 35
+      },
+      "eh": 1448,
+      "ea": 1508,
+      "home": "Hull City",
+      "away": "Aston Villa",
+      "frozen_at": "2026-09-04T17:54:00Z"
     }
   }
 }

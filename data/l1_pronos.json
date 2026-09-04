@@ -262,6 +262,28 @@
       "home": "PSG",
       "away": "Monaco",
       "frozen_at": "2026-09-03T21:10:50Z"
+    },
+    "559695": {
+      "sh": 2,
+      "sa": 1,
+      "issue": "V",
+      "conf": 51,
+      "second": {
+        "sh": 1,
+        "sa": 1,
+        "issue": "N",
+        "conf": 27
+      },
+      "proba": {
+        "v": 51,
+        "n": 27,
+        "d": 22
+      },
+      "eh": 1570,
+      "ea": 1485,
+      "home": "RC Lens",
+      "away": "Lorient",
+      "frozen_at": "2026-09-04T17:53:58Z"
     }
   }
 }
