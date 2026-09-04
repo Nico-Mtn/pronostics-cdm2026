@@ -118,6 +118,16 @@ MERCATO_CAP = 60.0             # borne de l'ajustement mercato (en points Elo)
 HOME_ADV = 65.0        # avantage du terrain en points Elo (championnat)
 MU_L1 = 2.72           # total de buts moyen par match (grands championnats européens)
 DC_RHO = -0.13         # correction Dixon-Coles sur les petits scores
+# Marge accordée au NUL dans la règle de décision. Sans elle, on annonce l'issue
+# la plus probable — or le nul, même à 28 % en moyenne, n'est presque jamais LE
+# maximum : le modèle ne pronostiquait donc quasiment jamais de match nul, alors
+# qu'un match sur quatre en est un. Mesuré sur 6 saisons réelles (2 058 matchs) :
+#   sans marge      → 0 % de pronos nuls, fiabilité 49,7 %
+#   marge de 0.107  → 24,7 % en Ligue 1 et 23,7 % en Premier League, pour 23,8 %
+#                     et 24,5 % de nuls réellement observés ; fiabilité 46,1 %
+# On perd ~3 points de fiabilité, on gagne un pronostic crédible. Mettre 0 pour
+# revenir à l'ancien comportement.
+NUL_MARGE = 0.107
 
 # Identifiant d'équipe : shortName OFFICIEL de l'API (« Paris SG », « Marseille »…),
 # puis nom complet, puis trigramme. Aucun découpage maison (qui produisait des
@@ -359,15 +369,21 @@ def predict(elo, home, away):
     pv = sum(p for (x, y), p in grid.items() if x > y)
     pn = sum(p for (x, y), p in grid.items() if x == y)
     pd = sum(p for (x, y), p in grid.items() if x < y)
-    # En championnat le NUL est une issue à part entière (contrairement aux phases finales)
-    issue = max((("V", pv), ("N", pn), ("D", pd)), key=lambda t: t[1])
+    # En championnat le NUL est une issue à part entière (contrairement aux phases
+    # finales) : on le retient dès qu'il talonne la meilleure issue, à NUL_MARGE près.
+    meilleure = max(pv, pn, pd)
+    if pn >= meilleure - NUL_MARGE:
+        issue = ("N", pn)
+    else:
+        issue = ("V", pv) if pv >= pd else ("D", pd)
     if issue[0] == "V":   cands = {k: v for k, v in grid.items() if k[0] > k[1]}
     elif issue[0] == "N": cands = {k: v for k, v in grid.items() if k[0] == k[1]}
     else:                 cands = {k: v for k, v in grid.items() if k[0] < k[1]}
     (sx, sy) = max(cands.items(), key=lambda kv: kv[1])[0]
     # 2e SCÉNARIO : l'issue alternative la plus probable, avec son score le plus plausible.
     # Affiché quand le match est incertain — l'utilisateur voit ce que le modèle hésite à trancher.
-    autres = sorted([("V", pv), ("N", pn), ("D", pd)], key=lambda t: -t[1])[1:]
+    autres = sorted([t for t in (("V", pv), ("N", pn), ("D", pd)) if t[0] != issue[0]],
+                    key=lambda t: -t[1])
     second = None
     if autres:
         k2, p2 = autres[0]
@@ -469,7 +485,15 @@ def build(matches_raw, standings_raw, scorers_raw):
         except Exception:
             dt = None
         ft = ((m.get("score") or {}).get("fullTime") or {})
-        played = m.get("status") in ("FINISHED", "AWARDED") and ft.get("home") is not None
+        # L'API renvoie parfois un HORODATAGE à la place du statut (« 2026-08-28
+        # 17:45:00Z » au lieu de « FINISHED ») : neuf matchs joués n'avaient donc
+        # jamais été comptés, ce qui figeait la journée courante et le classement.
+        # On ne se fie plus au seul statut : un match est joué s'il a un score
+        # complet, qu'il n'est plus en cours, et que son coup d'envoi est passé.
+        statut_api = (m.get("status") or "").strip().upper()
+        en_cours = statut_api in ("IN_PLAY", "PAUSED", "LIVE")
+        a_score = ft.get("home") is not None and ft.get("away") is not None
+        played = a_score and not en_cours and (dt is None or dt <= now)
         rows.append({
             "id": m.get("id"), "j": m.get("matchday"), "dt": dt,
             "home": hn, "away": an,
@@ -477,6 +501,8 @@ def build(matches_raw, standings_raw, scorers_raw):
             "sh": ft.get("home") if played else None,
             "sa": ft.get("away") if played else None,
             "played": played,
+            "live": en_cours,
+            "direct": [ft.get("home"), ft.get("away")] if (en_cours and a_score) else None,
         })
     rows.sort(key=lambda r: (r["dt"] or datetime.datetime(2099, 1, 1, tzinfo=datetime.timezone.utc)))
     global ELO_START
@@ -518,6 +544,7 @@ def build(matches_raw, standings_raw, scorers_raw):
             "proba": pred.get("proba") if pred else None,
             "reel": [r["sh"], r["sa"]] if r["played"] else None,
             "second": (pred.get("second") if pred else None),
+            "live": r["live"], "direct": r["direct"],
             "statut": st, "fige": key in out_frozen,
         })
     save_frozen(out_frozen)
@@ -721,6 +748,12 @@ font-size:15px;background:linear-gradient(135deg,#f6c453,#e8a20c);flex:none}
 .sc2 .k{font-size:9px;opacity:.55;text-transform:uppercase;letter-spacing:.04em}
 .sc2 .p{color:var(--gold)}
 .meta{display:flex;align-items:center;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:5px}
+/* En-tête de journée : le badge « J2 » n'est plus répété sur chaque rencontre. */
+.jrn{font-size:11px;font-weight:800;opacity:.5;text-transform:uppercase;letter-spacing:.07em;
+margin:16px 0 2px;padding-top:12px;border-top:1px solid var(--line)}
+.jrn:first-child{margin-top:0;padding-top:0;border-top:0}
+.sc2 .v.dir{color:var(--ko)}
+.b.dir{background:var(--ko);color:#fff}
 .b{font-size:10px;font-weight:800;padding:2px 7px;border-radius:99px;background:var(--soft);color:var(--mut)}
 .b.ex{background:#dcfce7;color:#166534}.b.bo{background:#fef3c7;color:#92400e}.b.ra{background:#fee2e2;color:#991b1b}
 .b.fg{background:#e0e7ff;color:#3730a3}
@@ -878,17 +911,24 @@ function head(){
   ? 'Mode <b>Prono de Nono</b> : pronostics, indice de confiance et projections IA (résultats réels inclus).'
   : 'Mode <b>Réel</b> : résultats et classement officiels, sans projection.';
 }
-function matchRow(m){
+/* opt.sansJournee : la ligne est déjà dans une section de journée, inutile de
+   répéter le badge « J2 » sur chacune des neuf rencontres. */
+function matchRow(m, opt){
+ opt = opt || {};
  var right="";
- if(m.reel){
+ if(m.live && m.direct){
+  right='<div class="v dir">'+m.direct[0]+" – "+m.direct[1]+'</div><div class="k">en direct</div>';
+ }else if(m.reel){
   right='<div class="v">'+m.reel[0]+" – "+m.reel[1]+'</div><div class="k">score final</div>';
  }else if(mode==="prono"&&m.prono){
   right='<div class="v p">'+m.prono[0]+" – "+m.prono[1]+'</div><div class="k">pronostic</div>';
  }else{
-  right='<div class="v" style="opacity:.4">–</div><div class="k">'+esc(m.heure||"à venir")+'</div>';
+  // Match à venir : le tiret suffit. L'heure était répétée juste en dessous.
+  right='<div class="v" style="opacity:.35">–</div>';
  }
  var b=[];
- if(m.j) b.push('<span class="b">J'+m.j+'</span>');
+ if(m.j && !opt.sansJournee) b.push('<span class="b">J'+m.j+'</span>');
+ if(m.live) b.push('<span class="b dir">● en direct</span>');
  if(m.date) b.push('<span class="b">'+esc(m.date)+(m.heure?" · "+esc(m.heure):"")+'</span>');
  if(mode==="prono"){
   if(m.statut==="exact") b.push('<span class="b ex">✓ exact</span>');
@@ -977,19 +1017,33 @@ function clubsHtml(){
  return h+'</div><div class="maj" style="margin-top:12px">Touchez un club pour ouvrir sa fiche : '
   +'identité, stade, bilan à domicile et à l\\'extérieur, derniers et prochains matchs.</div></div>';
 }
+/* Regroupe une liste de matchs par journée, en conservant l'ordre reçu. */
+function sections(ms){
+ var ordre=[], par={};
+ ms.forEach(function(m){var j=m.j||0; if(!par[j]){par[j]=[];ordre.push(j);} par[j].push(m);});
+ return ordre.map(function(j){
+  return '<div class="jrn">Journée '+j+'</div>'
+   + par[j].map(function(m){return matchRow(m,{sansJournee:true});}).join("");
+ }).join("");
+}
 function feedHtml(){
  var ms=(DATA.matches||[]).slice();
+ var direct=ms.filter(function(m){return m.live;});
  var past=ms.filter(function(m){return m.reel;}).reverse().slice(0,10);
- var next=ms.filter(function(m){return !m.reel;}).slice(0,10);
+ var next=ms.filter(function(m){return !m.reel && !m.live;}).slice(0,10);
  var h="";
  if(!ms.length) return '<div class="card"><div class="empty">Calendrier bientôt disponible.</div></div>';
+ if(direct.length){
+  h+='<div class="card"><div class="ctitle"><span class="ic">🔴</span><h3>En ce moment</h3></div>'
+   + sections(direct) + '</div>';
+ }
  if(next.length){
-  h+='<div class="card"><div class="ctitle"><span class="ic">🔜</span><h3>Prochains matchs</h3></div>';
-  next.forEach(function(m){h+=matchRow(m);});h+='</div>';
+  h+='<div class="card"><div class="ctitle"><span class="ic">🔜</span><h3>Prochains matchs</h3></div>'
+   + sections(next) + '</div>';
  }
  if(past.length){
-  h+='<div class="card"><div class="ctitle"><span class="ic">✅</span><h3>Derniers résultats</h3></div>';
-  past.forEach(function(m){h+=matchRow(m);});h+='</div>';
+  h+='<div class="card"><div class="ctitle"><span class="ic">✅</span><h3>Derniers résultats</h3></div>'
+   + sections(past) + '</div>';
  }
  return h;
 }
@@ -1009,7 +1063,7 @@ function journeeCourante(g){
 }
 function bloc(g,j){
  var h='<div class="card"><div class="ctitle"><span class="ic">'+j+'</span><h3>Journée '+j+'</h3></div>';
- g.by[j].forEach(function(m){h+=matchRow(m);});
+ g.by[j].forEach(function(m){h+=matchRow(m,{sansJournee:true});});
  return h+'</div>';
 }
 function calHtml(){
