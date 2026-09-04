@@ -284,10 +284,16 @@ background:var(--soft);color:var(--mut);text-transform:uppercase;letter-spacing:
 .theme button{border:0;background:transparent;color:var(--mut);width:28px;height:26px;border-radius:99px;
 cursor:pointer;font-size:13px;line-height:1;padding:0}
 .theme button.on{background:var(--card);color:var(--acc);box-shadow:0 1px 3px var(--sh)}
-.compnav{display:flex;gap:8px;margin:14px 0 8px;flex-wrap:wrap}
-.compnav a{flex:1;min-width:120px;display:flex;align-items:center;justify-content:center;gap:7px;
-padding:11px;border-radius:12px;text-decoration:none;
-font-weight:800;font-size:13px;background:var(--card);border:1px solid var(--bd);color:var(--mut)}
+/* Sélecteur de compétition en icônes seules, identique aux pages de championnat :
+   un drapeau se reconnaît plus vite qu'un libellé et la barre reste compacte. */
+.compnav{display:inline-flex;gap:6px;margin:14px 0 8px;background:var(--card);
+border:1px solid var(--bd);border-radius:14px;padding:4px}
+.compnav a{width:42px;height:38px;display:flex;align-items:center;justify-content:center;
+border-radius:10px;text-decoration:none;background:transparent;color:var(--mut);
+transition:transform .12s ease}
+.compnav a:hover{transform:translateY(-1px);background:var(--soft)}
+.compnav .ic{font-size:17px;line-height:1}
+.compnav .flg{width:24px;height:18px}
 .flg{border-radius:3px;object-fit:cover;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.10)}
 .hero{border-radius:18px;padding:22px 18px;text-align:center;margin:6px 0 18px;
 background:linear-gradient(135deg,rgba(246,196,83,.22),rgba(232,162,12,.10));border:1px solid rgba(232,162,12,.35)}
@@ -298,6 +304,8 @@ background:linear-gradient(135deg,rgba(246,196,83,.22),rgba(232,162,12,.10));bor
 .ctitle{display:flex;align-items:center;gap:9px;margin-bottom:14px}
 .ctitle .ic{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;
 font-size:15px;background:linear-gradient(135deg,#f6c453,#e8a20c);flex:none}
+/* Sur fond nuit, le doré n'offrait plus assez de contraste au pictogramme. */
+html[data-theme="dark"] .ctitle .ic{background:#fff}
 .ctitle h3{margin:0;font-size:15px;font-weight:800}
 .crit{display:flex;align-items:center;gap:10px;padding:9px 0}
 .crit+.crit{border-top:1px solid var(--line)}
@@ -468,11 +476,13 @@ draw();
 </script></body></html>"""
 
 def nav_html():
-    """Même sélecteur que sur les pages de championnat : Accueil + championnats suivis."""
-    items = ['<a href="../"><span class="ic">🏠</span> Accueil</a>']
+    """Même sélecteur que sur les pages de championnat : icônes seules, le nom
+    étant porté par `title` et `aria-label` pour rester accessible."""
+    items = ['<a href="../" title="Accueil" aria-label="Accueil"><span class="ic">🏠</span></a>']
     for lg in l1.LEAGUES:
-        items.append(f'<a href="../{lg["slug"]}/">{l1.flag_img(lg["flag"])} {lg["nom"]}</a>')
-    return "\n  ".join(items)
+        items.append(f'<a href="../{lg["slug"]}/" title="{lg["nom"]}" '
+                     f'aria-label="{lg["nom"]}">{l1.flag_img(lg["flag"], 24)}</a>')
+    return "\n   ".join(items)
 
 def build_archive(a):
     # Le préfixe de données doit être UNIQUE par saison archivée, sinon deux saisons
