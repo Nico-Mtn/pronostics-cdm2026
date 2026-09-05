@@ -264,10 +264,13 @@ PAGE = """<!DOCTYPE html><html lang="fr"><head>
 }catch(e){document.documentElement.dataset.theme="light";}})();
 </script>
 <style>
+/* --lien = accent posé sur du TEXTE. En thème sombre le bleu de marque devient
+   illisible sur fond nuit : on bascule sur un bleu très clair. */
 :root{--bg:#f4f6fb;--fg:#1b2333;--card:#fff;--bd:#e6e9f2;--line:#eef0f6;--soft:#eef1f8;
---mut:#5a6478;--acc:#2246c7;--gold:#e8a20c;--ok:#16a34a;--ko:#dc2626;--sh:rgba(34,70,199,.10)}
+--mut:#5a6478;--acc:#2246c7;--gold:#e8a20c;--ok:#16a34a;--ko:#dc2626;--sh:rgba(34,70,199,.10);
+--lien:#2246c7}
 html[data-theme="dark"]{--bg:#0f1420;--fg:#e8ecf5;--card:#161d2e;--bd:#242d42;--line:#242d42;
---soft:#242d42;--mut:#94a0b8;--sh:rgba(0,0,0,.35)}
+--soft:#242d42;--mut:#94a0b8;--sh:rgba(0,0,0,.35);--lien:#d8e3ff;--ok:#22c55e}
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
 background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
@@ -283,7 +286,7 @@ background:var(--soft);color:var(--mut);text-transform:uppercase;letter-spacing:
 .theme{flex:none;display:flex;gap:2px;background:var(--soft);border-radius:99px;padding:3px}
 .theme button{border:0;background:transparent;color:var(--mut);width:28px;height:26px;border-radius:99px;
 cursor:pointer;font-size:13px;line-height:1;padding:0}
-.theme button.on{background:var(--card);color:var(--acc);box-shadow:0 1px 3px var(--sh)}
+.theme button.on{background:var(--card);color:var(--lien);box-shadow:0 1px 3px var(--sh)}
 /* Sélecteur de compétition en icônes seules, identique aux pages de championnat :
    un drapeau se reconnaît plus vite qu'un libellé et la barre reste compacte. */
 .compnav{display:inline-flex;gap:6px;margin:14px 0 8px;background:var(--card);
@@ -300,7 +303,9 @@ background:linear-gradient(135deg,rgba(246,196,83,.22),rgba(232,162,12,.10));bor
 .hero .nt{font-size:44px;font-weight:900;line-height:1;color:var(--gold)}
 .hero .sur{font-size:14px;opacity:.6;font-weight:700}
 .hero .vd{font-size:14px;font-weight:700;margin-top:8px}
-.card{background:#fff;border:1px solid #e6e9f2;border-radius:16px;padding:18px 16px;margin-bottom:16px}
+/* Ces deux couleurs étaient écrites en dur : en thème sombre les cartes restaient
+   blanches sous du texte clair, donc illisibles. Elles suivent maintenant le thème. */
+.card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:18px 16px;margin-bottom:16px}
 .ctitle{display:flex;align-items:center;gap:9px;margin-bottom:14px}
 .ctitle .ic{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;
 font-size:15px;background:linear-gradient(135deg,#f6c453,#e8a20c);flex:none}
@@ -343,7 +348,7 @@ font-weight:800;font-size:12px;color:var(--mut);cursor:pointer}
 .bd.ex{background:#dcfce7;color:#166534}.bd.bo{background:#fef3c7;color:#92400e}.bd.ra{background:#fee2e2;color:#991b1b}
 .note{font-size:11px;opacity:.62;margin-top:10px;line-height:1.6}
 footer{text-align:center;font-size:11px;opacity:.55;padding:20px 14px;line-height:1.8}
-footer a{color:var(--acc)}
+footer a{color:var(--lien)}
 </style></head><body>
 <header><div class="hrow">
  <div class="brand">
