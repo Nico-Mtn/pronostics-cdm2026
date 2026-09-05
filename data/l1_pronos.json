@@ -350,6 +350,28 @@
       "home": "Troyes",
       "away": "Strasbourg",
       "frozen_at": "2026-09-05T13:36:35Z"
+    },
+    "559698": {
+      "sh": 1,
+      "sa": 1,
+      "issue": "N",
+      "conf": 29,
+      "second": {
+        "sh": 1,
+        "sa": 2,
+        "issue": "D",
+        "conf": 39
+      },
+      "proba": {
+        "v": 32,
+        "n": 29,
+        "d": 39
+      },
+      "eh": 1453,
+      "ea": 1552,
+      "home": "Angers SCO",
+      "away": "Stade Rennais",
+      "frozen_at": "2026-09-05T16:23:14Z"
     }
   }
 }
