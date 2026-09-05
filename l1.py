@@ -18,7 +18,7 @@ Reprend le fonctionnement éprouvé sur la Coupe du Monde 2026 :
   • PRONO FIGÉ 24 h avant le coup d'envoi (data/<prefix>_pronos.json) : le prono affiché
     la veille est EXACTEMENT celui qui sera noté — aucune dérive ;
   • notation exact / bon / raté et indice de fiabilité ;
-  • mode « Réel » (résultats officiels) et « Prono de Nono » (projections).
+  • mode « Réel » (résultats officiels) et « Prono » (projections de Nono).
 
 Sorties (par championnat) : <slug>/index.html, <slug>/data.json,
           <slug>/content.sig (déploiement conditionnel),
@@ -796,17 +796,34 @@ transition:color .18s ease}
 .modebar button.on[data-m="prono"]{color:var(--surgold)}
 @media(prefers-reduced-motion:reduce){.modebar .glide{transition:none}}
 .note{text-align:center;font-size:12px;opacity:.7;margin:6px 0 10px}
-/* Rappel d'abonnement : toujours présent, jamais masqué définitivement. Un lecteur
-   déjà abonné à une autre compétition doit pouvoir s'abonner à celle-ci. */
-.notif{display:flex;align-items:center;gap:11px;padding:12px 14px;margin:0 0 12px;
-border-radius:14px;border:1px solid var(--bd);background:var(--card)}
-.notif .ic{font-size:19px;flex:none}
-.notif .lbl{flex:1;font-size:13px;line-height:1.45}
-.notif .det{font-size:11px;opacity:.6}
-.notif button{flex:none;padding:8px 14px;border-radius:99px;border:0;cursor:pointer;
-font:inherit;font-weight:800;font-size:13px;background:var(--acc);color:#fff}
-.notif button[data-on="1"]{background:var(--ok);color:var(--surok)}
-.notif button[disabled]{opacity:.55;cursor:default}
+/* Cloche : l'abonnement ne mérite pas un bandeau permanent en travers de la page.
+   Une icône dans l'en-tête, et tout le réglage dans une popup ouverte à la demande. */
+.bell{flex:none;position:relative;width:34px;height:32px;border-radius:10px;border:1px solid var(--bd);
+background:var(--soft);color:var(--mut);cursor:pointer;font-size:15px;line-height:1;padding:0}
+.bell:hover{color:var(--lien);border-color:var(--lien)}
+.bell[data-on="1"]::after{content:"";position:absolute;top:5px;right:5px;width:7px;height:7px;
+border-radius:50%;background:var(--ok);box-shadow:0 0 0 2px var(--card)}
+/* Popup de préférences : même feuille modale que la fiche club, pour ne pas
+   introduire un deuxième vocabulaire visuel. */
+.npref{padding:2px 0 4px}
+.npref .intro{font-size:13px;opacity:.72;line-height:1.55;margin:0 0 14px}
+.nrow{display:flex;align-items:center;gap:11px;padding:13px 0}
+.nrow+.nrow{border-top:1px solid var(--line)}
+.nrow .flg{width:26px;height:20px}
+.nrow .nm{flex:1;min-width:0;font-weight:800;font-size:14px}
+.nrow .nm span{display:block;font-weight:600;font-size:11px;opacity:.6;margin-top:2px}
+/* Interrupteur : cible tactile confortable, état lisible sans couleur seule. */
+.sw{flex:none;width:50px;height:29px;border-radius:99px;border:0;cursor:pointer;padding:0;
+background:rgba(127,127,127,.32);position:relative;transition:background .2s ease}
+.sw::before{content:"";position:absolute;top:3px;left:3px;width:23px;height:23px;border-radius:50%;
+background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .2s ease}
+.sw[aria-checked="true"]{background:var(--ok)}
+.sw[aria-checked="true"]::before{transform:translateX(21px)}
+.sw[disabled]{opacity:.5;cursor:default}
+.npref .aide{font-size:11.5px;opacity:.68;line-height:1.6;margin-top:14px;
+padding-top:13px;border-top:1px solid var(--line)}
+.npref .ko{color:var(--ko);font-weight:700}
+@media(prefers-reduced-motion:reduce){.sw,.sw::before{transition:none}}
 nav.tabs{display:flex;gap:8px;margin:10px 0 16px;flex-wrap:wrap}
 nav.tabs button{flex:1;min-width:104px;padding:10px;border-radius:12px;border:1px solid var(--bd);
 background:var(--card);font-weight:800;font-size:13px;color:var(--mut);cursor:pointer}
@@ -957,6 +974,8 @@ flex-wrap:wrap;font-size:14px;font-weight:800}
     <div class="sub">__NOM__ · Saison __SAISON__</div></div>
   </div>
   <div class="pct" id="pct-box" hidden><div class="b" id="pct">—</div><div class="l">Fiabilité</div></div>
+  <button class="bell" id="bell" type="button" hidden
+   title="Notifications" aria-label="Préférences de notification">🔔</button>
   <div class="theme" id="theme" role="group" aria-label="Thème d'affichage">
    <button data-t="light" title="Thème clair" aria-label="Thème clair">☀</button>
    <button data-t="auto" title="Thème automatique" aria-label="Thème automatique">◐</button>
@@ -973,16 +992,10 @@ flex-wrap:wrap;font-size:14px;font-weight:800}
   <div class="modebar" id="modebar" data-m="reel" role="group" aria-label="Mode d'affichage">
    <span class="glide" aria-hidden="true"></span>
    <button data-m="reel" class="on" aria-pressed="true"><span class="e">⚽</span> Réel</button>
-   <button data-m="prono" aria-pressed="false"><span class="e">🤖</span> Prono de Nono</button>
+   <button data-m="prono" aria-pressed="false"><span class="e">🤖</span> Prono</button>
   </div>
  </div>
  <div class="note" id="note"></div>
- <div class="notif" id="notif" hidden>
-  <span class="ic">🔔</span>
-  <span class="lbl">Recevoir les notifications <b>__NOM__</b><br>
-   <span class="det">Les affiches 1 h avant le coup d'envoi, le bilan le lendemain à 9 h.</span></span>
-  <button id="notifBtn" type="button">Activer</button>
- </div>
  <nav class="tabs" id="tabs">
   <button data-v="clubs">🛡️ Clubs</button>
   <button data-v="feed" class="on">🔥 Live feed</button>
@@ -1003,6 +1016,7 @@ var view="feed", mode="reel", sub="clt";
    La clé publique VAPID est publique par construction — elle n'a rien d'un secret. */
 var PUSH = {
  topic: "__SLUG__",
+ comps: /*__COMPS__*/[],
  base: "https://pronobot-push.nicolasmartin-contact.workers.dev",
  cle: "BEqVoqWHGNDWSknn8vx4a65zPx39eqGtEnt9wQ3tVW6z81BPxbdOe5kVdWeApywW27Qrd8NbT0KPUPvjzrUbhYw"
 };
@@ -1051,7 +1065,7 @@ function head(){
  document.getElementById("maj").textContent =
   "Dernière mise à jour : "+DATA.maj+" — "+j+"/"+(s.total||0)+" matchs joués";
  document.getElementById("note").innerHTML = pr
-  ? 'Mode <b>Prono de Nono</b> : pronostics, indice de confiance et projections IA (résultats réels inclus).'
+  ? 'Mode <b>Prono</b> : pronostics de Nono, indice de confiance et projections IA (résultats réels inclus).'
   : 'Mode <b>Réel</b> : résultats et classement officiels, sans projection.';
  var mb=document.getElementById("modebar");
  if(mb) mb.dataset.m=mode;
@@ -1168,6 +1182,7 @@ function openTeam(name){
   + (derniers.length ? derniers.map(function(m){return matchRow(m);}).join("")
                      : '<div class="empty">Aucun match joué.</div>')
   +'</details>';
+ closeTeam();   // un seul calque à la fois
  var o=document.createElement("div");o.className="ovl";o.id="ovl";
  o.onclick=function(e){if(e.target===o)closeTeam();};
  o.innerHTML='<div class="sheet">'+h+'</div>';
@@ -1403,54 +1418,141 @@ function racine(){
  if(p.charAt(p.length-1)!=="/") p=p.slice(0,p.lastIndexOf("/")+1);
  return p.replace(/[^/]+\/$/,"");
 }
-var notifBtn=document.getElementById("notifBtn"), notifBox=document.getElementById("notif");
-function etatBouton(actif, texte, off){
- notifBtn.dataset.on = actif ? "1" : "0";
- notifBtn.textContent = texte;
- notifBtn.disabled = !!off;
+var bell=document.getElementById("bell");
+/* Topics suivis par CE navigateur. Mémorisés après chaque appel au Worker pour
+   que la popup s'ouvre déjà à jour, sans attendre le réseau. */
+var suivis=[], prefsGen=0;
+function pushDispo(){
+ return ("serviceWorker" in navigator) && ("PushManager" in window) && ("Notification" in window);
 }
 async function reg(){
- if(!("serviceWorker" in navigator) || !("PushManager" in window)) return null;
+ if(!pushDispo()) return null;
  return navigator.serviceWorker.register(racine()+"sw.js", {scope: racine()});
 }
-async function initNotif(){
- if(!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return;
- notifBox.hidden=false;
+async function lireTopics(){
+ var r=await reg(); if(!r) return [];
+ await navigator.serviceWorker.ready;
+ var s=await r.pushManager.getSubscription();
+ if(!s) return [];
+ var t=await fetch(PUSH.base+"/topics?endpoint="+encodeURIComponent(s.endpoint))
+       .then(function(x){return x.json();}).catch(function(){return {topics:[]};});
+ return t.topics||[];
+}
+function majCloche(){
+ if(!bell) return;
+ bell.hidden = !pushDispo();
+ bell.dataset.on = suivis.length ? "1" : "0";
+ bell.title = suivis.length
+   ? "Notifications actives ("+suivis.length+")" : "Notifications";
+}
+/* iOS n'autorise le push que depuis une application ajoutée à l'écran d'accueil :
+   le dire franchement évite un bouton qui semble cassé. */
+function iosNonInstalle(){
+ var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)
+      || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+ return ios && !window.matchMedia("(display-mode: standalone)").matches && !navigator.standalone;
+}
+function prefsHtml(){
+ var refuse = (window.Notification && Notification.permission==="denied");
+ var h='<div class="npref"><p class="intro">Choisissez les championnats à suivre. '
+  +'Pour chacun : les affiches <b>1 h avant le coup d\\'envoi</b>, et le bilan '
+  +'<b>le lendemain à 9 h</b>.</p>';
+ PUSH.comps.forEach(function(c){
+  var on=suivis.indexOf(c.slug)>=0;
+  h+='<div class="nrow">'
+   +'<img class="flg" src="https://flagcdn.com/w40/'+esc(c.flag)+'.png" width="26" height="20" alt="">'
+   +'<div class="nm">'+esc(c.nom)+'<span>'+(on?"Notifications activées":"Désactivées")+'</span></div>'
+   +'<button class="sw" role="switch" data-slug="'+esc(c.slug)+'" '
+   +'aria-checked="'+(on?"true":"false")+'" '
+   +'aria-label="Notifications '+esc(c.nom)+'"'+(refuse?" disabled":"")+'></button></div>';
+ });
+ if(refuse){
+  h+='<p class="aide"><span class="ko">Les notifications sont bloquées</span> pour ce site '
+   +'dans les réglages du navigateur. Réautorisez-les pour utiliser ces interrupteurs.</p>';
+ }else if(iosNonInstalle()){
+  h+='<p class="aide">Sur iPhone et iPad, les notifications ne fonctionnent qu\\'une fois '
+   +'Pronostix ajouté à l\\'écran d\\'accueil : bouton <b>Partager</b>, puis '
+   +'<b>Sur l\\'écran d\\'accueil</b>. Rouvrez ensuite le site depuis cette icône.</p>';
+ }else{
+  h+='<p class="aide">Sur ordinateur, ce sont les notifications du navigateur. '
+   +'Sur mobile, elles arrivent comme n\\'importe quelle notification du téléphone, '
+   +'même site fermé.</p>';
+ }
+ return h+'</div>';
+}
+function ouvrirPrefs(){
+ fermerPrefs();   // la fiche club et la popup partagent le même calque
+ var o=document.createElement("div");
+ o.className="ovl"; o.id="ovl";
+ o.innerHTML='<div class="sheet" role="dialog" aria-modal="true" aria-label="Préférences de notification">'
+  +'<button class="cls" onclick="fermerPrefs()" aria-label="Fermer">×</button>'
+  +'<h3>🔔 Notifications</h3>'+prefsHtml()+'</div>';
+ o.addEventListener("click",function(e){ if(e.target===o) fermerPrefs(); });
+ document.body.appendChild(o);
+ brancherSwitches();
+ // Rafraîchit depuis le Worker : l'abonnement a pu changer sur un autre onglet.
+ // Le compteur protège d'une course : si le lecteur a basculé un interrupteur
+ // pendant que la requête était en vol, la réponse est périmée, on l'ignore.
+ var gen = ++prefsGen;
+ lireTopics().then(function(t){
+  if(gen!==prefsGen) return;
+  suivis=t; majCloche();
+  var s=document.querySelector("#ovl .npref");
+  if(s){ s.outerHTML=prefsHtml(); brancherSwitches(); }
+ }).catch(function(){});
+}
+function fermerPrefs(){var o=document.getElementById("ovl");if(o)o.remove();}
+/* Échap ferme le calque ouvert, quel qu'il soit : fiche club ou préférences. */
+document.addEventListener("keydown",function(e){
+ if(e.key==="Escape") fermerPrefs();
+});
+function brancherSwitches(){
+ Array.prototype.forEach.call(document.querySelectorAll("#ovl .sw"),function(b){
+  b.onclick=function(){ basculer(b); };
+ });
+}
+function etatLigne(b, on, texte){
+ b.setAttribute("aria-checked", on?"true":"false");
+ var l=b.parentElement.querySelector(".nm span");
+ if(l) l.textContent = texte || (on?"Notifications activées":"Désactivées");
+}
+async function basculer(b){
+ var slug=b.dataset.slug, on=b.getAttribute("aria-checked")==="true";
+ prefsGen++;   // périme tout rafraîchissement réseau encore en vol
+ b.disabled=true; etatLigne(b, on, on?"Désactivation…":"Activation…");
  try{
-  var r=await reg(); if(!r) return;
+  var r=await reg(); if(!r) throw new Error("push indisponible");
   await navigator.serviceWorker.ready;
   var s=await r.pushManager.getSubscription();
-  if(!s){ etatBouton(false,"Activer"); return; }
-  var t=await fetch(PUSH.base+"/topics?endpoint="+encodeURIComponent(s.endpoint))
-        .then(function(x){return x.json();}).catch(function(){return {topics:[]};});
-  etatBouton((t.topics||[]).indexOf(PUSH.topic)>=0,
-             (t.topics||[]).indexOf(PUSH.topic)>=0 ? "✓ Activé" : "Activer");
- }catch(e){ etatBouton(false,"Activer"); }
-}
-async function basculer(){
- var actif = notifBtn.dataset.on==="1";
- etatBouton(actif,"…",true);
- try{
-  var r=await reg(); await navigator.serviceWorker.ready;
-  var s=await r.pushManager.getSubscription();
-  if(actif){
-   if(s) await fetch(PUSH.base+"/unsubscribe",{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({endpoint:s.endpoint, topics:[PUSH.topic]})});
-   etatBouton(false,"Activer"); return;
+  if(on){
+   if(s) await fetch(PUSH.base+"/unsubscribe",{method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({endpoint:s.endpoint, topics:[slug]})});
+   suivis=suivis.filter(function(x){return x!==slug;});
+   etatLigne(b,false);
+  }else{
+   if(Notification.permission!=="granted"){
+    var p=await Notification.requestPermission();
+    if(p!=="granted"){ etatLigne(b,false,"Refusé par le navigateur"); b.disabled=false; return; }
+   }
+   if(!s) s=await r.pushManager.subscribe({userVisibleOnly:true,
+        applicationServerKey:b64(PUSH.cle)});
+   var rep=await fetch(PUSH.base+"/subscribe",{method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({subscription:s.toJSON(), topics:[slug]})});
+   if(!rep.ok) throw new Error("worker "+rep.status);
+   if(suivis.indexOf(slug)<0) suivis.push(slug);
+   etatLigne(b,true);
   }
-  if(Notification.permission!=="granted"){
-   var p=await Notification.requestPermission();
-   if(p!=="granted"){ etatBouton(false,"Activer"); 
-    document.getElementById("note").innerHTML="Notifications refusées par le navigateur. "
-     +"Vous pouvez les réautoriser dans les réglages du site."; return; }
-  }
-  if(!s) s=await r.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:b64(PUSH.cle)});
-  await fetch(PUSH.base+"/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},
-       body:JSON.stringify({subscription:s.toJSON(), topics:[PUSH.topic]})});
-  etatBouton(true,"✓ Activé");
- }catch(e){ etatBouton(false,"Réessayer"); }
+  majCloche();
+ }catch(e){ etatLigne(b, on, "Échec — réessayer"); }
+ b.disabled=false;
 }
-if(notifBtn){ notifBtn.onclick=basculer; initNotif(); }
+if(bell){
+ bell.onclick=ouvrirPrefs;
+ majCloche();
+ if(pushDispo()) lireTopics().then(function(t){ suivis=t; majCloche(); }).catch(function(){});
+}
 
 /* Lien profond « #cal-J3 » : une notification ouvre directement sa journée. */
 (function(){
@@ -1470,7 +1572,12 @@ def build_league(lg):
     os.makedirs(OUTDIR, exist_ok=True)
     m, s, b = fetch_all()
     payload = build(m, s, b)
+    # La popup de notifications règle TOUTES les compétitions, pas seulement celle
+    # de la page ouverte : on lui passe donc la liste complète.
+    comps = json.dumps([{"slug": x["slug"], "nom": x["nom"], "flag": x["flag"]}
+                        for x in LEAGUES], ensure_ascii=False)
     html = (PAGE.replace("__NAV__", nav_html(lg["slug"]))
+                .replace("/*__COMPS__*/[]", comps)
                 .replace("__SLUG__", lg["slug"])
                 .replace("__NOM__", lg["nom"])
                 .replace("__SAISON__", payload["saison"])
